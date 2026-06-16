@@ -13,6 +13,12 @@ name: Release
 #   GOOGLE_PROJECT_ID            Google Cloud project id       (throwing secret)
 #   W3S_AUTH_KEY                 Web3 Summit auth keypair seed (throwing secret)
 # Optional: SENTRY_ORG, SENTRY_PROJECT, LOG_COLLECTION_EMAIL.
+#
+# Optional (PCF downloads host — publishes the signed APK to
+# get.polkadotcommunity.foundation, see PCF/pcf-infra terraform/downloads.tf):
+#   R2_UPLOAD_TOKEN              Cloudflare API token, R2 Object R/W on pcf-downloads
+#   CLOUDFLARE_ACCOUNT_ID        account owning the bucket
+# If R2_UPLOAD_TOKEN is unset the upload step is skipped (GitHub Release still runs).
 
 on:
   push:
@@ -32,6 +38,8 @@ permissions:
 env:
   NDK_VERSION: "29.0.14206865"
   FLAVOR: ${{ github.event.inputs.flavor || 'gp' }}
+  # true only when the R2 upload token is configured — gates the downloads-host step
+  HAS_R2: ${{ secrets.R2_UPLOAD_TOKEN != '' }}
 
 jobs:
   release:
@@ -122,3 +130,30 @@ jobs:
           name: ${{ github.ref_name }}
           files: ${{ steps.apk.outputs.path }}
           generate_release_notes: true
+
+      # Publish the signed APK to the PCF downloads host (R2 bucket pcf-downloads,
+      # served at get.polkadotcommunity.foundation). Only the gp flavor (the
+      # Google-services build) is the public download; vanilla is the F-Droid
+      # target and is not hosted here. Skipped when R2_UPLOAD_TOKEN is unset.
+      - name: Publish APK to downloads host
+        if: ${{ startsWith(github.ref, 'refs/tags/v') && env.HAS_R2 == 'true' && env.FLAVOR == 'gp' }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.R2_UPLOAD_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          BUCKET: pcf-downloads
+          APK: ${{ steps.apk.outputs.path }}
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          NAME="polkadot-android-${VERSION}.apk"
+          CT="application/vnd.android.package-archive"
+          sha256sum "$APK" | awk '{print $1}' > "$NAME.sha256"
+          # versioned artifact + checksum sidecar + stable latest pointer
+          npx --yes wrangler@3 r2 object put "$BUCKET/android/$NAME"        --file="$APK" --content-type="$CT"
+          npx --yes wrangler@3 r2 object put "$BUCKET/android/$NAME.sha256" --file="$NAME.sha256" --content-type="text/plain"
+          npx --yes wrangler@3 r2 object put "$BUCKET/android/latest.apk"   --file="$APK" --content-type="$CT"
+          {
+            echo "### Published to downloads host"
+            echo "- https://get.polkadotcommunity.foundation/android/$NAME"
+            echo "- https://get.polkadotcommunity.foundation/android/latest.apk"
+            echo "- sha256: $(cat "$NAME.sha256")"
+          } >> "$GITHUB_STEP_SUMMARY"
