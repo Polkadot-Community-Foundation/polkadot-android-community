@@ -38,6 +38,16 @@ android {
             buildConfigField("boolean", "DIM1_BOT_BY_DEFAULT", "false")
             buildConfigField("boolean", "SAMPLE_BOT", "false")
         }
+        // Public DEV build reuses the NIGHTLY testnet environment (chains_v2 + the
+        // nightly-* chain ids); it differs from `nightly` only in app identity and
+        // Firebase app, not in network targeting.
+        getByName("dev") {
+            buildConfigField("String", "TESTNET_ENVIRONMENT", "\"NIGHTLY\"")
+            buildConfigField("boolean", "ALLOW_SHORT_EVIDENCE_VIDEO", "false")
+            buildConfigField("boolean", "PEER_BOT_BY_DEFAULT", "false")
+            buildConfigField("boolean", "DIM1_BOT_BY_DEFAULT", "false")
+            buildConfigField("boolean", "SAMPLE_BOT", "false")
+        }
     }
 }
 

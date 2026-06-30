@@ -62,6 +62,15 @@ android {
             signingConfig = signingConfigs.getByName("dev")
             applicationIdSuffix = ".nightly"
         }
+        getByName("dev") {
+            matchingFallbacks.add("debug")
+
+            signingConfig = signingConfigs.getByName("dev")
+            // The full applicationId (io.pcf.polkadotapp.dev) is set via
+            // androidComponents.onVariants below rather than an applicationIdSuffix,
+            // so this public DEV build carries the PCF identity independent of the
+            // io.paritytech base and matches app/src/dev/google-services.json.
+        }
     }
 
     flavorDimensions += "distribution"
@@ -69,6 +78,16 @@ android {
     productFlavors {
         create("gp") { dimension = "distribution" }
         create("vanilla") { dimension = "distribution" }
+    }
+}
+
+// Pin the public DEV build to its own PCF application id (io.pcf.polkadotapp.dev) for
+// every flavor. Done via the Variant API because a buildType cannot override the full
+// applicationId (only a suffix), and we want an id independent of the io.paritytech base
+// rather than io.paritytech.polkadotapp.dev. Must match app/src/dev/google-services.json.
+androidComponents {
+    onVariants(selector().withBuildType("dev")) { variant ->
+        variant.applicationId.set("io.pcf.polkadotapp.dev")
     }
 }
 
