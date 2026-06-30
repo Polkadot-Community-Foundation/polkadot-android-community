@@ -322,7 +322,8 @@ internal interface VideoGameFeatureModule {
             TestnetEnvironment.PRODUCTION -> NoOpGameDashboardTelemetryRepository
 
             TestnetEnvironment.TESTNET,
-            TestnetEnvironment.NIGHTLY -> {
+            TestnetEnvironment.NIGHTLY,
+            TestnetEnvironment.DEV -> {
                 val api = networkApiCreator.createRetrofit(
                     baseUrl = GAME_DASHBOARD_SENTINEL_URL,
                     customOkHttpClient = okHttpClient.get(),
