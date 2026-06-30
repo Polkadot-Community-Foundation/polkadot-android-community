@@ -187,7 +187,8 @@ sentry {
     // disable if you don't want to expose your sources
     includeSourceContext.set(true)
 
-    // Sentry only runs on debug/nightly; skip release so the plugin
-    // doesn't try to process a variant that has no DSN/auth token
+    // Sentry runs on the debug-derived build types (debug/nightly/dev), which all
+    // carry the io.sentry.* manifest meta-data in their source sets; skip release so
+    // the plugin doesn't try to process a variant that has no DSN/auth token.
     ignoredBuildTypes.set(setOf("release"))
 }

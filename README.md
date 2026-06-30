@@ -85,8 +85,13 @@ delivered via remote config, and development and nightly builds are exercised ag
 ```
 
 The project has two flavors (`gp` with Google services, `vanilla` without) and
-`debug` / `nightly` / `release` build types — e.g. `./gradlew assembleGpRelease`
+`debug` / `nightly` / `dev` / `release` build types — e.g. `./gradlew assembleGpRelease`
 for a production build (requires the release keystore and secrets).
+
+The `dev` build type produces a publicly distributable builder/preview build
+(`io.pcf.polkadotapp.dev`). It reuses the same testnet machinery as `nightly`
+(`chains_v2` + the `nightly-*` chain ids) and differs only in identity and its own
+Firebase app; build it with `./gradlew assembleGpDev` (CI: `release-dev.yml`).
 
 ## How it works
 
