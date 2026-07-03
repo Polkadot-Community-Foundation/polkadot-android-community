@@ -1,11 +1,11 @@
 name: Release (Dev)
 
 # Builds the public DEV variant — a builder/preview build pointed at the bespoke
-# Paseo testnet chain set and (optionally) published. The `dev` buildType reuses the
-# NIGHTLY testnet environment (common/build.gradle.kts sets TESTNET_ENVIRONMENT=NIGHTLY
-# for it), so it reads the `chains_v2` Remote Config key and resolves chains by the fixed
-# ids nightly-relay / nightly-ah / nightly-people / nightly-bulletin — exactly like the
-# nightly build. It differs ONLY in identity + Firebase app:
+# Paseo testnet chain set and (optionally) published. The `dev` buildType uses the
+# dedicated DEV testnet environment (common/build.gradle.kts sets TESTNET_ENVIRONMENT=DEV
+# for it), which MIRRORS NIGHTLY — it reads the `chains_v2` Remote Config key and resolves
+# chains by the fixed ids nightly-relay / nightly-ah / nightly-people / nightly-bulletin —
+# but is a distinct TestnetEnvironment value. It differs from nightly in identity + Firebase:
 #   - applicationId = io.pcf.polkadotapp.dev (set via androidComponents in app/build.gradle.kts;
 #     installs side-by-side with prod and with the io.paritytech.polkadotapp.nightly build).
 #   - its own Firebase app (1:165923692956:android:ec22ad44f6b3de6ed72859) in the shared
