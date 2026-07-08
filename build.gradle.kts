@@ -96,6 +96,12 @@ subprojects {
             create("nightly") {
                 initWith(getByName("debug"))
             }
+            // Public DEV build: same testnet machinery as `nightly` (see common +
+            // app module overrides) but a distinct io.pcf.polkadotapp.dev identity and
+            // its own Firebase app, for a publicly distributed builder/preview build.
+            create("dev") {
+                initWith(getByName("debug"))
+            }
         }
     }
 

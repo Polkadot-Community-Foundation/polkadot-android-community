@@ -78,7 +78,7 @@ class DigitalDollarCardDetailsInteractor @Inject constructor(
         val chainAsset = chainAssetProvider()
         val amount = when (environment) {
             TestnetEnvironment.TESTNET -> TOP_UP_AMOUNT
-            TestnetEnvironment.NIGHTLY, TestnetEnvironment.PRODUCTION -> NIGHTLY_TOP_UP_AMOUNT
+            TestnetEnvironment.NIGHTLY, TestnetEnvironment.PRODUCTION, TestnetEnvironment.DEV -> NIGHTLY_TOP_UP_AMOUNT
         }
         val topUpAmount = amount.planksFromAmount(chainAsset.asset.precision)
         val recipientAccountId = accountRepository.getDepositAccount().accountIdIn(chainAsset.chain)

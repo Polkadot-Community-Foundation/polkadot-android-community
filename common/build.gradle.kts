@@ -38,6 +38,16 @@ android {
             buildConfigField("boolean", "DIM1_BOT_BY_DEFAULT", "false")
             buildConfigField("boolean", "SAMPLE_BOT", "false")
         }
+        // Public DEV build uses the dedicated DEV testnet environment, which mirrors
+        // NIGHTLY (chains_v2 + the nightly-* chain ids) but is a distinct TestnetEnvironment
+        // value so the dev build is identifiable in-app and can diverge from nightly later.
+        getByName("dev") {
+            buildConfigField("String", "TESTNET_ENVIRONMENT", "\"DEV\"")
+            buildConfigField("boolean", "ALLOW_SHORT_EVIDENCE_VIDEO", "false")
+            buildConfigField("boolean", "PEER_BOT_BY_DEFAULT", "false")
+            buildConfigField("boolean", "DIM1_BOT_BY_DEFAULT", "false")
+            buildConfigField("boolean", "SAMPLE_BOT", "false")
+        }
     }
 }
 
