@@ -122,14 +122,16 @@ jobs:
       - name: Locate APK
         id: apk
         run: |
-          APK=$(find "app/build/outputs/apk/${FLAVOR}/dev" -name '*.apk' | head -1)
+          SRC=$(find "app/build/outputs/apk/${FLAVOR}/dev" -name '*.apk' | head -1)
+          APK="$(dirname "$SRC")/app-polkadot-devnet.apk"
+          mv "$SRC" "$APK"
           echo "path=$APK" >> "$GITHUB_OUTPUT"
           echo "Built: $APK"
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: app-${{ env.FLAVOR }}-dev-paseo
+          name: app-polkadot-devnet
           path: ${{ steps.apk.outputs.path }}
 
       - name: Publish GitHub Release
