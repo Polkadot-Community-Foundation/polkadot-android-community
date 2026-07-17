@@ -121,25 +121,34 @@ jobs:
           for F in $FLAVORS; do TASKS="$TASKS assemble${F^}Dev"; done
           ./gradlew $TASKS --no-daemon --stacktrace
 
-      - name: Locate APKs
+      - name: Locate + rename APKs (product-facing names)
         id: apk
         run: |
           find app/build/outputs/apk -path '*/dev/*.apk' -print
-          GP=$(find app/build/outputs/apk/gp/dev -name '*.apk' 2>/dev/null | head -1)
+          GP=""
+          GP_SRC=$(find app/build/outputs/apk/gp/dev -name '*.apk' 2>/dev/null | head -1)
+          if [ -n "$GP_SRC" ]; then
+            GP="$(dirname "$GP_SRC")/app-polkadot-devnet.apk"
+            mv "$GP_SRC" "$GP"
+          fi
+          VAN_SRC=$(find app/build/outputs/apk/vanilla/dev -name '*.apk' 2>/dev/null | head -1)
+          if [ -n "$VAN_SRC" ]; then
+            mv "$VAN_SRC" "$(dirname "$VAN_SRC")/app-polkadot-devnet-nogms.apk"
+          fi
           echo "gp=$GP" >> "$GITHUB_OUTPUT"
 
       - name: Upload gp APK artifact
         if: contains(env.FLAVORS, 'gp')
         uses: actions/upload-artifact@v4
         with:
-          name: app-gp-dev-paseo
+          name: app-polkadot-devnet
           path: app/build/outputs/apk/gp/dev/*.apk
 
       - name: Upload vanilla APK artifact
         if: contains(env.FLAVORS, 'vanilla')
         uses: actions/upload-artifact@v4
         with:
-          name: app-vanilla-dev-paseo
+          name: app-polkadot-devnet-nogms
           path: app/build/outputs/apk/vanilla/dev/*.apk
 
       - name: Publish GitHub Release
