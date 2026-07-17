@@ -34,10 +34,10 @@ on:
   workflow_dispatch:
     inputs:
       flavor:
-        description: 'Product flavor (gp = Google services, vanilla = no GMS)'
+        description: 'Product flavors to build (gp = Google services, vanilla = no GMS)'
         type: choice
-        default: gp
-        options: [gp, vanilla]
+        default: gp vanilla
+        options: [gp vanilla, gp, vanilla]
   push:
     tags: ['dev-v*']
 
@@ -46,7 +46,8 @@ permissions:
 
 env:
   NDK_VERSION: "29.0.14206865"
-  FLAVOR: ${{ github.event.inputs.flavor || 'gp' }}
+  # space-separated list; the workflow_dispatch input can narrow it to one flavor
+  FLAVORS: ${{ github.event.inputs.flavor || 'gp vanilla' }}
   HAS_R2: ${{ secrets.R2_UPLOAD_TOKEN != '' }}
 
 jobs:
@@ -92,7 +93,7 @@ jobs:
           mkdir -p app/src/dev
           echo "$GS_B64" | base64 --decode > app/src/dev/google-services.json
 
-      - name: Assemble ${{ env.FLAVOR }} dev APK (Paseo)
+      - name: Assemble dev APKs (${{ env.FLAVORS }}, Paseo)
         env:
           CI_BUILD_ID: ${{ github.run_number }}
           # dev signs with the dev signingConfig → point it at the decoded keystore
@@ -116,38 +117,47 @@ jobs:
           SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
           LOG_COLLECTION_EMAIL: ${{ secrets.LOG_COLLECTION_EMAIL }}
         run: |
-          FLAVOR_CAP="$(echo "${FLAVOR^}")"
-          ./gradlew "assemble${FLAVOR_CAP}Dev" --no-daemon --stacktrace
+          TASKS=""
+          for F in $FLAVORS; do TASKS="$TASKS assemble${F^}Dev"; done
+          ./gradlew $TASKS --no-daemon --stacktrace
 
-      - name: Locate APK
+      - name: Locate APKs
         id: apk
         run: |
-          APK=$(find "app/build/outputs/apk/${FLAVOR}/dev" -name '*.apk' | head -1)
-          echo "path=$APK" >> "$GITHUB_OUTPUT"
-          echo "Built: $APK"
+          find app/build/outputs/apk -path '*/dev/*.apk' -print
+          GP=$(find app/build/outputs/apk/gp/dev -name '*.apk' 2>/dev/null | head -1)
+          echo "gp=$GP" >> "$GITHUB_OUTPUT"
 
-      - name: Upload APK artifact
+      - name: Upload gp APK artifact
+        if: contains(env.FLAVORS, 'gp')
         uses: actions/upload-artifact@v4
         with:
-          name: app-${{ env.FLAVOR }}-dev-paseo
-          path: ${{ steps.apk.outputs.path }}
+          name: app-gp-dev-paseo
+          path: app/build/outputs/apk/gp/dev/*.apk
+
+      - name: Upload vanilla APK artifact
+        if: contains(env.FLAVORS, 'vanilla')
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-vanilla-dev-paseo
+          path: app/build/outputs/apk/vanilla/dev/*.apk
 
       - name: Publish GitHub Release
         if: startsWith(github.ref, 'refs/tags/dev-v')
         uses: softprops/action-gh-release@v2
         with:
           name: ${{ github.ref_name }}
-          files: ${{ steps.apk.outputs.path }}
+          files: app/build/outputs/apk/*/dev/*.apk
           generate_release_notes: true
           prerelease: true
 
       - name: Publish APK to downloads host
-        if: ${{ startsWith(github.ref, 'refs/tags/dev-v') && env.HAS_R2 == 'true' && env.FLAVOR == 'gp' }}
+        if: ${{ startsWith(github.ref, 'refs/tags/dev-v') && env.HAS_R2 == 'true' && contains(env.FLAVORS, 'gp') }}
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.R2_UPLOAD_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           BUCKET: pcf-downloads
-          APK: ${{ steps.apk.outputs.path }}
+          APK: ${{ steps.apk.outputs.gp }}
         run: |
           VERSION="${GITHUB_REF_NAME#dev-v}"
           NAME="polkadot-android-dev-${VERSION}.apk"
