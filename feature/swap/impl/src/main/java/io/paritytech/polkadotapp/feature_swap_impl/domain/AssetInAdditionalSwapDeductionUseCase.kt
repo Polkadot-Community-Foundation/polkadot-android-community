@@ -1,6 +1,5 @@
 package io.paritytech.polkadotapp.feature_swap_impl.domain
 
-import io.paritytech.polkadotapp.chains.multiNetwork.ChainRegistry
 import io.paritytech.polkadotapp.chains.multiNetwork.chain.model.Chain
 import io.paritytech.polkadotapp.chains.network.binding.Balance
 import io.paritytech.polkadotapp.feature_account_api.domain.model.MetaAccount
@@ -17,32 +16,25 @@ interface AssetInAdditionalSwapDeductionUseCase {
 
 class RealAssetInAdditionalSwapDeductionUseCase @Inject constructor(
     private val balanceTypeRegistry: TokenBalanceTypeRegistry,
-    private val chainRegistry: ChainRegistry
 ) : AssetInAdditionalSwapDeductionUseCase {
     override suspend fun invoke(
         assetIn: Chain.Asset,
         assetOut: Chain.Asset,
         metaAccount: MetaAccount,
     ): Balance {
-        val originChain = chainRegistry.getChain(assetIn.chainId)
-        val accountId = metaAccount.accountIdIn(originChain)
-
         val assetInBalanceType = balanceTypeRegistry.typeFor(assetIn)
 
-        val assetInBalanceCanDropBelowEd =
-            assetInBalanceType.totalCanDropBelowMinimumBalance(accountId)
-
-        val sameChain = assetIn.chainId == assetOut.chainId
-
-        val assetOutCanProvideSufficiency = sameChain && assetInBalanceType.isSelfSufficient()
-
-        val canDustAssetIn = assetInBalanceCanDropBelowEd || assetOutCanProvideSufficiency
-        val shouldKeepEdForAssetIn = !canDustAssetIn
-
-        return if (shouldKeepEdForAssetIn) {
-            assetInBalanceType.minimumBalance()
-        } else {
-            Balance.ZERO
-        }
+        // The AssetConversion swap withdraws the input asset with a keep-alive
+        // (Preservation::Preserve) guarantee. The runtime enforces that as "the
+        // input balance must stay >= its existential deposit" at withdrawal time,
+        // *regardless* of whether a sufficient output asset would later keep the
+        // account alive — a same-chain sufficient output does NOT lift this
+        // constraint (verified on-chain: swapping the full balance fails with
+        // Token::NotExpendable / FundsUnavailable even when the account already
+        // holds a sufficient asset). So we must always leave the input asset's
+        // existential deposit aside; otherwise the swap gets sized to the full
+        // balance and reverts, which on the auto-convert ("Get Cash") path shows
+        // up as an endless retry loop.
+        return assetInBalanceType.minimumBalance()
     }
 }

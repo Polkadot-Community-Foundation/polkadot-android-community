@@ -42,7 +42,14 @@ class AssetsTokenEventDetector(
     }
 
     private fun detectTokensDeposited(event: GenericEvent.Instance): DepositEvent? {
-        if (!event.instanceOf(assetType.palletNameOrDefault(), "Issued")) return null
+        // A credit into an account can surface either as `Issued` (mint path, e.g. older
+        // runtimes) or `Deposited` (Balanced deposit path used when settling incoming XCM
+        // teleports/reserve transfers on current runtimes). Both carry (assetId, account,
+        // amount) in the same order, so accept either. `IssuedCredit` is deliberately
+        // excluded — it has no beneficiary argument and would break the destructuring below.
+        val palletName = assetType.palletNameOrDefault()
+        val isDeposit = event.instanceOf(palletName, "Issued") || event.instanceOf(palletName, "Deposited")
+        if (!isDeposit) return null
 
         val (assetId, who, amount) = event.arguments
 
