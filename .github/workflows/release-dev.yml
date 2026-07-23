@@ -158,6 +158,8 @@ jobs:
           name: ${{ github.ref_name }}
           files: app/build/outputs/apk/*/dev/*.apk
           generate_release_notes: true
+          body_path: docs/SUPPORTED_DEVICES.md
+          append_body: true
           prerelease: true
 
       - name: Publish APK to downloads host
