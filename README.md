@@ -70,6 +70,10 @@ Signing keys, `google-services.json`, and feature API keys are read from
 
 Select the **gp** flavor with a debug build type and an Android 10+ device or emulator, then build and run.
 
+> **Device support:** we support stock Android on a locked bootloader (with or without Google Play
+> Services) and GrapheneOS. We can't guarantee support outside of these. See
+> [docs/SUPPORTED_DEVICES.md](./docs/SUPPORTED_DEVICES.md).
+
 The app talks to Polkadot system chains (People Chain, Asset Hub, Bulletin Chain); the chain set is
 delivered via remote config, and development and nightly builds are exercised against Polkadot's
 [Paseo](https://github.com/paseo-network) testnet contour.
