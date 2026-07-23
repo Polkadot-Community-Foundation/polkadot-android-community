@@ -178,7 +178,15 @@ class ClaimUsernameViewModel @Inject constructor(
         when (outcome) {
             BackupOutcome.Created,
             BackupOutcome.AccountsCreatedButBackupFailed,
-            BackupOutcome.NoNeedToBackup -> claimUsername(ClaimUsernameProgress.CREATING)
+            BackupOutcome.NoNeedToBackup -> {
+                // A freshly generated account has no prior coinage to restore. Mark it as new
+                // here, where the outcome is ground truth, rather than relying solely on
+                // recoverUsername() below — that network call can error (onFailure), leaving the
+                // flag at its default (false) and wrongly putting a brand-new account into the
+                // coinage "balance restore" gate that greys out Get CASH and the drip.
+                launch { interactor.saveIsNewAccount() }
+                claimUsername(ClaimUsernameProgress.CREATING)
+            }
 
             is BackupOutcome.ExistingBackupFound -> {
                 state.update { it.copy(progress = ClaimUsernameProgress.NONE) }
