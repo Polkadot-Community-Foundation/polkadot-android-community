@@ -23,7 +23,11 @@ internal class RealIpfsContentLookup @Inject constructor(
 
     override suspend fun getIpfsLinkFor(cid: String): Result<String> {
         return gatewayUrlProvider.getGatewayUrl()
-            .map { gatewayUrl -> "$gatewayUrl/$cid" }
+            // The configured gateway URL carries a trailing slash (iOS resolves the CID
+            // against it RFC-3986-relative, which drops the last path segment without one).
+            // Trim it here so we request /ipfs/<cid> directly instead of /ipfs//<cid> and
+            // relying on the gateway to normalise the double slash away.
+            .map { gatewayUrl -> "${gatewayUrl.trimEnd('/')}/$cid" }
     }
 
     override suspend fun lookupRawHash(hash: ByteArray): Result<ByteArray> {
