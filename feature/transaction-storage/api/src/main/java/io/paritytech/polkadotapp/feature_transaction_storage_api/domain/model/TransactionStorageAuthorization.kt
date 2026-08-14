@@ -13,11 +13,16 @@ data class TransactionStorageAuthorization(
     val expiration: BlockNumber,
 )
 
+// Decoded by name (novasama StructDecoder), so field order here is irrelevant and
+// chain-side fields we do not declare are simply never looked up. `bytes_permanent`
+// is deliberately absent: pallet-bulletin-transaction-storage split renewal out into
+// pallet-bulletin-data-renewal, and that slot became the opaque `extra`
+// (PermanentExtent). Declaring it would make StructDecoder throw on every
+// Authorizations read once the chain upgrades — nothing here consumed it anyway.
 @Serializable
 data class TransactionStorageExtent(
     val transactions: BigIntegerSerializable,
     val transactionsAllowance: BigIntegerSerializable,
-    val bytesPermanent: BigIntegerSerializable,
     val bytes: BigIntegerSerializable,
     val bytesAllowance: BigIntegerSerializable
 )

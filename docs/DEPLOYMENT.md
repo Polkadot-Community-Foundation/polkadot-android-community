@@ -280,6 +280,23 @@ typically wired so you can implement it on your own infrastructure.
   (`FIREBASE_GOOGLE_SERVICE_ACCOUNT`) and the target **App ID**, e.g. via the
   Firebase CLI (`firebase appdistribution:distribute`) or an equivalent GitHub Action.
 
+**As built here (the devnet `dev` variant):** `.github/workflows/release-dev.yml` hands the
+`gp` APK to App Distribution via `scripts/ci/firebase-app-distribution.sh`. Two deliberate
+choices differ from the generic recipe above:
+
+- **No service-account key.** CI authenticates with Workload Identity Federation, so the
+  script calls the App Distribution REST API with a `gcloud auth print-access-token` token
+  rather than using `firebase-tools` (which wants a key *file*). Nothing long-lived is stored.
+- **`gp` flavor only.** Both flavors share `applicationId io.pcf.polkadotapp.dev` and so map to
+  a single Firebase app; distributing both would collide on an identical `versionCode`. The
+  App Tester app also needs Google Play services. The `vanilla` (no-GMS) APK is published on
+  the GitHub Release instead.
+
+The pipeline fires on three triggers: a `dev-v*` tag (tagged build → GitHub Release +
+App Distribution), a **weekly** schedule (Tuesday 09:00 UTC → dated `dev-weekly-*`
+pre-release + App Distribution), and manual `workflow_dispatch` (distribution opt-out via the
+`distribute` input). App Distribution retains each binary for ~150 days.
+
 ### GitHub Releases
 
 - Tag the commit and attach the APK:

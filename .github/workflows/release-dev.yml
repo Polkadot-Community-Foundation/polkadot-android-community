@@ -29,6 +29,18 @@ name: Release (Dev)
 # Optional: DEV_FUNDING_MNEMONIC (faucet; defaults to the public substrate dev seed),
 #   SENTRY_ORG, SENTRY_PROJECT, LOG_COLLECTION_EMAIL,
 #   R2_UPLOAD_TOKEN + CLOUDFLARE_ACCOUNT_ID (publish APK to the PCF downloads host).
+#
+# Firebase App Distribution (keyless, Workload Identity Federation — no JSON key):
+#   secrets.GCP_WIP_GITHUB    WIF provider resource name (gha-pool/gha-provider-polkadot-android)
+#   secrets.GCP_SA_GITHUB     sa-github-polkadot-android@… (roles/firebaseappdistro.admin)
+#   vars.FIREBASE_APP_ID_ANDROID_DEV   Firebase app id of io.pcf.polkadotapp.dev
+#   vars.FIREBASE_TESTER_GROUPS        comma-separated tester group aliases
+# Only the `gp` flavor is distributed: both flavors share applicationId
+# io.pcf.polkadotapp.dev, so they map to ONE Firebase app and would collide on an
+# identical versionCode — and the App Tester app needs Google Play services anyway.
+# The vanilla (no-GMS) APK reaches testers through the GitHub Release instead.
+# NOTE the Firebase project is shared with the Parity/Nova `.nightly` pipeline; never
+# target its app id or its tester groups (android-daily-tests, dev-team, ios-*).
 
 on:
   workflow_dispatch:
@@ -38,17 +50,33 @@ on:
         type: choice
         default: gp vanilla
         options: [gp vanilla, gp, vanilla]
+      distribute:
+        description: 'Hand the gp APK to Firebase App Distribution testers'
+        type: boolean
+        default: true
   push:
     tags: ['dev-v*']
+  schedule:
+    # Weekly public-testnet track (see docs/DEPLOYMENT.md §7). Tuesday 09:00 UTC —
+    # ahead of the devnet's Wednesday activity, leaving a day to smoke-test.
+    # GitHub only runs schedules on the default branch, and suspends them after
+    # 60 days of repository inactivity.
+    - cron: '0 9 * * 2'
 
 permissions:
   contents: write
+  id-token: write   # Workload Identity Federation → Firebase App Distribution
 
 env:
   NDK_VERSION: "29.0.14206865"
   # space-separated list; the workflow_dispatch input can narrow it to one flavor
   FLAVORS: ${{ github.event.inputs.flavor || 'gp vanilla' }}
   HAS_R2: ${{ secrets.R2_UPLOAD_TOKEN != '' }}
+  IS_TAG: ${{ startsWith(github.ref, 'refs/tags/dev-v') }}
+  IS_WEEKLY: ${{ github.event_name == 'schedule' }}
+  # `secrets` is not an available context in a step-level `if`, so resolve the gate
+  # here (workflow-level `env` does allow it — same trick as HAS_R2 above).
+  HAS_FIREBASE: ${{ secrets.GCP_WIP_GITHUB != '' }}
 
 jobs:
   release:
@@ -137,6 +165,88 @@ jobs:
           fi
           echo "gp=$GP" >> "$GITHUB_OUTPUT"
 
+      # Which channel is this build, and what do testers get told about it?
+      - name: Resolve channel + release notes
+        id: channel
+        env:
+          GP_APK: ${{ steps.apk.outputs.gp }}
+          HAS_FIREBASE_APP: ${{ vars.FIREBASE_APP_ID_ANDROID_DEV != '' }}
+          DISPATCH_DISTRIBUTE: ${{ github.event_name != 'workflow_dispatch' || inputs.distribute }}
+          # Overridable via repo variable so the link can be rotated without a code
+          # change (same pattern as TESTFLIGHT_JOIN_URL in the iOS repo).
+          INVITE_LINK: ${{ vars.FIREBASE_INVITE_LINK || 'https://appdistribution.firebase.dev/i/f3b79521380b40b9' }}
+        run: |
+          DATE=$(date -u +%Y-%m-%d)
+          NOTES="$RUNNER_TEMP/release-notes.txt"
+          BODY="$RUNNER_TEMP/release-body.md"
+
+          if [ "$IS_TAG" = "true" ]; then
+            HEADLINE="Polkadot app devnet build \`$GITHUB_REF_NAME\` (Android)."
+          elif [ "$IS_WEEKLY" = "true" ]; then
+            HEADLINE="Weekly Polkadot app devnet build — $DATE (Android)."
+          else
+            HEADLINE="Manual Polkadot app devnet build — $DATE (Android)."
+          fi
+
+          # (1) App Distribution release notes — plain text, shown in the tester app.
+          # No join link here: the reader is already in the group.
+          {
+            echo "$HEADLINE"
+            echo
+            echo "Commit ${GITHUB_SHA:0:8} · build ${GITHUB_RUN_NUMBER}"
+            echo
+            echo "This build points at the public products devnet. It is a development"
+            echo "build for testing only — state may be wiped."
+            echo
+            echo "Running a device without Google Play services? App Distribution only"
+            echo "carries the Google-services build — get the -nogms APK from the"
+            echo "GitHub Release instead:"
+            echo "https://github.com/Polkadot-Community-Foundation/polkadot-android-community/releases"
+            echo
+            echo "Something broken? Report it:"
+            echo "https://github.com/Polkadot-Community-Foundation/products-devnet-issues/issues/new/choose"
+          } > "$NOTES"
+
+          # (2) GitHub Release body — markdown, and here the join link IS the point.
+          # Lands above the generated changelog (body_path + append_body).
+          {
+            if [ "$IS_TAG" != "true" ]; then echo "$HEADLINE"; echo; fi
+            echo "## Install"
+            echo
+            echo "**Recommended — [join the tester group]($INVITE_LINK).** You get this build"
+            echo "over the air plus a notification for every new one, including the weekly"
+            echo "build. Accept the invitation with a Google account. The tester group serves"
+            echo "the Google Play services build only."
+            echo
+            echo "Prefer a manual install, or running a device **without Google Play"
+            echo "services**? Take an APK from the assets below and allow installs from"
+            echo "unknown sources:"
+            echo
+            echo "- \`app-polkadot-devnet.apk\` — with Google Play services (~200 MB)"
+            echo "- \`app-polkadot-devnet-nogms.apk\` — same build, no Google Play services"
+            echo
+            echo "This is a **devnet** build for testing only; state may be wiped. Found a"
+            echo "problem? [Report it](https://github.com/Polkadot-Community-Foundation/products-devnet-issues/issues/new/choose)."
+            echo
+            cat docs/SUPPORTED_DEVICES.md
+          } > "$BODY"
+
+          # Distribute when the channel warrants it AND we actually have a gp APK
+          # plus a configured Firebase app to send it to.
+          DISTRIBUTE=false
+          if [ -n "$GP_APK" ] && [ "$HAS_FIREBASE_APP" = "true" ] \
+             && { [ "$IS_TAG" = "true" ] || [ "$IS_WEEKLY" = "true" ] || [ "$DISPATCH_DISTRIBUTE" = "true" ]; }; then
+            DISTRIBUTE=true
+          fi
+
+          {
+            echo "date=$DATE"
+            echo "notes=$NOTES"
+            echo "body=$BODY"
+            echo "distribute=$DISTRIBUTE"
+          } >> "$GITHUB_OUTPUT"
+          echo "channel: tag=$IS_TAG weekly=$IS_WEEKLY → distribute=$DISTRIBUTE"
+
       - name: Upload gp APK artifact
         if: contains(env.FLAVORS, 'gp')
         uses: actions/upload-artifact@v4
@@ -158,9 +268,45 @@ jobs:
           name: ${{ github.ref_name }}
           files: app/build/outputs/apk/*/dev/*.apk
           generate_release_notes: true
-          body_path: docs/SUPPORTED_DEVICES.md
+          # Install block + device support, above the generated changelog.
+          body_path: ${{ steps.channel.outputs.body }}
           append_body: true
           prerelease: true
+
+      # ---------------------------------------------------------------- weekly track
+      # Scheduled runs carry no tag, so mint a dated pre-release. This is what keeps
+      # the vanilla (no-GMS) flavor on the same weekly cadence as the App Distribution
+      # gp build — App Distribution can only serve one of the two flavors.
+      - name: Publish weekly GitHub pre-release
+        if: env.IS_WEEKLY == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: dev-weekly-${{ steps.channel.outputs.date }}
+          name: Weekly devnet build ${{ steps.channel.outputs.date }}
+          files: app/build/outputs/apk/*/dev/*.apk
+          body_path: ${{ steps.channel.outputs.body }}
+          prerelease: true
+
+      # ----------------------------------------------- Firebase App Distribution (gp)
+      - name: Authenticate to Google Cloud (keyless)
+        if: ${{ steps.channel.outputs.distribute == 'true' && env.HAS_FIREBASE == 'true' }}
+        uses: google-github-actions/auth@v3
+        with:
+          service_account: ${{ secrets.GCP_SA_GITHUB }}
+          workload_identity_provider: ${{ secrets.GCP_WIP_GITHUB }}
+
+      - name: Set up gcloud
+        if: ${{ steps.channel.outputs.distribute == 'true' && env.HAS_FIREBASE == 'true' }}
+        uses: google-github-actions/setup-gcloud@v3
+
+      - name: Distribute gp APK to Firebase App Distribution
+        if: ${{ steps.channel.outputs.distribute == 'true' && env.HAS_FIREBASE == 'true' }}
+        run: |
+          scripts/ci/firebase-app-distribution.sh \
+            "${{ steps.apk.outputs.gp }}" \
+            "${{ vars.FIREBASE_APP_ID_ANDROID_DEV }}" \
+            "${{ vars.FIREBASE_TESTER_GROUPS }}" \
+            "${{ steps.channel.outputs.notes }}"
 
       - name: Publish APK to downloads host
         if: ${{ startsWith(github.ref, 'refs/tags/dev-v') && env.HAS_R2 == 'true' && contains(env.FLAVORS, 'gp') }}
