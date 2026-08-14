@@ -66,6 +66,7 @@
     <string name="login_restoring_account_progress">Restoring your account</string>
 
     <string name="dim_switch_to_dim1_placeholder">You\’re joining Peers through the Unique Tattoo. Press \“Edit\” to switch to the Weekly Game option.</string>
+    <string name="weekly_game_no_scheduled_games">No games are scheduled right now. The next one will appear here as soon as it\’s announced.</string>
     <string name="dim_switch_to_dim1_sheet_title">Switch to the Unique Peer Tattoo Option?</string>
     <string name="dim_switch_to_dim1_sheet_description">Once you switch, you will need to add a new deposit.\nThe existing deposit will be returned to the original transfer address.</string>
 
