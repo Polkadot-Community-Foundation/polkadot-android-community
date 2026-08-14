@@ -7,6 +7,7 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 import io.paritytech.polkadotapp.common.data.storage.preferences.Preferences
+import io.paritytech.polkadotapp.database.cleanup.LegacyEcdhKeyCleanup
 import io.paritytech.polkadotapp.database.converters.ChainConverters
 import io.paritytech.polkadotapp.database.converters.ExternalApiConverters
 import io.paritytech.polkadotapp.database.converters.IntListConverter
@@ -271,7 +272,21 @@ abstract class AppDatabase : RoomDatabase() {
             return Room
                 .databaseBuilder(context.applicationContext, AppDatabase::class.java, "app.db")
                 .addAppMigrations(preferences, chatMessageContentMigrations)
+                .addAppCallbacks()
                 .build()
+        }
+
+        /**
+         * PCF FORK-LOCAL. Deliberately separate from [addAppMigrations]: these callbacks repair row
+         * *values* that no schema migration can reach, and must not be mistaken for migrations. See
+         * [LegacyEcdhKeyCleanup] for why such a repair is needed at all.
+         *
+         * Exposed for re-usage in tests — `MigrationTest` builds the database through this so the
+         * callbacks run against the real schema; a table or column typo in their SQL would
+         * otherwise only be discovered on a user's device.
+         */
+        fun <T : RoomDatabase> Builder<T>.addAppCallbacks(): Builder<T> {
+            return addCallback(LegacyEcdhKeyCleanup)
         }
 
         // Exposed for re-usage in tests
