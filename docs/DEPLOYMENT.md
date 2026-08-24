@@ -4,15 +4,13 @@ This document explains **how to build, sign and publish** the Polkadot Android
 Community application, and **which environment variables / secrets** you need to
 configure.
 
-It is intentionally **generic**. This repository does **not** ship a concrete
-release pipeline. Instead, this guide
-describes the *building blocks* so that anyone (the original team, a fork, or a
-community deployment) can wire up their own publishing flow with their own
+It is intentionally **generic**. This repository ships GitHub Actions for the
+maintained build and distribution flows, while this guide describes the
+*building blocks* so that a fork or a community deployment can use its own
 credentials.
 
-> **Scope:** this is a manual / reference guide, not an automated deployment. Where
-> a CI step is mentioned it is described as an option, not provided as a ready-to-run
-> workflow.
+> **Scope:** this is the manual / reference guide for the workflows under
+> `.github/workflows` and for custom deployments.
 
 ---
 
@@ -384,10 +382,10 @@ receive the `gp` APK through the store; GrapheneOS users download and sideload
 
 ---
 
-## 8. (Optional) Bringing back CI on your own infrastructure
+## 8. GitHub Actions
 
-The removed workflows depended on private infrastructure. To run build/test/publish
-in GitHub Actions on standard runners, store non-sensitive branding and endpoint
+The workflows under `.github/workflows` use the configuration described above.
+For a fork or another deployment, store non-sensitive branding and endpoint
 configuration as **GitHub Actions variables**, and credentials, signing material,
 and mnemonics as **GitHub Actions secrets**. Expose both as environment variables;
 the Gradle build already reads them via `readSecretOrDefault` and
