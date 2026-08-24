@@ -14,6 +14,8 @@ import io.paritytech.polkadotapp.common.presentation.screens.MessageDisplay
 import io.paritytech.polkadotapp.common.utils.CoroutineDispatchers
 import io.paritytech.polkadotapp.common.utils.capitalize
 import io.paritytech.polkadotapp.feature_dotns_api.domain.DotNsLoadProgress
+import io.paritytech.polkadotapp.feature_dotns_api.domain.DotNsTld
+import io.paritytech.polkadotapp.feature_dotns_api.domain.DotNsTldProvider
 import io.paritytech.polkadotapp.feature_products_api.domain.browser.BrowserSessionInfo
 import io.paritytech.polkadotapp.feature_products_api.domain.browser.ProductSessionController
 import io.paritytech.polkadotapp.feature_products_api.domain.browser.TabInfo
@@ -23,6 +25,8 @@ import io.paritytech.polkadotapp.feature_products_impl.data.repository.BrowserTa
 import io.paritytech.polkadotapp.feature_products_impl.data.repository.PersistedTab
 import io.paritytech.polkadotapp.feature_products_impl.data.repository.ProductRepository
 import io.paritytech.polkadotapp.feature_products_impl.domain.product.ProductRegistrar
+import io.paritytech.polkadotapp.feature_products_impl.domain.product.gatewayUrlOf
+import io.paritytech.polkadotapp.tools_ipfs_api.IpfsContentLookup
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
@@ -69,8 +73,10 @@ class RealProductSessionController @Inject constructor(
     private val appNotifier: AppNotifier,
     private val repository: BrowserTabRepository,
     private val productRepository: ProductRepository,
+    private val ipfsContentLookup: IpfsContentLookup,
     @param:ApplicationContext private val context: Context,
     private val dispatchers: CoroutineDispatchers,
+    private val dotNsTldProvider: DotNsTldProvider,
 ) : ProductSessionController {
     private val appScope = CoroutineScope(SupervisorJob() + dispatchers.main)
 
@@ -81,9 +87,13 @@ class RealProductSessionController @Inject constructor(
     // instead of duplicating it, so back never ping-pongs between two tabs.
     private val visitStack = ArrayDeque<Long>()
 
-    // Resolved product icons (productId.value -> gateway url); tab badges read them as the registrar fills them in.
+    // productId.value -> gateway url; tab badges read them as resolution fills each product's icon.
     private val productIcons: StateFlow<Map<String, String>> = productRepository.observeProducts()
-        .map { products -> products.mapNotNull { p -> p.iconUrl?.let { p.id.value to it } }.toMap() }
+        .map { products ->
+            products.mapNotNull { product ->
+                product.icon?.let { ipfsContentLookup.gatewayUrlOf(it) }?.let { product.id.value to it }
+            }.toMap()
+        }
         .stateIn(appScope, SharingStarted.Eagerly, emptyMap())
 
     private var nextId = 0L
@@ -143,7 +153,8 @@ class RealProductSessionController @Inject constructor(
 
     // Focus the same-product tab (one per product), else open a new one from [url] (keeping its path).
     private fun openTab(url: String) {
-        val existing = tabs.value.firstOrNull { productKey(it.url.value) == productKey(url) }
+        val tld = dotNsTldProvider.currentTldOrNull()
+        val existing = tabs.value.firstOrNull { productKey(it.url.value, tld) == productKey(url, tld) }
         val tab = existing ?: Tab(nextId++, url).also { new -> tabs.update { it + new } }
         activate(tab)
     }
@@ -215,7 +226,7 @@ class RealProductSessionController @Inject constructor(
                     id = id,
                     title = displayTitle(url, title),
                     host = host(url),
-                    iconUrl = productKey(url).let(icons::get),
+                    iconUrl = productKey(url, dotNsTldProvider.currentTldOrNull()).let(icons::get),
                     isActive = id == activeId,
                 )
             }
@@ -236,8 +247,11 @@ class RealProductSessionController @Inject constructor(
             scope.launch { webView.value = provider.getWebView() }
             provider.loadProgress.onEach { loadProgress.value = it }.launchIn(scope)
 
-            url.mapNotNull { ProductId.fromUrl(it.toUri()).getOrNull() }
-                .onEach { productRegistrar.ensureRegistered(it, contentHash = null) }
+            url.mapNotNull { rawUrl ->
+                dotNsTldProvider.getTld().getOrNull()
+                    ?.let { tld -> ProductId.fromUrl(rawUrl.toUri(), tld).getOrNull() }
+            }
+                .onEach { productRegistrar.ensureRegistered(it) }
                 .launchIn(scope)
         }
     }
@@ -248,8 +262,9 @@ class RealProductSessionController @Inject constructor(
         if (tabs.value.isNotEmpty()) return
         val persisted = repository.loadAll()
         if (persisted.isEmpty()) return
+        val tld = dotNsTldProvider.getTld().getOrNull()
         // One tab per product: collapse persisted duplicates, keeping the most recently active.
-        val deduped = persisted.groupBy { productKey(it.url) }.map { (_, group) -> group.maxBy { it.lastActive } }
+        val deduped = persisted.groupBy { productKey(it.url, tld) }.map { (_, group) -> group.maxBy { it.lastActive } }
         (persisted - deduped.toSet()).forEach { deletePersisted(it.id) }
 
         tabs.value = deduped.map { p ->
@@ -287,7 +302,8 @@ class RealProductSessionController @Inject constructor(
     private fun host(url: String): String? = runCatching { URI(url).host }.getOrNull()
 
     // Groups tabs by product (one tab per product); falls back to the raw url for non-product tabs.
-    private fun productKey(url: String): String = ProductId.fromUrl(url.toUri()).getOrNull()?.value ?: url
+    private fun productKey(url: String, tld: DotNsTld?): String =
+        tld?.let { ProductId.fromUrl(url.toUri(), it).getOrNull()?.value } ?: url
 
     private fun now(): Long = System.currentTimeMillis()
 

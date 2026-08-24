@@ -27,23 +27,17 @@ class ProductChatSearchResultProviderTest {
             Product(
                 id = ProductId.fromStoredValue("coinflip.dot"),
                 name = "Coinflip",
-                scriptUrl = "https://coinflip.dot",
-                contentHash = null,
-                iconUrl = null,
+                icon = null,
             ),
             Product(
                 id = ProductId.fromStoredValue("gamble.dot"),
                 name = "Gamble Game",
-                scriptUrl = "https://gamble.dot",
-                contentHash = null,
-                iconUrl = null,
+                icon = null,
             ),
             Product(
                 id = ProductId.fromStoredValue("nft.dot"),
                 name = "NFT Gallery",
-                scriptUrl = "https://nft.dot",
-                contentHash = null,
-                iconUrl = null,
+                icon = null,
             ),
         )
         runBlocking {

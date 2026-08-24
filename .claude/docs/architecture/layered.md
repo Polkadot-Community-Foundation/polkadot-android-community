@@ -10,7 +10,7 @@ Every feature module splits internally into three layers. Each layer owns its mo
 4. **`major`** — Domain model carrying presentation fields (`@StringRes Int`, `isLoading`, `isPressed`).
 5. **`major`** — DTO → domain mapping missing or located outside `feature/X/impl/data/mappers/`.
 6. **`minor`** — Mapper as a heavyweight class when a pure extension function would suffice (or vice versa — extension function when injection is needed).
-7. **`major`** — Single-line passthrough `UseCase` that just wraps a repo call — inline at the caller (PR #479).
+7. **`major`** — Single-line passthrough `UseCase` that just wraps a repo call — inline at the caller.
 8. **`minor`** — UseCase introduced when only one feature needs the orchestration — make it an interactor instead.
 
 ## The layers
@@ -117,7 +117,7 @@ interface SsoHandshakeUseCase {
 ```kotlin
 class IsPersonOnboardedUseCase @Inject constructor(private val statusUseCase: PersonStatusUseCase) {
     suspend operator fun invoke() = statusUseCase().map { it.isOnboarded }
-    // Single-line passthrough — inline at the caller. PR #513 lesson.
+    // Single-line passthrough — inline at the caller.
 }
 ```
 

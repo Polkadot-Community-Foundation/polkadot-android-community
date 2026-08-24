@@ -14,6 +14,7 @@ import io.paritytech.polkadotapp.feature_usernames_impl.data.claim.UsernameAlrea
 import io.paritytech.polkadotapp.feature_usernames_impl.data.claim.UsernameRepository
 import io.paritytech.polkadotapp.feature_usernames_impl.domain.model.ClaimUsernameOutcome
 import io.paritytech.polkadotapp.feature_usernames_impl.domain.model.UsernameAvailabilityState
+import io.paritytech.polkadotapp.feature_usernames_impl.domain.usecase.AdoptWalletBackendAuthUseCase
 import io.paritytech.polkadotapp.feature_usernames_impl.domain.usecase.CreateClaimParamsUseCase
 import io.paritytech.polkadotapp.tools_backup_api.domain.model.BackupOutcome
 import kotlinx.coroutines.flow.Flow
@@ -42,6 +43,7 @@ class RealUsernamesClaimInteractor @Inject constructor(
     private val coroutineDispatchers: CoroutineDispatchers,
     private val localUsernameStorage: LocalUsernameStorage,
     private val createClaimParamsUseCase: CreateClaimParamsUseCase,
+    private val adoptWalletBackendAuthUseCase: AdoptWalletBackendAuthUseCase,
     private val observeAccountOnboardingStatusUseCase: ObserveAccountOnboardingStatusUseCase,
     private val tryRecoverFromBackupAndCreateAccountUseCase: TryRecoverFromBackupAndCreateAccountUseCase,
     private val accountRepository: AccountRepository,
@@ -57,7 +59,11 @@ class RealUsernamesClaimInteractor @Inject constructor(
 
     override suspend fun claimUsername(username: Username, preferredDigits: String): ClaimUsernameOutcome {
         return withContext(coroutineDispatchers.io) {
-            usernameRepository.getVerifier()
+            // The backend only registers a username for the account that
+            // authenticated the request, so switch backend auth over to the
+            // wallet key before claiming (device-uniqueness-backend #77).
+            runCatching { adoptWalletBackendAuthUseCase() }
+                .flatMap { usernameRepository.getVerifier() }
                 .flatMap { createClaimParamsUseCase(username, it, preferredDigits) }
                 .flatMap { usernameRepository.claimUsername(it) }
                 .map { localUsernameStorage.saveValue(it) }

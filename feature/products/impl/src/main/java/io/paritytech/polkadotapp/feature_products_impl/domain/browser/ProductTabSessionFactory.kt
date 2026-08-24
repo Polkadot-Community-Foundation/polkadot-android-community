@@ -1,6 +1,7 @@
 package io.paritytech.polkadotapp.feature_products_impl.domain.browser
 
 import android.net.Uri
+import io.paritytech.polkadotapp.feature_dotns_api.domain.DotNsTldProvider
 import io.paritytech.polkadotapp.feature_products_impl.domain.bot.ProductsBotApiImpl
 import io.paritytech.polkadotapp.feature_products_impl.domain.hostApi.HostApiEnvironment
 import io.paritytech.polkadotapp.feature_products_impl.domain.hostApi.HostApiSession
@@ -26,6 +27,7 @@ class ProductTabSessionFactory @Inject constructor(
     private val hostCallGroupFactory: HostCallGroupFactory,
     private val sessionFactory: HostApiSession.Factory,
     private val botApiFactory: ProductsBotApiImpl.Factory,
+    private val dotNsTldProvider: DotNsTldProvider,
 ) {
     /**
      * Start a session for [url] inside [scope]; [onDeeplink] handles navigations the product itself can't
@@ -40,7 +42,8 @@ class ProductTabSessionFactory @Inject constructor(
 
         val hostApiNavigation = NavigationPolicy.HostApiNavigation(
             onDeeplinkNavigation = onDeeplink,
-            webViewLoader = { target -> scope.launch { provider.getWebView()?.loadUrl(target) } },
+            webViewLoader = { target -> scope.launch { provider.getWebView().loadUrl(target) } },
+            dotNsTldProvider = dotNsTldProvider,
         )
 
         val callingProductIdProvider = provider.callingProductIdProvider

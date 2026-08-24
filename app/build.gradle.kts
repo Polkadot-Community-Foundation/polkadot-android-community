@@ -15,35 +15,43 @@ android {
     namespace = "io.paritytech.polkadotapp.app"
 
     defaultConfig {
-        applicationId = "io.paritytech.polkadotapp"
+        applicationId = localProperties.readSecretOrDefault("APPLICATION_ID", "io.paritytech.polkadotapp")
 
         versionCode = computeVersionCode()
         versionName = computeVersionName()
 
         testInstrumentationRunner = "io.paritytech.polkadotapp.app.HiltTestRunner"
 
+        manifestPlaceholders["appName"] = localProperties.readSecretOrDefault("APP_NAME", "Polkadot")
         manifestPlaceholders["sentryDsn"] = localProperties.readSecretOrNull("SENTRY_DSN") ?: ""
 
-        buildConfigField(
-            "String",
+        buildConfigString(
             "LOG_COLLECTION_EMAIL",
-            "\"${localProperties.readSecretOrNull("LOG_COLLECTION_EMAIL") ?: "logs@example.com"}\""
+            localProperties.readSecretOrDefault("LOG_COLLECTION_EMAIL", "logs@example.com")
+        )
+        buildConfigString(
+            "PRIVACY_POLICY_URL",
+            localProperties.readSecretOrDefault("PRIVACY_POLICY_URL", "https://example.com/privacy")
+        )
+        buildConfigString(
+            "TERMS_OF_USE_URL",
+            localProperties.readSecretOrDefault("TERMS_OF_USE_URL", "https://example.com/terms")
         )
     }
 
     signingConfigs {
         create("dev") {
             storeFile = file(localProperties.readSecretOrNull("DEV_KEYSTORE_FILE") ?: "../develop_key.jks")
-            keyPassword = localProperties.readSecret("CI_KEYSTORE_KEY_PASS")
-            keyAlias = localProperties.readSecret("CI_KEYSTORE_KEY_ALIAS")
-            storePassword = localProperties.readSecret("CI_KEYSTORE_PASS")
+            keyPassword = localProperties.readSecretOrDefault("CI_KEYSTORE_KEY_PASS", "")
+            keyAlias = localProperties.readSecretOrDefault("CI_KEYSTORE_KEY_ALIAS", "")
+            storePassword = localProperties.readSecretOrDefault("CI_KEYSTORE_PASS", "")
         }
 
         create("release") {
             storeFile = file(localProperties.readSecretOrNull("RELEASE_KEYSTORE_FILE") ?: "../release_key.jks")
-            keyPassword = localProperties.readSecret("RELEASE_KEYSTORE_KEY_PASS")
-            keyAlias = localProperties.readSecret("RELEASE_KEYSTORE_KEY_ALIAS")
-            storePassword = localProperties.readSecret("RELEASE_KEYSTORE_PASS")
+            keyPassword = localProperties.readSecretOrDefault("RELEASE_KEYSTORE_KEY_PASS", "")
+            keyAlias = localProperties.readSecretOrDefault("RELEASE_KEYSTORE_KEY_ALIAS", "")
+            storePassword = localProperties.readSecretOrDefault("RELEASE_KEYSTORE_PASS", "")
         }
     }
 
@@ -56,6 +64,10 @@ android {
         getByName("debug") {
             signingConfig = signingConfigs.getByName("dev")
             applicationIdSuffix = ".debug"
+            manifestPlaceholders["appName"] = localProperties.readSecretOrDefault(
+                "DEBUG_APP_NAME",
+                "[Debug] ${localProperties.readSecretOrDefault("APP_NAME", "Polkadot")}"
+            )
 
             buildConfigField("String", "BuildType", "\"debug\"")
         }
@@ -64,6 +76,10 @@ android {
 
             signingConfig = signingConfigs.getByName("dev")
             applicationIdSuffix = ".nightly"
+            manifestPlaceholders["appName"] = localProperties.readSecretOrDefault(
+                "NIGHTLY_APP_NAME",
+                localProperties.readSecretOrDefault("APP_NAME", "Polkadot")
+            )
         }
     }
 
@@ -72,6 +88,12 @@ android {
     productFlavors {
         create("gp") { dimension = "distribution" }
         create("vanilla") { dimension = "distribution" }
+    }
+}
+
+tasks.configureEach {
+    if (name.startsWith("processVanilla") && name.endsWith("GoogleServices")) {
+        enabled = false
     }
 }
 

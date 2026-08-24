@@ -641,11 +641,14 @@ I’m attaching PDF with more information and details regarding the Tattoo Stenc
     <string name="product_bot_management_empty">No products added</string>
     <string name="product_bot_management_url_hint">Script URL</string>
     <string name="product_bot_management_app_url_hint">App URL</string>
-    <string name="product_bot_management_name_hint">product.dot</string>
+    <string name="product_bot_management_name_hint">product%1$s</string>
     <string name="product_bot_management_confirm">Save</string>
     <string name="spa_browser_menu_open_chat">Open Chat</string>
     <string name="spa_browser_menu_refresh">Refresh</string>
     <string name="spa_browser_menu_share">Share</string>
+    <string name="spa_browser_page_no_app_surface">This product doesn\'t have an app on this device.</string>
+    <string name="product_resolution_error_malformed_manifest">This product published a manifest this app can\'t read. Contact the product\'s developer.</string>
+    <string name="product_resolution_error_unknown">Couldn\'t load this product.</string>
     <string name="debug_menu_enable_retro_mode">Enable retro mode</string>
     <string name="debug_menu_disable_retro_mode">Disable retro mode</string>
     <string name="debug_menu_randomize_account">Randomize account (Test Dev Reset)</string>
@@ -1443,8 +1446,6 @@ I’m attaching PDF with more information and details regarding the Tattoo Stenc
     <string name="w3s_ended">Web3 Summit ended — stay tuned for more updates!</string>
 
     <!-- Keys carried over from the branch, not yet present on master -->
-    <string name="terms_of_use_link" translatable="false">https://example.com/terms</string>
-    <string name="privacy_link" translatable="false">https://example.com/terms</string>
     <string name="video_game_play_host_transition_title">Round %d of %d</string>
     <string name="video_game_play_finished_title">Game\ncomplete</string>
     <string name="video_game_play_finished_description">Check your choices.</string>

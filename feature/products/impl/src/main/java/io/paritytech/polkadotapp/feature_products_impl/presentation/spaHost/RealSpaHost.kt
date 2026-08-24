@@ -10,6 +10,7 @@ import io.paritytech.polkadotapp.common.presentation.deeplink.DeepLinkHandler
 import io.paritytech.polkadotapp.common.presentation.deeplink.handleAndProcessOutcomeWithSystemFallback
 import io.paritytech.polkadotapp.common.presentation.screens.MessageDisplay
 import io.paritytech.polkadotapp.common.utils.logFailure
+import io.paritytech.polkadotapp.feature_dotns_api.domain.DotNsTldProvider
 import io.paritytech.polkadotapp.feature_products_api.model.ProductId
 import io.paritytech.polkadotapp.feature_products_api.presentation.spaHost.SpaHost
 import io.paritytech.polkadotapp.feature_products_api.presentation.spaHost.SpaHostSession
@@ -38,6 +39,7 @@ class RealSpaHost @Inject constructor(
     private val botApiFactory: ProductsBotApiImpl.Factory,
     private val productRegistrar: ProductRegistrar,
     private val deepLinkHandler: DeepLinkHandler,
+    private val dotNsTldProvider: DotNsTldProvider,
     @param:ApplicationContext private val context: Context,
 ) : SpaHost {
     context(scope: ComputationalScope, messageDisplay: MessageDisplay)
@@ -49,7 +51,8 @@ class RealSpaHost @Inject constructor(
         )
         val hostApiNavigation = NavigationPolicy.HostApiNavigation(
             onDeeplinkNavigation = { launchDeeplinkNavigation(it) },
-            webViewLoader = { scope.launch { webViewProvider.getWebView().loadUrl(it) } }
+            webViewLoader = { scope.launch { webViewProvider.getWebView().loadUrl(it) } },
+            dotNsTldProvider = dotNsTldProvider
         )
 
         webViewProvider = browserWebViewProviderFactory.create(
@@ -84,8 +87,9 @@ class RealSpaHost @Inject constructor(
 
         webViewProvider.addOnPageStartedListener { url ->
             scope.launch {
-                ProductId.fromUrl(url.toUri()).getOrNull()?.let {
-                    productRegistrar.ensureRegistered(it, contentHash = null)
+                val tld = dotNsTldProvider.getTld().getOrNull() ?: return@launch
+                ProductId.fromUrl(url.toUri(), tld).getOrNull()?.let {
+                    productRegistrar.ensureRegistered(it)
                 }
             }
         }

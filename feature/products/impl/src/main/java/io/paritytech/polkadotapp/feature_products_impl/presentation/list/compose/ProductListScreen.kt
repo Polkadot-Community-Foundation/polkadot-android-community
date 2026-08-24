@@ -94,15 +94,18 @@ private fun ProductListScreenPreview() {
                 listOf(
                     ProductListItemUiModel(
                         id = ProductId.fromStoredValue("1"),
-                        name = "Web3 Summit"
+                        name = "Web3 Summit",
+                        iconUrl = null,
                     ),
                     ProductListItemUiModel(
                         id = ProductId.fromStoredValue("2"),
-                        name = "Polkadot Decoded"
+                        name = "Polkadot Decoded",
+                        iconUrl = null,
                     ),
                     ProductListItemUiModel(
                         id = ProductId.fromStoredValue("3"),
-                        name = "Sub0 Conference"
+                        name = "Sub0 Conference",
+                        iconUrl = null,
                     )
                 )
             ),

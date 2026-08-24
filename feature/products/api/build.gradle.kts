@@ -24,6 +24,9 @@ dependencies {
     api(project(":feature:dotns:api"))
     api(project(":feature:members:api"))
     api(project(":chains"))
+    api(project(":tools:ipfs:api"))
 
     implementation(libs.nova.substrate.serialization)
+
+    testImplementation(libs.junit)
 }

@@ -8,7 +8,9 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import io.paritytech.polkadotapp.common.utils.notFoundResponse
 import io.paritytech.polkadotapp.feature_dotns_api.domain.DotNsResolver
+import io.paritytech.polkadotapp.feature_dotns_api.domain.DotNsTldProvider
 import io.paritytech.polkadotapp.feature_dotns_api.domain.DotNsUtils
+import io.paritytech.polkadotapp.feature_dotns_api.domain.getTldRetrying
 import io.paritytech.polkadotapp.feature_dotns_api.domain.resolveToLocalFile
 import kotlinx.coroutines.runBlocking
 import timber.log.Timber
@@ -17,7 +19,9 @@ import java.io.File
 import java.net.URLConnection
 
 open class DotNsWebViewClient(
-    private val dotNsResolver: DotNsResolver
+    private val dotNsResolver: DotNsResolver,
+    private val dotNsTldProvider: DotNsTldProvider,
+    private val servingHostResolver: DotNsServingHostResolver = DotNsServingHostResolver.Identity,
 ) : WebViewClient() {
     override fun shouldInterceptRequest(
         view: WebView,
@@ -27,8 +31,8 @@ open class DotNsWebViewClient(
 
         Timber.d("Intercepting request for $url")
 
-        // Intercept http(s)://*.dot requests and serve from local content
-        if (!DotNsUtils.isDotDomain(url)) {
+        val tld = runBlocking { dotNsTldProvider.getTldRetrying() }
+        if (!DotNsUtils.isDotDomain(url, tld)) {
             Timber.d("Not dotNs domain: $url")
 
             return null
@@ -55,11 +59,11 @@ open class DotNsWebViewClient(
     }
 
     fun resolveHostFile(uri: Uri?): File? {
-        val host = uri?.host
-        if (host == null) return null
+        val host = uri?.host ?: return null
 
         return runBlocking {
-            dotNsResolver.resolveToLocalFile(host)
+            val servedHost = servingHostResolver.servingHostFor(host)
+            dotNsResolver.resolveToLocalFile(servedHost)
                 .getOrNull() // TODO: Bad ux. We have to ask user to reload the page
         }
     }

@@ -6,6 +6,8 @@ import io.paritytech.polkadotapp.chains.multiNetwork.chain.model.GenesisHash
 import io.paritytech.polkadotapp.chains.multiNetwork.getRuntime
 import io.paritytech.polkadotapp.chains.util.Modules
 import io.paritytech.polkadotapp.feature_account_api.domain.derivation.DerivationIndex32
+import io.paritytech.polkadotapp.feature_dotns_api.domain.DotNsTldProvider
+import io.paritytech.polkadotapp.feature_dotns_api.domain.getTldRetrying
 import io.paritytech.polkadotapp.feature_members_api.data.model.RingCollectionId
 import io.paritytech.polkadotapp.feature_people_api.domain.PEOPLE
 import io.paritytech.polkadotapp.feature_people_api.domain.PEOPLE_LITE
@@ -30,14 +32,19 @@ private val LIGHT_PERSONHOOD_INDEX = DerivationIndex32.fromUInt(1u)
  */
 class ReservedRingVrfKeys @Inject constructor(
     private val chainRegistry: ChainRegistry,
+    private val dotNsTldProvider: DotNsTldProvider,
 ) {
-    fun isReserved(handle: ProductAccountId): Boolean {
-        if (handle.productId != ReservedProductIds.PERSONHOOD.value) return false
+    suspend fun isReserved(handle: ProductAccountId): Boolean {
+        if (handle.productId != personhoodId().value) return false
 
         return handle.index == FULL_PERSONHOOD_INDEX || handle.index == LIGHT_PERSONHOOD_INDEX
     }
 
-    private fun ownedBy(owner: ProductId): Boolean = owner == ReservedProductIds.PERSONHOOD
+    private suspend fun ownedBy(owner: ProductId): Boolean = owner == personhoodId()
+
+    private suspend fun personhoodId(): ProductId {
+        return ReservedProductIds.personhood(dotNsTldProvider.getTldRetrying())
+    }
 
     /**
      * Fails rather than returning an empty list when the chain cannot be read, so a caller can tell
@@ -56,13 +63,14 @@ class ReservedRingVrfKeys @Inject constructor(
                 ?: error("MEMBERS pallet is absent from ${peopleChain.name} metadata")
 
             listOf(
-                reservedEntry(peopleChain.genesisHash, membersPalletIndex, FULL_PERSONHOOD_INDEX, RingCollectionId.PEOPLE),
-                reservedEntry(peopleChain.genesisHash, membersPalletIndex, LIGHT_PERSONHOOD_INDEX, RingCollectionId.PEOPLE_LITE),
+                reservedEntry(owner, peopleChain.genesisHash, membersPalletIndex, FULL_PERSONHOOD_INDEX, RingCollectionId.PEOPLE),
+                reservedEntry(owner, peopleChain.genesisHash, membersPalletIndex, LIGHT_PERSONHOOD_INDEX, RingCollectionId.PEOPLE_LITE),
             )
         }
     }
 
     private fun reservedEntry(
+        owner: ProductId,
         genesisHash: GenesisHash,
         membersPalletIndex: UByte,
         index: DerivationIndex32,
@@ -77,7 +85,7 @@ class ReservedRingVrfKeys @Inject constructor(
         )
 
         return ReservedRingVrfKeyEntry(
-            handle = ProductAccountId(ReservedProductIds.PERSONHOOD.value, index),
+            handle = ProductAccountId(owner.value, index),
             ring = ring,
         )
     }

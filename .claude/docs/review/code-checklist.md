@@ -58,7 +58,7 @@ Walk this for every file the diff touches. Cite the rule's doc and section. Tag 
 - **major** — Scroll-derived `State` (`isScrollInProgress`, `layoutInfo`, `derivedStateOf` result) read at the `LazyColumn` host and passed by value, not pushed to the consumer. (`code/ui-compose.md § Recomposition and stability`)
 - **major** — Raw `firstVisibleItemIndex`/`layoutInfo` in composition without `derivedStateOf`. (`code/ui-compose.md § Recomposition and stability`)
 - **major** — Per-item `LaunchedEffect` that mutates the VM and re-emits the list (scroll feedback loop). (`code/ui-compose.md § Recomposition and stability`)
-- **minor** — `WebView` exposed on a VM Contract (e.g. `StateFlow<WebView?>`) where preloading forces VM ownership. Acceptable but prefer a `WebViewSlot` / `WebViewHolder` wrapper (PR #593).
+- **minor** — `WebView` exposed on a VM Contract (e.g. `StateFlow<WebView?>`) where preloading forces VM ownership. Acceptable but prefer a `WebViewSlot` / `WebViewHolder` wrapper.
 - **minor** — Compose file >400 lines that should be split into `components/`.
 - **minor** — Per-frame allocations inside a Canvas (data-class copies in a mapNotNull); should back with float arrays.
 - **minor** — Odd pixel sizes (3.dp, 5.dp) that will subpixel-jump on different DPIs.
@@ -72,7 +72,7 @@ Walk this for every file the diff touches. Cite the rule's doc and section. Tag 
 - **major** — Exposing a mutable field for testability instead of constructor-injecting the collaborator.
 - **major** — Bare `Log.x()` instead of Timber.
 - **major** — Hardcoded magic constant (timeout, retry count, threshold) without an extracted name.
-- **major** — Hand-rolled JSON encoding/decoding (`buildJsonObject { … }` walks, manual `JSONObject`, Gson) instead of `@Serializable` + kotlinx-serialization. Custom wire shapes use a `KSerializer` (PR #593). Rationale: `code/naming-and-hygiene.md § Rules at a glance #10`; parallels the SCALE rule in `code/database-and-scale.md`.
+- **major** — Hand-rolled JSON encoding/decoding (`buildJsonObject { … }` walks, manual `JSONObject`, Gson) instead of `@Serializable` + kotlinx-serialization. Custom wire shapes use a `KSerializer`. Rationale: `code/naming-and-hygiene.md § Rules at a glance #10`; parallels the SCALE rule in `code/database-and-scale.md`.
 - **major** — Comment that restates the code ("// loads the user" on a function called `loadUser`), or any non-essential comment. Minimal comments are mandatory: keep one only where the code is genuinely specific and a reader could misread it without it (non-obvious invariant, workaround, platform quirk).
 - **minor** — Public method name doesn't reflect what the function actually does.
 - **minor** — Trailing positional `Boolean` parameter without a named call site.
@@ -109,13 +109,13 @@ Walk this for every file the diff touches. Cite the rule's doc and section. Tag 
 
 ## Workers / Background sync (`code/workers-and-background-sync.md`)
 
-- **blocking** — Extrinsic submission inside a `Worker` without `ChainConnectionRefCounter.withConnectionEnabled(...)` (PR #433).
-- **blocking** — Expedited `Worker` request without overriding `getForegroundInfo()` (PR #513).
+- **blocking** — Extrinsic submission inside a `Worker` without `ChainConnectionRefCounter.withConnectionEnabled(...)`.
+- **blocking** — Expedited `Worker` request without overriding `getForegroundInfo()`.
 - **major** — Multi-stage worker storing intermediate state in local fields instead of `WorkerStateMachineLocalSession`.
 - **major** — `runCatching { ... }.getOrNull()` in `doWork()` that masks failures as `Result.success()`.
 - **major** — `Worker` dependencies passed via `WorkerParameters.inputData` primitives instead of `@HiltWorker` / `@AssistedInject`.
 - **major** — `Worker` enqueued directly from a ViewModel — route through an interactor / domain entry point.
-- **major** — Two cleanup verbs on the state holder (`clear()` and `endSession()`) with subtly different semantics (PR #494).
+- **major** — Two cleanup verbs on the state holder (`clear()` and `endSession()`) with subtly different semantics.
 - **minor** — Missing `runAttemptCount` cap, unique work name, or `ExistingWorkPolicy`.
 
 ## Diagnostics / stall reporting (`code/diagnostics-and-stall-reporting.md`)

@@ -142,9 +142,9 @@ app/src/gp/google-services.json
 ```
 
 Placing it in the flavor source set (rather than per-build-type) means a single file
-covers all `gp` build types (`gpDebug`, `gpNightly`, `gpRelease`). For `vanilla`
-variants the Google Services plugin finds no JSON file and skips processing silently
-(plugin 4.3.3+ behavior).
+covers all `gp` build types (`gpDebug`, `gpNightly`, `gpRelease`). The build disables
+Google Services processing tasks for `vanilla` variants, so those variants neither
+look for nor require this file.
 
 Obtain it from **your own** Firebase project (Project settings → Your apps →
 Android app → download `google-services.json`). In CI decode it into this path
@@ -158,15 +158,18 @@ echo "$GOOGLE_SERVICES_JSON_BASE64" | base64 --decode > app/src/gp/google-servic
 
 ## 5. Environment variables / secrets reference
 
-All build-time secrets are read by `Properties.readSecret(...)` /
-`readSecretOrNull(...)` in `buildSrc/src/main/kotlin/Secrets.kt`, with this lookup
+All build-time configuration is read by `Properties.readSecretOrDefault(...)` or
+`readSecretOrNull(...)` in
+`build-logic/convention/src/main/kotlin/Secrets.kt`, with this lookup
 order:
 
 1. a key in **`local.properties`**, then
 2. an **environment variable** of the same name.
 
-`readSecret` **throws** if the value is missing (required secret); `readSecretOrNull`
-returns `null` and lets the build fall back to a default (optional / org-overridable).
+`readSecretOrDefault` supplies a public default, and `readSecretOrNull` returns
+`null` for optional configuration.
+In GitHub Actions, non-sensitive values from this section can be mapped from GitHub
+variables while credentials and mnemonics must be mapped from GitHub secrets.
 
 ### 5.1 Signing (required to build a signed variant)
 
@@ -182,38 +185,49 @@ returns `null` and lets the build fall back to a default (optional / org-overrid
 | `RELEASE_KEYSTORE_FILE`    | `app` release signingConfig| no      | Override path to release keystore (default `../release_key.jks`) |
 
 > Build types: `debug`/`nightly` use the **dev** config, `release` uses the
-> **release** config. To assemble only debug/nightly you only need the dev secrets.
+> **release** config. Missing passwords default to empty so project configuration
+> and unsigned checks can run, but producing a valid signed artifact still requires
+> the matching keystore values.
 
 ### 5.2 App API keys (consumed by the build via `buildConfigField`)
 
-| Variable           | Used by (module)                          | Required (`gp`) | Required (`vanilla`) | Description                          |
-|--------------------|-------------------------------------------|-----------------|----------------------|--------------------------------------|
-| `GOOGLE_OAUTH_ID`  | `tools/auth/impl` `gp` source set        | yes*            | no                   | Google OAuth client id (Sign-In)     |
-| `GOOGLE_PROJECT_ID`| `tools/integrity/impl` `gp` product flavor| yes*           | no                   | Google Cloud project id (Play Integrity) |
-| `W3S_AUTH_KEY`     | `feature/web3summit/impl`                 | yes*            | yes*                 | Web3 Summit auth keypair seed        |
+| Variable           | Used by (module)                           | Required (`gp`) | Required (`vanilla`) | Default | Description                          |
+|--------------------|--------------------------------------------|-----------------|----------------------|---------|--------------------------------------|
+| `GOOGLE_OAUTH_ID`  | `tools/auth/impl` `gp` source set          | for Google sign-in | no                | empty   | Google OAuth client id (Sign-In)     |
+| `GOOGLE_PROJECT_ID`| `tools/integrity/impl` `gp` product flavor | for Play Integrity | no                | `0`     | Google Cloud project id (Play Integrity) |
+| `W3S_AUTH_KEY`     | `feature/web3summit/impl`                  | for Web3 Summit | for Web3 Summit      | empty   | Web3 Summit auth keypair seed        |
 
-`*` Read with the throwing `readSecret` — the build **fails** if the variable is absent
-for the edition that requires it. Both `GOOGLE_OAUTH_ID` and `GOOGLE_PROJECT_ID` are
-scoped to the `gp` product flavor in their respective modules, so they are **not
-evaluated** during `vanilla` builds.
+These values no longer block Gradle configuration when absent. Their integrations
+validate or reject the placeholder when actually invoked. Both `GOOGLE_OAUTH_ID`
+and `GOOGLE_PROJECT_ID` are scoped to the `gp` product flavor in their respective
+modules; `vanilla` builds use no-op/zero values.
 
 #### 5.2.1 App endpoints / values (optional — placeholder defaults)
 
-These are also injected via `buildConfigField`, but read with the **non-throwing**
-`readSecretOrNull` and fall back to a harmless placeholder when unset, so the build
-still succeeds without them (the corresponding feature simply uses the placeholder).
-Set them in `local.properties` / CI to point at your own infrastructure.
+These are read with the **non-throwing** configuration helpers and fall back to a
+harmless placeholder when unset, so the build still succeeds without them. Depending
+on the consumer, they become an application ID, manifest placeholder, or BuildConfig
+field. Set them in `local.properties` / CI to point at your own infrastructure.
 
-| Variable                    | Used by (module)            | Required | Default (placeholder)                  | Description                                                                 |
-|-----------------------------|-----------------------------|----------|----------------------------------------|-----------------------------------------------------------------------------|
-| `REFERRAL_WEB_HOST`         | `feature/become-citizen/impl` | no     | `referral.example.com`                 | Host of the web app that backs referral (`https`) deeplinks                 |
-| `GAME_RESULTS_FALLBACK_URL` | `feature/videogame/impl`    | no       | `https://example.com/`                 | Last-resort URL for the game-results webview (after DotNs + Remote Config)   |
-| `NIGHTLY_FUNDING_MNEMONIC`  | `feature/transactions/impl` | no       | well-known Substrate dev seed (`bottom drive …`) | Mnemonic of the funding account used to top up accounts on nightly/testnet |
-| `LOG_COLLECTION_EMAIL`      | `app`                       | no       | `logs@example.com`                     | Recipient address for the in-app "collect logs" debug share action          |
+| Variable                    | Used by (module)              | Required | Default (placeholder)          | Description                                                                 |
+|-----------------------------|-------------------------------|----------|--------------------------------|-----------------------------------------------------------------------------|
+| `APPLICATION_ID`            | `app`                         | no       | `io.paritytech.polkadotapp`    | Installed application ID; changing it creates a different app identity      |
+| `APP_NAME`                  | `app`                         | no       | `Polkadot`                     | Base/release launcher name                                                   |
+| `DEBUG_APP_NAME`            | `app` debug build             | no       | `[Debug] <APP_NAME>`           | Debug launcher name                                                          |
+| `NIGHTLY_APP_NAME`          | `app` nightly build           | no       | `<APP_NAME>`                   | Nightly launcher name                                                        |
+| `PRIVACY_POLICY_URL`        | `app`                         | no       | `https://example.com/privacy`  | Privacy-policy destination                                                   |
+| `TERMS_OF_USE_URL`          | `app`                         | no       | `https://example.com/terms`    | Terms-of-use destination                                                     |
+| `REFERRAL_WEB_HOST`         | `feature/become-citizen/impl` | no       | `referral.example.com`         | Host of the web app that backs referral (`https`) deeplinks                 |
+| `GAME_RESULTS_FALLBACK_URL` | `feature/videogame/impl`      | no       | `https://example.com/`         | Last-resort URL for the game-results webview (after DotNs + Remote Config)   |
+| `FIRESTORE_DATABASE_ID`     | `tools/backup/impl`            | no       | `(default)`                    | Firestore database used for backup encryption-key records                    |
+| `NIGHTLY_FUNDING_MNEMONIC`  | `feature/transactions/impl`   | for funding | empty                       | Mnemonic of the funding account used to top up accounts on nightly/production test contours |
+| `LOG_COLLECTION_EMAIL`      | `app`                         | no       | `logs@example.com`             | Recipient address for the in-app "collect logs" debug share action          |
 
-> `NIGHTLY_FUNDING_MNEMONIC` controls a funding account — keep the real value in a
-> secret store / `local.properties`, never commit it. The placeholder is the public
-> Substrate development seed and only seeds a throw-away dev account.
+> `NIGHTLY_FUNDING_MNEMONIC` controls a funding account — keep it in a secret store
+> or untracked `local.properties`, never commit it. When it is empty, requesting the
+> nightly/production test funding origin fails explicitly instead of silently using
+> a public mnemonic. The separate testnet Alice origin continues to use the public,
+> well-known Substrate development fixture.
 
 ### 5.3 Sentry (crash/error reporting)
 
@@ -231,9 +245,9 @@ and set `SENTRY_DSN` to the project's DSN (otherwise crash reporting stays disab
 
 | Variable      | Used by                                   | Required | Description                                   |
 |---------------|-------------------------------------------|----------|-----------------------------------------------|
-| `CI_BUILD_ID` | `buildSrc/.../Versions.kt` (`versionCode`)| no       | Integer `versionCode`. Defaults to `19` if unset. |
+| `CI_BUILD_ID` | `build-logic/convention/src/main/kotlin/Versions.kt` (`versionCode`)| no | Integer `versionCode`. Defaults to `28` if unset. |
 
-The marketing `versionName` is stored in `buildSrc/src/main/kotlin/Versions.kt`
+The marketing `versionName` is stored in `build-logic/convention/src/main/kotlin/Versions.kt`
 (`DefaultVersionName`) and managed by the scripts in §6.
 
 ### 5.5 Legacy / not currently consumed by the build
@@ -316,11 +330,11 @@ GrapheneOS users (see §7 → *GrapheneOS / direct APK sideload*).
 ### Version management
 
 The marketing version and the build number are defined in
-`buildSrc/src/main/kotlin/Versions.kt`:
+`build-logic/convention/src/main/kotlin/Versions.kt`:
 
 ```kotlin
 private const val DefaultVersionName = "1.0.0"   // versionName
-private const val DefaultVersionCode = 19        // versionCode (fallback)
+private const val DefaultVersionCode = 28        // versionCode (fallback)
 ```
 
 - **versionName** — edit `DefaultVersionName` directly when cutting a release.
@@ -373,10 +387,11 @@ receive the `gp` APK through the store; GrapheneOS users download and sideload
 ## 8. (Optional) Bringing back CI on your own infrastructure
 
 The removed workflows depended on private infrastructure. To run build/test/publish
-in GitHub Actions on standard runners, store the secrets from §5 as **GitHub
-Actions secrets** and reference them as environment variables — the Gradle build
-already reads them via `readSecret`/`readSecretOrNull`, so no code changes are
-needed. A minimal sketch:
+in GitHub Actions on standard runners, store non-sensitive branding and endpoint
+configuration as **GitHub Actions variables**, and credentials, signing material,
+and mnemonics as **GitHub Actions secrets**. Expose both as environment variables;
+the Gradle build already reads them via `readSecretOrDefault` and
+`readSecretOrNull`, so no code changes are needed. A minimal sketch:
 
 ```yaml
 name: Build
@@ -385,16 +400,26 @@ jobs:
   build:
     runs-on: ubuntu-latest
     env:
+      APPLICATION_ID: ${{ vars.APPLICATION_ID }}
+      APP_NAME: ${{ vars.APP_NAME }}
+      DEBUG_APP_NAME: ${{ vars.DEBUG_APP_NAME }}
+      NIGHTLY_APP_NAME: ${{ vars.NIGHTLY_APP_NAME }}
+      PRIVACY_POLICY_URL: ${{ vars.PRIVACY_POLICY_URL }}
+      TERMS_OF_USE_URL: ${{ vars.TERMS_OF_USE_URL }}
+      LOG_COLLECTION_EMAIL: ${{ vars.LOG_COLLECTION_EMAIL }}
+      SENTRY_ORG: ${{ vars.SENTRY_ORG }}
+      SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT }}
+      SENTRY_DSN: ${{ vars.SENTRY_DSN }}
+      FIRESTORE_DATABASE_ID: ${{ vars.FIRESTORE_DATABASE_ID }}
+      GOOGLE_OAUTH_ID: ${{ vars.GOOGLE_OAUTH_ID }}
+      GOOGLE_PROJECT_ID: ${{ vars.GOOGLE_PROJECT_ID }}
       CI_KEYSTORE_PASS: ${{ secrets.CI_KEYSTORE_PASS }}
       CI_KEYSTORE_KEY_ALIAS: ${{ secrets.CI_KEYSTORE_KEY_ALIAS }}
       CI_KEYSTORE_KEY_PASS: ${{ secrets.CI_KEYSTORE_KEY_PASS }}
-      GOOGLE_OAUTH_ID: ${{ secrets.GOOGLE_OAUTH_ID }}
       INTERCOM_API_KEY: ${{ secrets.INTERCOM_API_KEY }}
       INTERCOM_APP_ID: ${{ secrets.INTERCOM_APP_ID }}
-      GOOGLE_PROJECT_ID: ${{ secrets.GOOGLE_PROJECT_ID }}
       W3S_AUTH_KEY: ${{ secrets.W3S_AUTH_KEY }}
-      SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
-      SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+      NIGHTLY_FUNDING_MNEMONIC: ${{ secrets.NIGHTLY_FUNDING_MNEMONIC }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4

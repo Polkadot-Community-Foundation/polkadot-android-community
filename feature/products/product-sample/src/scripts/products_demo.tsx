@@ -102,11 +102,17 @@ interface SignVrfData {
     type: 'signVrf';
 }
 
-type MessageData = CounterData | BalanceData | TransferData | SignRawData | RingVrfData | CreateRoomFormData | NotificationTestData | NetworkPermissionTestData | DeriveEntropyData | BatchedPermissionTestData | WildcardPermissionTestData | ChainSubmitPermissionTestData | PaymentBalanceData | PaymentRequestData | PaymentTrackingData | PaymentTopUpData | RfcAllowanceData | StatementSubscribeData | UserIdentityData | SignVrfData;
+interface NavigateData {
+    type: 'navigate';
+}
+
+type MessageData = CounterData | BalanceData | TransferData | SignRawData | RingVrfData | CreateRoomFormData | NotificationTestData | NetworkPermissionTestData | DeriveEntropyData | BatchedPermissionTestData | WildcardPermissionTestData | ChainSubmitPermissionTestData | PaymentBalanceData | PaymentRequestData | PaymentTrackingData | PaymentTopUpData | RfcAllowanceData | StatementSubscribeData | UserIdentityData | SignVrfData | NavigateData;
 
 // ============================================================================
 // Host API & Chain Client
 // ============================================================================
+
+const HOST_PLAYGROUND_URL = 'https://host-playground.dot';
 
 const POP_GENESIS_HASH = '0xc5af1826b31493f08b7e2a823842f98575b806a784126f28da9608c68665afa5';
 const ASSET_HUB_GENESIS_HASH = '0xbf0488dbe9daa1de1c08c5f743e26fdc2a4ecd74cf87dd1b4b1eeb99ae4ef19f';
@@ -159,7 +165,7 @@ loadChainProperties().catch(e => console.log(`Products Demo: Failed to load chai
 chat.registerRoom({ roomId: ROOM_ID, name: 'Products Demo', icon: null }).then(status => {
     console.log(`Products Demo: Room registration status: ${status}`);
     if (status === 'New') {
-        sendTextMessageViaChat("Hello! Send me a number to start a counter, or use /balance, /address, /transfer, /signraw, /ringvrf, /rooms, /notify, /network, /entropy, /batched, /wildcard, /chain, /paybalance, /payrequest, /paytopup, /rfc10, /userid, or /signvrf");
+        sendTextMessageViaChat("Hello! Send me a number to start a counter, or use /balance, /address, /transfer, /signraw, /ringvrf, /rooms, /notify, /network, /entropy, /batched, /wildcard, /chain, /paybalance, /payrequest, /paytopup, /rfc10, /userid, /signvrf, or /navigate");
     }
 }).catch(e => console.log(`Products Demo: Failed to register room: ${e}`));
 
@@ -302,6 +308,11 @@ function onUserMessage(text: string): void {
         return;
     }
 
+    if (text.trim() === '/navigate') {
+        sendCustomMessage<NavigateData>({ type: 'navigate' });
+        return;
+    }
+
     // Parse number from text or default to 0
     const num = parseInt(text, 10) || 0;
 
@@ -375,6 +386,8 @@ chat.onCustomMessageRenderingRequest(
                     return <UserIdentityCard />;
                 case 'signVrf':
                     return <SignVrfCard />;
+                case 'navigate':
+                    return <NavigateCard />;
                 case 'counter':
                 default:
                     const initialCount = data.initialCount ?? 0;
@@ -2033,6 +2046,55 @@ function UserIdentityCard() {
                 variant="primary"
                 loading={loading}
                 onClick={handleGetUserId}
+            />
+        </Column>
+    );
+}
+
+// ============================================================================
+// Navigation Card (host_navigate_to)
+// ============================================================================
+
+function NavigateCard() {
+    const [status, setStatus] = useState<string>('Press the button to leave the chat');
+    const [navigating, setNavigating] = useState(false);
+
+    async function handleNavigate() {
+        if (navigating) return;
+
+        setNavigating(true);
+        try {
+            const result = await hostApi.navigateTo({ tag: 'v1', value: HOST_PLAYGROUND_URL });
+            if (result.isOk()) {
+                setStatus(`Navigating to ${HOST_PLAYGROUND_URL}`);
+                console.log('Products Demo: navigateTo success');
+            } else {
+                const err = result.error as any;
+                setStatus(`Error: ${err?.value?.reason ?? JSON.stringify(err)}`);
+                console.log(`Products Demo: navigateTo error: ${JSON.stringify(err)}`);
+            }
+        } catch (e: any) {
+            setStatus(`Error: ${e?.message ?? String(e)}`);
+        } finally {
+            setNavigating(false);
+        }
+    }
+
+    return (
+        <Column
+            padding={20}
+            background={{ color: 'bg.surface.nested', shape: { tag: 'Rounded', value: 16 } }}
+            horizontalAlignment="center"
+        >
+            <Text style="body.small.regular" color="fg.secondary">Navigate via Host API</Text>
+            <Spacer height={8} />
+            <Text style="body.large.regular" color="fg.primary">{status}</Text>
+            <Spacer height={16} />
+            <Button
+                text="Open host-playground.dot"
+                variant="primary"
+                loading={navigating}
+                onClick={handleNavigate}
             />
         </Column>
     );

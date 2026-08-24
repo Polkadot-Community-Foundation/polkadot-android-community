@@ -20,10 +20,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.paritytech.polkadotapp.design.components.button.default.PolkadotTextButton
 import io.paritytech.polkadotapp.design.components.icon.NovaIcons
@@ -58,7 +56,7 @@ fun ProductBotManagementScreen(contract: ProductBotManagementContract) {
         onDeleteProductClick = contract::onDeleteProductClick,
         onDialogDismiss = contract::onDialogDismiss,
         onNameChanged = contract::onDotNsDomainChanged,
-        onScriptUrlChanged = contract::onScriptUrlChanged,
+        onWorkerUrlChanged = contract::onWorkerUrlChanged,
         onDialogConfirm = contract::onDialogConfirm,
     )
 }
@@ -74,7 +72,7 @@ private fun ProductBotManagementScreenInternal(
     onDeleteProductClick: (String) -> Unit,
     onDialogDismiss: () -> Unit,
     onNameChanged: (String) -> Unit,
-    onScriptUrlChanged: (String) -> Unit,
+    onWorkerUrlChanged: (String) -> Unit,
     onDialogConfirm: () -> Unit,
 ) {
     PolkadotSurface {
@@ -136,9 +134,10 @@ private fun ProductBotManagementScreenInternal(
     if (dialogState is ProductDialogState.Form) {
         ProductFormDialog(
             state = dialogState,
+            tldSuffix = state.tldSuffix,
             onDismiss = onDialogDismiss,
             onNameChanged = onNameChanged,
-            onScriptUrlChanged = onScriptUrlChanged,
+            onWorkerUrlChanged = onWorkerUrlChanged,
             onConfirm = onDialogConfirm,
         )
     }
@@ -168,16 +167,6 @@ private fun ProductItem(
                 color = PolkadotTheme.colors.fg.primary,
                 maxLines = 1,
             )
-
-            VerticalSpacer { tiny }
-
-            NovaText(
-                text = product.scriptUrl,
-                style = PolkadotTheme.typography.body.medium,
-                color = PolkadotTheme.colors.fg.tertiary,
-                maxLines = 1,
-                overflow = TextOverflow.MiddleEllipsis
-            )
         }
 
         HorizontalSpacer { small }
@@ -204,9 +193,10 @@ private fun ProductItem(
 @Composable
 private fun ProductFormDialog(
     state: ProductDialogState.Form,
+    tldSuffix: String,
     onDismiss: () -> Unit,
     onNameChanged: (String) -> Unit,
-    onScriptUrlChanged: (String) -> Unit,
+    onWorkerUrlChanged: (String) -> Unit,
     onConfirm: () -> Unit,
 ) {
     val isEditing = state.productId != null
@@ -239,7 +229,7 @@ private fun ProductFormDialog(
                     onValueChange = onNameChanged,
                     placeholder = {
                         NovaText(
-                            text = stringResource(RCommon.string.product_bot_management_name_hint),
+                            text = stringResource(RCommon.string.product_bot_management_name_hint, tldSuffix),
                             style = PolkadotTheme.typography.body.large,
                             color = PolkadotTheme.colors.fg.tertiary
                         )
@@ -250,8 +240,8 @@ private fun ProductFormDialog(
 
                 NovaTextField(
                     modifier = Modifier.fillMaxWidth(),
-                    value = state.scriptUrl,
-                    onValueChange = onScriptUrlChanged,
+                    value = state.workerUrl,
+                    onValueChange = onWorkerUrlChanged,
                     placeholder = {
                         NovaText(
                             text = stringResource(RCommon.string.product_bot_management_url_hint),
@@ -267,7 +257,7 @@ private fun ProductFormDialog(
                     modifier = Modifier.align(Alignment.End),
                     text = stringResource(RCommon.string.product_bot_management_confirm),
                     onClick = onConfirm,
-                    enabled = state.scriptUrl.isNotBlank() &&
+                    enabled = state.workerUrl.isNotBlank() &&
                         state.dotNsName.isNotBlank() &&
                         !state.isSubmitting,
                     loading = state.isSubmitting
@@ -284,8 +274,8 @@ private fun ProductBotManagementScreenPreview() {
         ProductBotManagementScreenInternal(
             state = ProductBotManagementState(
                 products = listOf(
-                    ProductUiModel(id = ProductId.fromUrl("1.dot".toUri()).getOrThrow(), name = "Test Product", scriptUrl = "https://example.com/script.js", appUrl = "https://1.dot"),
-                    ProductUiModel(id = ProductId.fromUrl("2.dot".toUri()).getOrThrow(), name = "Another Product", scriptUrl = "https://example.com/other.js", appUrl = "https://2.dot"),
+                    ProductUiModel(id = ProductId.fromStoredValue("1.dot"), name = "Test Product", appUrl = "https://1.dot"),
+                    ProductUiModel(id = ProductId.fromStoredValue("2.dot"), name = "Another Product", appUrl = "https://2.dot"),
                 ),
             ),
             onBackClick = {},
@@ -295,7 +285,7 @@ private fun ProductBotManagementScreenPreview() {
             onDeleteProductClick = {},
             onDialogDismiss = {},
             onNameChanged = {},
-            onScriptUrlChanged = {},
+            onWorkerUrlChanged = {},
             onDialogConfirm = {},
         )
     }

@@ -8,4 +8,6 @@ android {
 
 dependencies {
     api(project(":common"))
+
+    testImplementation(libs.junit)
 }

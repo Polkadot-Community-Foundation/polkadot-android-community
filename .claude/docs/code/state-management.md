@@ -132,7 +132,7 @@ Reviewer flags **only when granular states cause inconsistency** — one updates
 
 ### When `combine` arity gets ugly
 
-If you find yourself combining 6+ flows in one shot, **combine earlier**. Group related upstream flows into intermediate combined flows first. PR #503 lesson: "cramming everything into a single combine makes the code harder to read and leads to 'array by index' reads".
+If you find yourself combining 6+ flows in one shot, **combine earlier**. Group related upstream flows into intermediate combined flows first; cramming everything into a single combine makes the code harder to read and leads to array-by-index reads.
 
 ---
 
@@ -264,7 +264,7 @@ Do **not** invent bespoke `sealed class Loading | Loaded | Failed` per feature (
 |---|---|
 | `viewModelScope` | VM-tied work. `launch`, `launchUnit`. |
 | `ComputationalScope` | App-process-wide flows that outlive a screen. Wraps `ProcessLifecycleOwner`. Limited use — most things should be VM-scoped. |
-| `AppInitializerPipeline` (called from `App.onCreate`) | One-shot startup work registered via `Set<AppInitializer>` (PR #499). |
+| `AppInitializerPipeline` (called from `App.onCreate`) | One-shot startup work registered via `Set<AppInitializer>`. |
 | `context(CoroutineScope)` | Flow extension functions like `shareInBackground()`. |
 
 ### `launchUnit`
@@ -277,13 +277,13 @@ If you find yourself reaching for `replayCache[0]` to peek a `SharedFlow`, eithe
 - Convert to a `StateFlow` (always has a current value), or
 - Use `flow.first()` to pull the latest synchronously inside a suspending call.
 
-`replayCache` access is a workaround signal (PR #494).
+`replayCache` access is a workaround signal.
 
 ---
 
 ## AppInitializer — for app-startup side effects
 
-See `code/di-and-lifecycle.md § AppInitializer — the only allowed startup-side-effect pattern`. Use `AppInitializer @IntoSet` for app-start subscriptions, registry priming, stale-notification cleanup. Don't inject classes into `App.onCreate` just to trigger their `init {}` blocks (PR #499).
+See `code/di-and-lifecycle.md § AppInitializer — the only allowed startup-side-effect pattern`. Use `AppInitializer @IntoSet` for app-start subscriptions, registry priming, stale-notification cleanup. Don't inject classes into `App.onCreate` just to trigger their `init {}` blocks.
 
 ---
 
@@ -295,7 +295,7 @@ For "show snackbar / open dialog / navigate once / play a one-shot animation" �
 - For "must-not-drop" events (e.g. awaitable actions), expose a `Channel<Event>.receiveAsFlow()` instead. Project example: `SsoSessionsListViewModel.deleteConfirmation`.
 - **`major`** — The screen consumes one-shot events with `Flow<T>.collectAsEffect { context, event -> ... }` from `design/utils/Flows.kt`, **not** a hand-rolled `LaunchedEffect(Unit) { flow.collect { … } }`. The extension wraps `repeatOnLifecycle(STARTED)` so the collector pauses when the screen is backgrounded; hand-rolled versions leak events to a backgrounded screen. (`StateFlow` state is a separate concern — that still uses `collectAsStateWithLifecycle`.)
 
-Don't reach into `Activity` from the VM (PR #460); always go through a channel/flow + screen handler.
+Don't reach into `Activity` from the VM; always go through a channel/flow + screen handler.
 
 ---
 

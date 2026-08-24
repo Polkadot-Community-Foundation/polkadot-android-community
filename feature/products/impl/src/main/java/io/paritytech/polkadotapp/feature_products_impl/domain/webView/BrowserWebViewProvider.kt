@@ -16,7 +16,9 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import io.paritytech.polkadotapp.common.utils.CoroutineDispatchers
 import io.paritytech.polkadotapp.feature_dotns_api.domain.DotNsLoadProgress
 import io.paritytech.polkadotapp.feature_dotns_api.domain.DotNsResolver
+import io.paritytech.polkadotapp.feature_dotns_api.domain.DotNsTldProvider
 import io.paritytech.polkadotapp.feature_dotns_api.presentation.DotNsContentLoader
+import io.paritytech.polkadotapp.feature_dotns_api.presentation.DotNsServingHostResolver
 import io.paritytech.polkadotapp.feature_products_impl.domain.hostApi.CallingProductIdProvider
 import io.paritytech.polkadotapp.feature_products_impl.domain.hostApi.PageLifecycleSource
 import io.paritytech.polkadotapp.feature_products_impl.domain.hostApi.UrlDerivedProductId
@@ -38,6 +40,8 @@ class BrowserWebViewProvider @AssistedInject constructor(
     private val productWebChromeClientFactory: ProductWebChromeClient.Factory,
     private val webViewPermissionClientFactory: WebViewPermissionClientFactory,
     private val dotNsResolver: DotNsResolver,
+    private val dotNsTldProvider: DotNsTldProvider,
+    private val servingHostResolver: DotNsServingHostResolver,
     dispatchers: CoroutineDispatchers,
     @Assisted private val initialUrl: String,
     @Assisted private val navigationPolicy: NavigationPolicy,
@@ -52,7 +56,7 @@ class BrowserWebViewProvider @AssistedInject constructor(
         ): BrowserWebViewProvider
     }
 
-    override val callingProductIdProvider: CallingProductIdProvider = UrlDerivedProductId {
+    override val callingProductIdProvider: CallingProductIdProvider = UrlDerivedProductId(dotNsTldProvider) {
         accessWebView(WebView::getUrl)
     }
 
@@ -87,7 +91,8 @@ class BrowserWebViewProvider @AssistedInject constructor(
                 allowContentAccess = false
             }
 
-            val innerClient = BrowserWebViewClient(contentLoader, navigationPolicy)
+            val innerClient =
+                BrowserWebViewClient(contentLoader, dotNsTldProvider, servingHostResolver, navigationPolicy)
             webViewClient = InternalWebViewClient(innerClient)
             webChromeClient = chromeClient
         }

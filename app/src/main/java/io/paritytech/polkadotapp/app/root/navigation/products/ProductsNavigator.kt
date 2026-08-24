@@ -28,12 +28,8 @@ class ProductsNavigator @Inject constructor(
         args = payload.toPayloadBundle(SpaBrowserPayload::class.java.name),
     )
 
-    // Popping keeps the main screen (and its selected bottom tab) alive; the global action is the fallback
-    // for the cases where the browser was entered without main below it.
     override fun leaveBrowser() {
-        if (!popBackstack(R.id.mainFragment)) {
-            performNavigation(R.id.action_global_to_main_graph)
-        }
+        back()
     }
 
     override fun openProductChat(productId: ProductId) {

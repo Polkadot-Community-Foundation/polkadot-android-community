@@ -10,7 +10,7 @@
 6. **`major`** — New module added without a `CODEOWNERS` update in the same PR.
 7. **`minor`** — New module added with only one owner in `CODEOWNERS`. The agent cannot pick the right co-owner; surface to the human author.
 7. **`major`** — Cross-feature wiring done via one-off direct injection instead of `@IntoSet` / `@IntoMap` multibinding.
-8. **`major`** — Feature-specific entity placed in shared `database` without a feature-prefixed name (PR #465).
+8. **`major`** — Feature-specific entity placed in shared `database` without a feature-prefixed name.
 9. **`minor`** — Package leaves lowercase-glued (`pairrequest`) instead of `camelCase` (`pairRequest`).
 
 ## Purpose
