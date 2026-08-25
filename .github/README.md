@@ -18,6 +18,44 @@ python3 scripts/generate-mnemonic.py
 
 This document describes all continuous integration and delivery flows for the Polkadot Android application.
 
+## Repository Configuration
+
+Configure these values under **Settings → Secrets and variables → Actions**. GitHub
+does not expose repository configuration to a runner automatically; the workflows
+under `.github/workflows` map each value to the environment read by Gradle.
+
+### Build Variables
+
+These values are public application configuration and are intentionally stored as
+GitHub Actions Variables rather than Secrets. They are embedded in the APK and must
+not contain credentials.
+
+| Variable | Purpose |
+|----------|---------|
+| `APPLICATION_ID` | Base Android application ID. The build adds `.debug` or `.nightly` for those build types. It must match a client in `google-services.json`. |
+| `PRIVACY_POLICY_URL` | Privacy-policy destination shown by the application. |
+| `TERMS_OF_USE_URL` | Terms-of-use destination shown by the application. |
+| `LOG_COLLECTION_EMAIL` | Recipient used by the debug log-sharing flow. |
+| `SENTRY_DSN` | Client DSN embedded in debug/nightly manifests for runtime error reporting. |
+| `SENTRY_ORG` | Sentry organization slug used by the Gradle plugin. |
+| `SENTRY_PROJECT` | Sentry project slug used by the Gradle plugin. |
+| `REFERRAL_WEB_HOST` | Allowed web host for referral-ticket deeplinks. Supply a host only, without a scheme or path. |
+| `GAME_RESULTS_FALLBACK_URL` | Final HTTPS fallback for the game-results webview when DotNs and Remote Config do not provide a URL. |
+
+### Build Secret
+
+| Secret | Purpose |
+|--------|---------|
+| `NIGHTLY_FUNDING_MNEMONIC` | Funding account used by nightly and production test contours. It is provided only to Gradle build/test steps. |
+
+`NIGHTLY_FUNDING_MNEMONIC` is protected while stored by GitHub and is masked in
+workflow logs. The current application places it in `BuildConfig`, however, so it
+can be extracted from a distributed APK. Use only a tightly funded test account;
+never use a treasury, production, or otherwise valuable mnemonic here.
+
+See [Deployment §5](../docs/DEPLOYMENT.md#5-environment-variables--secrets-reference)
+for signing, Google/Firebase, Sentry, publishing, and local-build configuration.
+
 ## Flows Overview
 
 ### 1. Pull Request Validation Flow
@@ -51,7 +89,7 @@ This document describes all continuous integration and delivery flows for the Po
 
 **Configuration:**
 - Build type: Debug
-- Default groups: `dev-team`
+- Default groups: `android-dev-testers`
 
 ---
 

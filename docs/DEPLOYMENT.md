@@ -226,6 +226,11 @@ field. Set them in `local.properties` / CI to point at your own infrastructure.
 > nightly/production test funding origin fails explicitly instead of silently using
 > a public mnemonic. The separate testnet Alice origin continues to use the public,
 > well-known Substrate development fixture.
+>
+> The value is compiled into `BuildConfig` and can therefore be recovered from a
+> distributed APK. GitHub Secrets protect it at rest and mask it in CI logs, but do
+> not make it confidential after compilation. Use only a tightly funded disposable
+> test account, never a treasury or other valuable mnemonic.
 
 ### 5.3 Sentry (crash/error reporting)
 
@@ -405,6 +410,8 @@ jobs:
       PRIVACY_POLICY_URL: ${{ vars.PRIVACY_POLICY_URL }}
       TERMS_OF_USE_URL: ${{ vars.TERMS_OF_USE_URL }}
       LOG_COLLECTION_EMAIL: ${{ vars.LOG_COLLECTION_EMAIL }}
+      REFERRAL_WEB_HOST: ${{ vars.REFERRAL_WEB_HOST }}
+      GAME_RESULTS_FALLBACK_URL: ${{ vars.GAME_RESULTS_FALLBACK_URL }}
       SENTRY_ORG: ${{ vars.SENTRY_ORG }}
       SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT }}
       SENTRY_DSN: ${{ vars.SENTRY_DSN }}
@@ -417,7 +424,6 @@ jobs:
       INTERCOM_API_KEY: ${{ secrets.INTERCOM_API_KEY }}
       INTERCOM_APP_ID: ${{ secrets.INTERCOM_APP_ID }}
       W3S_AUTH_KEY: ${{ secrets.W3S_AUTH_KEY }}
-      NIGHTLY_FUNDING_MNEMONIC: ${{ secrets.NIGHTLY_FUNDING_MNEMONIC }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -427,7 +433,10 @@ jobs:
           echo "${{ secrets.DEV_KEYSTORE_BASE64 }}" | base64 --decode > develop_key.jks
           # gp edition only — vanilla builds do not require google-services.json
           echo "${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}" | base64 --decode > app/src/gp/google-services.json
-      - run: ./gradlew assembleGpDebug --no-daemon --stacktrace
+      - name: Build
+        env:
+          NIGHTLY_FUNDING_MNEMONIC: ${{ secrets.NIGHTLY_FUNDING_MNEMONIC }}
+        run: ./gradlew assembleGpDebug --no-daemon --stacktrace
       # To build the vanilla edition instead, omit GOOGLE_SERVICES_JSON_BASE64,
       # GOOGLE_OAUTH_ID, and GOOGLE_PROJECT_ID, then run:
       # - run: ./gradlew assembleVanillaDebug --no-daemon --stacktrace
