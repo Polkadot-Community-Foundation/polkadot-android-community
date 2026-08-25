@@ -8,6 +8,7 @@ on:
   workflow_dispatch:
 
 env:
+  APPLICATION_ID: ${{ vars.APPLICATION_ID }}
   CI_FIREBASE_RELEASENOTES: ${{ github.event.pull_request.title }} ${{ github.event.pull_request.merge_commit_sha }}
   CI_FIREBASE_GROUP: android-dev-testers
   VERSIONS_KT_PATH: build-logic/convention/src/main/kotlin/Versions.kt

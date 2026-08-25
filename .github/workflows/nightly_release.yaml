@@ -10,6 +10,7 @@ on:
   workflow_dispatch:
 
 env:
+  APPLICATION_ID: ${{ vars.APPLICATION_ID }}
   CI_FIREBASE_GROUP: android-daily-tests
   CI_FIREBASE_GROUP_VANILLA: android-daily-tests-vanilla
   # use it fot tests

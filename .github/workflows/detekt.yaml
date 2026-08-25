@@ -4,6 +4,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
   cancel-in-progress: true
 
+env:
+  APPLICATION_ID: ${{ vars.APPLICATION_ID }}
+
 on:
   pull_request:
   merge_group:

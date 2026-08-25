@@ -13,6 +13,7 @@ on:
         type: string
 
 env:
+  APPLICATION_ID: ${{ vars.APPLICATION_ID }}
   VERSIONS_KT_PATH: build-logic/convention/src/main/kotlin/Versions.kt
   CI_BUILD_ID: ${{ github.run_number }}
 
