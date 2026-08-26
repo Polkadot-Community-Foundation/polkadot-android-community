@@ -22,7 +22,8 @@ This document describes all continuous integration and delivery flows for the Po
 
 Configure these values under **Settings → Secrets and variables → Actions**. GitHub
 does not expose repository configuration to a runner automatically; the workflows
-under `.github/workflows` map each value to the environment read by Gradle.
+under `.github/workflows` explicitly map build values to the environment read by
+Gradle and notification values to action inputs.
 
 ### Build Variables
 
@@ -41,6 +42,15 @@ not contain credentials.
 | `SENTRY_PROJECT` | Sentry project slug used by the Gradle plugin. |
 | `REFERRAL_WEB_HOST` | Allowed web host for referral-ticket deeplinks. Supply a host only, without a scheme or path. |
 | `GAME_RESULTS_FALLBACK_URL` | Final HTTPS fallback for the game-results webview when DotNs and Remote Config do not provide a URL. |
+
+### Workflow Variables
+
+These values configure CI notifications and are not consumed by the Android build.
+
+| Variable | Purpose |
+|----------|---------|
+| `CI_MATRIX_ROOM_IDS` | Comma-separated Matrix room IDs that receive nightly release notifications. |
+| `NIGHTLY_DOWNLOAD_LINKS` | Multiline Markdown list of download links included in nightly release notifications. |
 
 ### Build Secret
 

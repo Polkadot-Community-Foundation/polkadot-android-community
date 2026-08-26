@@ -396,6 +396,13 @@ and mnemonics as **GitHub Actions secrets**. Expose both as environment variable
 the Gradle build already reads them via `readSecretOrDefault` and
 `readSecretOrNull`, so no code changes are needed. A minimal sketch:
 
+The nightly release notification also reads two workflow-only repository variables:
+
+| Variable | Description |
+|----------|-------------|
+| `CI_MATRIX_ROOM_IDS` | Comma-separated Matrix room IDs that receive the notification. |
+| `NIGHTLY_DOWNLOAD_LINKS` | Multiline Markdown list passed to the notification action as its download links. |
+
 ```yaml
 name: Build
 on: [pull_request]

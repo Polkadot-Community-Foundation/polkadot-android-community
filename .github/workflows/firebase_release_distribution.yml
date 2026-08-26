@@ -28,7 +28,7 @@ env:
 jobs:
   check_and_build:
     name: Check and Build Release
-    runs-on: parity-default
+    runs-on: ubuntu-latest
     # Only run if PR is from a release-* branch (and not closed) OR triggered manually
     if: (startsWith(github.head_ref, 'release-') && github.event.action != 'closed') || github.event_name == 'workflow_dispatch'
     outputs:

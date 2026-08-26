@@ -24,7 +24,7 @@ env:
 jobs:
   build:
     name: Build app
-    runs-on: parity-default
+    runs-on: ubuntu-latest
     # Skip if PR is from a release-* branch (handled by release_firebase.yml)
     if: (github.event_name == 'pull_request' && github.event.pull_request.merged == true && !startsWith(github.event.pull_request.head.ref, 'release-')) || github.event_name == 'workflow_dispatch'
     outputs:

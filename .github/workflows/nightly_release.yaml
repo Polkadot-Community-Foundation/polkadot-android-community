@@ -24,8 +24,7 @@ env:
   # use it fot tests
   #CI_FIREBASE_GROUP: nightly-ci-test
   # comma-separated chat/room IDs for notifications
-  # Mobile App Feedback, Polkadot Mobile & DIMs
-  CI_MATRIX_ROOM_IDS: "!VqxAjEKxUCeJcJggHX:matrix.org,!RuUVonfeJZzoTvHUzZ:parity.io"
+  CI_MATRIX_ROOM_IDS: ${{ vars.CI_MATRIX_ROOM_IDS }}
 
 permissions:
   contents: write
@@ -34,7 +33,7 @@ permissions:
 jobs:
   nightly-release:
     name: Build, upload to Firebase and create nightly GitHub release
-    runs-on: parity-default
+    runs-on: ubuntu-latest
     timeout-minutes: 60
 
     steps:
@@ -246,11 +245,7 @@ jobs:
             Version: ${{ env.APP_VERSION_NAME }}
             Build number: ${{ env.APP_VERSION_CODE }}
           download_links_format: inline
-          download_links: |
-            [Firebase](https://appdistribution.firebase.dev/i/1b62f2d120ba6002)
-            [.apk (GitHub)](https://github.com/paritytech/polkadot-android-community/releases)
-            [.apk (s3 bucket)](https://polkadot-app-artefacts.s3.fr-par.scw.cloud/android/nightly/polkadot-app.apk)
-            [WebPage (user:april)](https://nightly.personhood.dev/)
+          download_links: ${{ vars.NIGHTLY_DOWNLOAD_LINKS }}
           bot_url: ${{ secrets.NOTIFICATION_BOT_URL }}
           bot_api_token: ${{ secrets.NOTIFICATION_BOT_TOKEN }}
           matrix_room_ids: ${{ env.CI_MATRIX_ROOM_IDS }}

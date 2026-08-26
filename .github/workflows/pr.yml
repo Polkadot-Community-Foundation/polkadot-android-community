@@ -23,7 +23,7 @@ jobs:
   lint-and-test:
     name: Run linter and tests
     if: github.event_name == 'merge_group' || ! startsWith(github.event.pull_request.head.ref, 'release-')
-    runs-on: parity-default
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -48,7 +48,7 @@ jobs:
   build:
     name: Run build
     if: github.event_name == 'merge_group' || ! startsWith(github.event.pull_request.head.ref, 'release-')
-    runs-on: parity-default
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
