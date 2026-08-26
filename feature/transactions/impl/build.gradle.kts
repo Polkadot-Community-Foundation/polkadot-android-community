@@ -13,7 +13,7 @@ android {
         buildConfigField(
             "String",
             "NIGHTLY_FUNDING_MNEMONIC",
-            "\"${localProperties.readSecretOrNull("NIGHTLY_FUNDING_MNEMONIC") ?: "bottom drive obey lake curtain smoke basket hold race lonely fit walk"}\""
+            "\"${localProperties.readSecretOrNull("NIGHTLY_FUNDING_MNEMONIC") ?: ""}\""
         )
     }
 }

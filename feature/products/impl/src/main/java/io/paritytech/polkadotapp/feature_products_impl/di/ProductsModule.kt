@@ -7,6 +7,7 @@ import dagger.hilt.components.SingletonComponent
 import dagger.multibindings.IntoSet
 import io.paritytech.polkadotapp.feature_chats_api.domain.extension.ExternalExtensionProvider
 import io.paritytech.polkadotapp.feature_chats_api.domain.search.ChatSearchResultProvider
+import io.paritytech.polkadotapp.feature_dotns_api.presentation.DotNsServingHostResolver
 import io.paritytech.polkadotapp.feature_products_api.domain.ProductAccountIdProvider
 import io.paritytech.polkadotapp.feature_products_api.domain.ProductRequestAccountResolver
 import io.paritytech.polkadotapp.feature_products_api.domain.accountsProtocol.AccountsProtocol
@@ -17,8 +18,6 @@ import io.paritytech.polkadotapp.feature_products_api.domain.sponsoring.Preimage
 import io.paritytech.polkadotapp.feature_products_api.domain.sponsoring.StatementStoreSubmissionSponsoring
 import io.paritytech.polkadotapp.feature_products_api.domain.sponsoring.TransactionSponsoring
 import io.paritytech.polkadotapp.feature_products_api.presentation.spaHost.SpaHost
-import io.paritytech.polkadotapp.feature_products_impl.data.network.HttpProductScriptDownloader
-import io.paritytech.polkadotapp.feature_products_impl.data.network.ProductScriptDownloader
 import io.paritytech.polkadotapp.feature_products_impl.data.repository.BrowserTabRepository
 import io.paritytech.polkadotapp.feature_products_impl.data.repository.ProductIntegrationRepository
 import io.paritytech.polkadotapp.feature_products_impl.data.repository.ProductRepository
@@ -70,12 +69,10 @@ import io.paritytech.polkadotapp.feature_products_impl.domain.permissions.handle
 import io.paritytech.polkadotapp.feature_products_impl.domain.permissions.handlers.RemotePermissionHandler
 import io.paritytech.polkadotapp.feature_products_impl.domain.permissions.handlers.UserIdentityAccessPermissionHandler
 import io.paritytech.polkadotapp.feature_products_impl.domain.permissions.models.ProductPermission
-import io.paritytech.polkadotapp.feature_products_impl.domain.product.ArchiveScriptResolver
-import io.paritytech.polkadotapp.feature_products_impl.domain.product.ProductIconResolver
 import io.paritytech.polkadotapp.feature_products_impl.domain.product.ProductRegistrar
 import io.paritytech.polkadotapp.feature_products_impl.domain.product.ProductScriptResolver
-import io.paritytech.polkadotapp.feature_products_impl.domain.product.RealProductIconResolver
 import io.paritytech.polkadotapp.feature_products_impl.domain.product.RealProductRegistrar
+import io.paritytech.polkadotapp.feature_products_impl.domain.product.RealProductScriptResolver
 import io.paritytech.polkadotapp.feature_products_impl.domain.productBotManagement.ProductBotManagementInteractor
 import io.paritytech.polkadotapp.feature_products_impl.domain.productBotManagement.RealProductBotManagementInteractor
 import io.paritytech.polkadotapp.feature_products_impl.domain.search.ProductChatSearchResultProvider
@@ -85,6 +82,9 @@ import io.paritytech.polkadotapp.feature_products_impl.domain.spaBrowser.RealSpa
 import io.paritytech.polkadotapp.feature_products_impl.domain.spaBrowser.SpaBrowserInteractor
 import io.paritytech.polkadotapp.feature_products_impl.domain.topUpRequest.ExecuteTopUpUseCase
 import io.paritytech.polkadotapp.feature_products_impl.domain.topUpRequest.RealExecuteTopUpUseCase
+import io.paritytech.polkadotapp.feature_products_impl.domain.usecase.RealResolveProductUseCase
+import io.paritytech.polkadotapp.feature_products_impl.domain.usecase.ResolveProductUseCase
+import io.paritytech.polkadotapp.feature_products_impl.domain.webView.ProductServingHostResolver
 import io.paritytech.polkadotapp.feature_products_impl.presentation.spaHost.RealSpaHost
 import javax.inject.Singleton
 
@@ -117,11 +117,15 @@ internal interface ProductsModule {
 
     @Binds
     @Singleton
-    fun bindContainerScriptProvider(impl: AssetContainerScriptProvider): ContainerScriptProvider
+    fun bindResolveProductUseCase(impl: RealResolveProductUseCase): ResolveProductUseCase
 
     @Binds
     @Singleton
-    fun bindProductScriptDownloader(impl: HttpProductScriptDownloader): ProductScriptDownloader
+    fun bindServingHostResolver(impl: ProductServingHostResolver): DotNsServingHostResolver
+
+    @Binds
+    @Singleton
+    fun bindContainerScriptProvider(impl: AssetContainerScriptProvider): ContainerScriptProvider
 
     @Binds
     @Singleton
@@ -193,15 +197,11 @@ internal interface ProductsModule {
 
     @Binds
     @Singleton
-    fun bindProductScriptResolver(impl: ArchiveScriptResolver): ProductScriptResolver
+    fun bindProductScriptResolver(impl: RealProductScriptResolver): ProductScriptResolver
 
     @Binds
     @Singleton
     fun bindProductRegistrar(impl: RealProductRegistrar): ProductRegistrar
-
-    @Binds
-    @Singleton
-    fun bindProductIconResolver(impl: RealProductIconResolver): ProductIconResolver
 
     @Binds
     @Singleton

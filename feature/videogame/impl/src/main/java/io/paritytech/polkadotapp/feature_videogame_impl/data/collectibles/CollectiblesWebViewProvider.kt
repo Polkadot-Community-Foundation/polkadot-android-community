@@ -10,6 +10,8 @@ import android.webkit.WebSettings
 import android.webkit.WebView
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.paritytech.polkadotapp.feature_dotns_api.domain.DotNsResolver
+import io.paritytech.polkadotapp.feature_dotns_api.domain.DotNsTldProvider
+import io.paritytech.polkadotapp.feature_dotns_api.presentation.DotNsServingHostResolver
 import io.paritytech.polkadotapp.feature_dotns_api.presentation.DotNsWebViewClient
 import io.paritytech.polkadotapp.feature_videogame_impl.BuildConfig
 import io.paritytech.polkadotapp.feature_videogame_impl.di.WebViewPayloadJson
@@ -23,6 +25,8 @@ import javax.inject.Inject
 class CollectiblesWebViewProvider @Inject constructor(
     @ApplicationContext private val context: Context,
     private val dotNsResolver: DotNsResolver,
+    private val dotNsTldProvider: DotNsTldProvider,
+    private val servingHostResolver: DotNsServingHostResolver,
     @WebViewPayloadJson private val json: Json
 ) {
     data class Bundle(
@@ -55,7 +59,8 @@ class CollectiblesWebViewProvider @Inject constructor(
                 mediaPlaybackRequiresUserGesture = false
                 mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
             }
-            webViewClient = PageFinishedClient(pageFinished, dotNsResolver)
+            webViewClient =
+                PageFinishedClient(pageFinished, dotNsResolver, dotNsTldProvider, servingHostResolver)
             webChromeClient = ConsoleLoggingChromeClient()
             addJavascriptInterface(bridge, JS_INTERFACE_NAME)
             loadUrl(url.toString())
@@ -71,7 +76,9 @@ class CollectiblesWebViewProvider @Inject constructor(
     private class PageFinishedClient(
         private val pageFinished: MutableStateFlow<Boolean>,
         dotNsResolver: DotNsResolver,
-    ) : DotNsWebViewClient(dotNsResolver) {
+        dotNsTldProvider: DotNsTldProvider,
+        servingHostResolver: DotNsServingHostResolver,
+    ) : DotNsWebViewClient(dotNsResolver, dotNsTldProvider, servingHostResolver) {
         override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
             super.onPageStarted(view, url, favicon)
             Timber.d("[Collectibles] onPageStarted url=$url")

@@ -96,6 +96,7 @@ private fun ProductSettingsScreenPreview() {
                 ProductSettingsUiModel(
                     name = "Web3 Summit",
                     hasPermissions = true,
+                    iconUrl = null,
                 )
             ),
             onBack = {},

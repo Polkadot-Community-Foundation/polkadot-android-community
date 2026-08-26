@@ -10,10 +10,12 @@ import io.paritytech.polkadotapp.common.data.network.NetworkApiCreator
 import io.paritytech.polkadotapp.common.data.network.addDebugLoggingInterceptor
 import io.paritytech.polkadotapp.tools_integrity_api.interceptors.BackendIntegrityInterceptor
 import io.paritytech.polkadotapp.tools_jwt_auth_api.BearerAuth
+import io.paritytech.polkadotapp.tools_jwt_auth_api.JwtAuthTokenInvalidator
 import io.paritytech.polkadotapp.tools_jwt_auth_impl.data.api.AuthTokenApi
 import io.paritytech.polkadotapp.tools_jwt_auth_impl.data.interceptor.BearerTokenAuthenticator
 import io.paritytech.polkadotapp.tools_jwt_auth_impl.data.interceptor.BearerTokenInterceptor
 import io.paritytech.polkadotapp.tools_jwt_auth_impl.data.manager.JWTTokenProvider
+import io.paritytech.polkadotapp.tools_jwt_auth_impl.data.manager.RealJwtAuthTokenInvalidator
 import io.paritytech.polkadotapp.tools_jwt_auth_impl.data.manager.RealTimeProvider
 import io.paritytech.polkadotapp.tools_jwt_auth_impl.data.manager.TimeProvider
 import io.paritytech.polkadotapp.tools_jwt_auth_impl.domain.warmUp.JwtAuthWarmUpService
@@ -36,6 +38,9 @@ interface JWTAuthModule {
 
     @Binds
     fun bindJwtAuthWarmUpService(impl: RealJwtAuthWarmUpService): JwtAuthWarmUpService
+
+    @Binds
+    fun bindJwtAuthTokenInvalidator(impl: RealJwtAuthTokenInvalidator): JwtAuthTokenInvalidator
 
     companion object {
         @Provides

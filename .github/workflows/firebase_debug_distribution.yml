@@ -1,0 +1,152 @@
+name: Firebase Debug Distribution
+
+on:
+  pull_request:
+    types: [closed]
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  APPLICATION_ID: ${{ vars.APPLICATION_ID }}
+  GAME_RESULTS_FALLBACK_URL: ${{ vars.GAME_RESULTS_FALLBACK_URL }}
+  LOG_COLLECTION_EMAIL: ${{ vars.LOG_COLLECTION_EMAIL }}
+  PRIVACY_POLICY_URL: ${{ vars.PRIVACY_POLICY_URL }}
+  REFERRAL_WEB_HOST: ${{ vars.REFERRAL_WEB_HOST }}
+  SENTRY_DSN: ${{ vars.SENTRY_DSN }}
+  SENTRY_ORG: ${{ vars.SENTRY_ORG }}
+  SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT }}
+  TERMS_OF_USE_URL: ${{ vars.TERMS_OF_USE_URL }}
+  CI_FIREBASE_RELEASENOTES: ${{ github.event.pull_request.title }} ${{ github.event.pull_request.merge_commit_sha }}
+  CI_FIREBASE_GROUP: android-dev-testers
+  VERSIONS_KT_PATH: build-logic/convention/src/main/kotlin/Versions.kt
+
+jobs:
+  build:
+    name: Build app
+    runs-on: ubuntu-latest
+    # Skip if PR is from a release-* branch (handled by release_firebase.yml)
+    if: (github.event_name == 'pull_request' && github.event.pull_request.merged == true && !startsWith(github.event.pull_request.head.ref, 'release-')) || github.event_name == 'workflow_dispatch'
+    outputs:
+      build_number: ${{ steps.build_number.outputs.build_number }}
+      marketing_version: ${{ steps.read_version.outputs.marketing_version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        uses: ./.github/actions/install/
+
+      - name: Calculate build number
+        id: build_number
+        run: |
+          BUILD_NUMBER=$((10000 + ${{ github.run_number }}))
+          echo "CI_BUILD_ID=${BUILD_NUMBER}" >> $GITHUB_ENV
+          echo "build_number=${BUILD_NUMBER}" >> $GITHUB_OUTPUT
+          echo "Calculated build number: ${BUILD_NUMBER}"
+
+      - name: Update build number in Versions.kt
+        run: |
+          set -euo pipefail
+
+          echo "Setting build number to ${{ env.CI_BUILD_ID }}..."
+          python3 .github/scripts/update_build_number.py \
+            --build-number ${{ env.CI_BUILD_ID }}
+
+      - name: Read marketing version
+        id: read_version
+        run: |
+          set -euo pipefail
+
+          echo "Reading marketing version from Versions.kt..."
+          python3 .github/scripts/read_versions.py \
+            --output-format env | grep "marketing_version=" >> "$GITHUB_OUTPUT"
+
+      - name: Prepare Android build files
+        uses: ./.github/actions/prepare-android-build
+        with:
+          google_services_json_base64: ${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}
+          keystore_file_base64: ${{ secrets.CI_GITHUB_KEYSTORE_KEY_FILE }}
+          keystore_path: develop_key.jks
+
+      - name: Build Debug apk
+        env:
+          CI_KEYSTORE_KEY_ALIAS: ${{ secrets.CI_KEYSTORE_KEY_ALIAS }}
+          CI_KEYSTORE_KEY_PASS: ${{ secrets.CI_KEYSTORE_KEY_PASS }}
+          CI_KEYSTORE_PASS: ${{ secrets.CI_KEYSTORE_PASS }}
+          FIRESTORE_DATABASE_ID: ${{ secrets.FIRESTORE_DATABASE_ID }}
+          GOOGLE_OAUTH_ID: ${{ secrets.GOOGLE_OAUTH_ID }}
+          GOOGLE_PROJECT_ID: ${{ secrets.GOOGLE_PROJECT_ID }}
+          NIGHTLY_FUNDING_MNEMONIC: ${{ secrets.NIGHTLY_FUNDING_MNEMONIC }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          W3S_AUTH_KEY: ${{ secrets.W3S_AUTH_KEY }}
+        run: ./gradlew assembleGpDebug --no-daemon --stacktrace
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: apk
+          path: app/build/outputs/apk/gp/debug
+
+  upload-to-firebase:
+    name: Upload APK to Firebase
+    runs-on: ubuntu-latest
+    needs: build
+    # Skip if PR is from a release-* branch (handled by release_firebase.yml)
+    if: (github.event_name == 'pull_request' && github.event.pull_request.merged == true && !startsWith(github.event.pull_request.head.ref, 'release-')) || github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download built artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: apk
+          path: app
+
+      - name: Upload to Firebase
+        uses: ./.github/actions/upload-to-firebase
+        with:
+          appId: ${{ secrets.ANDROID_FIREBASE_APP_ID }}
+          firebase-token: ${{ secrets.FIREBASE_GOOGLE_SERVICE_ACCOUNT }}
+          releaseNotes: ${{ env.CI_FIREBASE_RELEASENOTES }}
+          test-groups: ${{ env.CI_FIREBASE_GROUP }}
+          upload-file: app/app-gp-debug.apk
+
+  upload-to-s3:
+    name: Upload APK to S3
+    runs-on: ubuntu-latest
+    needs: build
+    if: success()
+    env:
+      S3_BUCKET: s3://polkadot-app-artefacts
+      S3_REGION: fr-par
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download built artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: apk
+          path: apk
+
+      - name: Upload to S3
+        uses: novasamatech/github-actions/s3-upload@v5
+        with:
+          s3_region: ${{ env.S3_REGION }}
+          s3_access_key: ${{ secrets.SCW_ACCESS_KEY }}
+          s3_secret_key: ${{ secrets.SCW_SECRET_KEY }}
+          s3_bucket: ${{ env.S3_BUCKET }}
+          source_path: apk/app-gp-debug.apk
+          destination_path: /android/debug/polkadot-app-${{ needs.build.outputs.marketing_version }}-${{ needs.build.outputs.build_number }}.apk
+
+      - name: Upload to S3 (static path)
+        uses: novasamatech/github-actions/s3-upload@v5
+        with:
+          s3_region: ${{ env.S3_REGION }}
+          s3_access_key: ${{ secrets.SCW_ACCESS_KEY }}
+          s3_secret_key: ${{ secrets.SCW_SECRET_KEY }}
+          s3_bucket: ${{ env.S3_BUCKET }}
+          source_path: apk/app-gp-debug.apk
+          destination_path: /android/debug/polkadot-app.apk

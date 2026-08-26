@@ -1,5 +1,6 @@
 package io.paritytech.polkadotapp.feature_products_impl.domain.hostApi
 
+import io.paritytech.polkadotapp.feature_dotns_api.domain.DotNsTldProvider
 import io.paritytech.polkadotapp.feature_products_impl.data.storage.ProductLocalStorage
 import io.paritytech.polkadotapp.feature_products_impl.domain.bot.ProductsBotApi
 import io.paritytech.polkadotapp.feature_products_impl.domain.hostApi.handlerGroups.AccountHostCalls
@@ -32,6 +33,7 @@ import javax.inject.Singleton
 @Singleton
 class HostCallGroupFactory @Inject constructor(
     private val productLocalStorage: ProductLocalStorage,
+    private val dotNsTldProvider: DotNsTldProvider,
 ) {
     /**
      * Shared handler groups used by ALL environments.
@@ -46,7 +48,7 @@ class HostCallGroupFactory @Inject constructor(
         ChainHostCalls(botApi),
         SigningHostCalls(botApi),
         StorageHostCalls(productLocalStorage, productIdProvider),
-        NavigationHostCalls(navigationPolicy, productIdProvider),
+        NavigationHostCalls(navigationPolicy, productIdProvider, dotNsTldProvider),
         StatementHostCalls(botApi, productIdProvider),
         PreimageHostCalls(botApi, productIdProvider),
         PermissionHostCalls(botApi, productIdProvider),

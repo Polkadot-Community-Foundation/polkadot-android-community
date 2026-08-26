@@ -2,6 +2,7 @@ package io.paritytech.polkadotapp.feature_products_impl.domain.hostApi.navigatio
 
 import android.net.Uri
 import io.paritytech.polkadotapp.feature_dotns_api.domain.DotNsNavigationType
+import io.paritytech.polkadotapp.feature_dotns_api.domain.DotNsTldProvider
 import io.paritytech.polkadotapp.feature_dotns_api.domain.DotNsUtils
 import io.paritytech.polkadotapp.feature_products_api.model.ProductId
 
@@ -17,10 +18,13 @@ sealed interface NavigationPolicy {
     fun handleNavigation(type: DotNsNavigationType, destination: Uri): NavigationResult
 
     /**
-     * Chat: reject all navigation.
+     * Chat: there is no visible WebView to load into, so every navigation goes to the deeplink handler.
      */
-    data object Disabled : NavigationPolicy {
+    class DeeplinkNavigation(
+        private val onDeeplinkNavigation: (Uri) -> Unit,
+    ) : NavigationPolicy {
         override fun handleNavigation(type: DotNsNavigationType, destination: Uri): NavigationResult {
+            onDeeplinkNavigation(destination)
             return NavigationResult.INTERCEPTED_BY_POLICY
         }
     }
@@ -54,7 +58,8 @@ sealed interface NavigationPolicy {
      */
     class HostApiNavigation(
         private val onDeeplinkNavigation: (Uri) -> Unit,
-        private val webViewLoader: (String) -> Unit
+        private val webViewLoader: (String) -> Unit,
+        private val dotNsTldProvider: DotNsTldProvider
     ) : NavigationPolicy {
         override fun handleNavigation(
             type: DotNsNavigationType,
@@ -68,7 +73,9 @@ sealed interface NavigationPolicy {
                 }
 
                 DotNsNavigationType.SAME_DOTNS_DOMAIN -> {
-                    val normalized = DotNsUtils.normalize(destination) ?: destination
+                    val normalized = dotNsTldProvider.currentTldOrNull()
+                        ?.let { DotNsUtils.normalize(destination, it) }
+                        ?: destination
                     webViewLoader(normalized.toString())
                     NavigationResult.INTERCEPTED_BY_POLICY
                 }
@@ -81,13 +88,15 @@ sealed interface NavigationPolicy {
      */
     class CatalogNavigation(
         private val onProductSelected: (ProductId) -> Unit,
+        private val dotNsTldProvider: DotNsTldProvider,
     ) : NavigationPolicy {
         override fun handleNavigation(type: DotNsNavigationType, destination: Uri): NavigationResult {
             return when (type) {
                 DotNsNavigationType.SAME_DOTNS_DOMAIN -> NavigationResult.DELEGATE_TO_WEBVIEW
 
                 DotNsNavigationType.CROSS_DOTNS_DOMAIN -> {
-                    val productId = ProductId.fromUrl(destination).getOrNull()
+                    val productId = dotNsTldProvider.currentTldOrNull()
+                        ?.let { ProductId.fromUrl(destination, it).getOrNull() }
                         ?: return NavigationResult.DELEGATE_TO_WEBVIEW
                     onProductSelected(productId)
                     NavigationResult.INTERCEPTED_BY_POLICY

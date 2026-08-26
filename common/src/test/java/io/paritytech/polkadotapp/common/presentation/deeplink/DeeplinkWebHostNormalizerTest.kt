@@ -13,8 +13,13 @@ class DeeplinkWebHostNormalizerTest {
     }
 
     @Test
-    fun `maps paseo li product subdomain to canonical dot host`() {
-        assertEquals("coinflip.dot", dotProductHost(scheme = "https", host = "coinflip.paseo.li"))
+    fun `maps paseo li product subdomain to its own paseo root`() {
+        assertEquals("coinflip.paseo", dotProductHost(scheme = "https", host = "coinflip.paseo.li"))
+    }
+
+    @Test
+    fun `maps test li product subdomain to its own test root`() {
+        assertEquals("coinflip.test", dotProductHost(scheme = "https", host = "coinflip.test.li"))
     }
 
     @Test

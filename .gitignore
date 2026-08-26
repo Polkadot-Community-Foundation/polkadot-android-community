@@ -70,3 +70,6 @@ token*
 sentry.properties
 
 .serena/
+
+# Temp
+tmp/

@@ -81,6 +81,7 @@ import io.paritytech.polkadotapp.database.migrations.Migration38To39
 import io.paritytech.polkadotapp.database.migrations.Migration3To4
 import io.paritytech.polkadotapp.database.migrations.Migration42To43Spec
 import io.paritytech.polkadotapp.database.migrations.Migration48To49
+import io.paritytech.polkadotapp.database.migrations.Migration54To55Spec
 import io.paritytech.polkadotapp.database.model.BrowserTabLocal
 import io.paritytech.polkadotapp.database.model.ChatBotStateLocal
 import io.paritytech.polkadotapp.database.model.ChatDraftLocal
@@ -134,7 +135,7 @@ import io.paritytech.polkadotapp.database.model.chain.ChainNodeLocal
 import io.paritytech.polkadotapp.database.model.chain.ChainRuntimeInfoLocal
 
 @Database(
-    version = 54,
+    version = 55,
     entities = [
         ChainLocal::class,
         ChainNodeLocal::class,
@@ -253,6 +254,8 @@ import io.paritytech.polkadotapp.database.model.chain.ChainRuntimeInfoLocal
         AutoMigration(from = 52, to = 53),
         // Add RingVrfKeyRegistrationLocal table (RFC-0024 ring VRF key registry)
         AutoMigration(from = 53, to = 54),
+        // Add icon columns + userWorkerUrl to products; drop scriptUrl, contentHash and iconUrl
+        AutoMigration(from = 54, to = 55, spec = Migration54To55Spec::class),
     ]
 )
 @TypeConverters(

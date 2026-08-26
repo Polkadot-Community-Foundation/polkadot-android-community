@@ -21,7 +21,7 @@ import javax.inject.Inject
 class ProductSettingsViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     interactor: ProductSettingsInteractor,
-    private val router: ProductsRouter
+    private val router: ProductsRouter,
 ) : BaseViewModel() {
     private val payload: ProductSettingsPayload = savedStateHandle.getPayload()
     private val productId = ProductId.fromStoredValue(payload.productId)
@@ -32,6 +32,7 @@ class ProductSettingsViewModel @Inject constructor(
             ProductSettingsUiModel(
                 name = productSettingsInfo.product.name,
                 hasPermissions = productSettingsInfo.hasPermissions,
+                iconUrl = productSettingsInfo.iconUrl,
             )
         }
         .withLoading()

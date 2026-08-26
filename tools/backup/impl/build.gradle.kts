@@ -1,3 +1,5 @@
+import com.android.build.gradle.internal.cxx.configure.gradleLocalProperties
+
 plugins {
     id("polkadotapp.android.library")
     id("polkadotapp.android.hilt")
@@ -5,22 +7,29 @@ plugins {
 
 android {
     namespace = "io.paritytech.polkadotapp.tools_backup_impl"
+    val localProperties = gradleLocalProperties(rootDir, providers)
+
+    defaultConfig {
+        buildConfigString(
+            "FIRESTORE_DATABASE_ID",
+            localProperties.readSecretOrDefault("FIRESTORE_DATABASE_ID", "(default)")
+        )
+    }
 
     buildTypes {
-
         getByName("release") {
-            buildConfigField("String", "BACKUP_FILE_SUFFIX", "\"production\"")
-            buildConfigField("String", "BACKUP_KEY_SUFFIX", "\"-production\"")
+            buildConfigString("BACKUP_FILE_SUFFIX", "production")
+            buildConfigString("BACKUP_KEY_SUFFIX", "-production")
         }
 
         getByName("debug") {
-            buildConfigField("String", "BACKUP_FILE_SUFFIX", "\"debug\"")
-            buildConfigField("String", "BACKUP_KEY_SUFFIX", "\"-debug\"")
+            buildConfigString("BACKUP_FILE_SUFFIX", "debug")
+            buildConfigString("BACKUP_KEY_SUFFIX", "-debug")
         }
 
         getByName("nightly") {
-            buildConfigField("String", "BACKUP_FILE_SUFFIX", "\"nightly\"")
-            buildConfigField("String", "BACKUP_KEY_SUFFIX", "\"-nightly\"")
+            buildConfigString("BACKUP_FILE_SUFFIX", "nightly")
+            buildConfigString("BACKUP_KEY_SUFFIX", "-nightly")
         }
     }
 

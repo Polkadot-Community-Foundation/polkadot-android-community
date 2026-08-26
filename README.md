@@ -111,9 +111,10 @@ Polkadot Android is a self-custodial superapp: your keys are created on your pho
 
 A modular **Kotlin** / **Jetpack Compose** codebase: features are split into `api` and `impl` modules wired with Hilt, performance-critical crypto is compiled from **Rust** via the NDK ([`bindings/`](./bindings)), and chain access goes through [substrate-sdk-android](https://github.com/novasamatech/substrate-sdk-android) (JSON-RPC, storage subscriptions, extrinsics).
 
-This repository does not ship a hosted CI/CD pipeline. Build-time configuration
-and the steps to sign and publish the app to Google Play, Firebase App
-Distribution, or GitHub Releases are documented in [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md).
+GitHub Actions validate pull requests and provide the configured Firebase, S3,
+nightly, and release distribution flows. Build-time configuration and the steps
+to sign and publish the app are documented in
+[docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md).
 
 Architecture conventions, module layout, and coding standards are documented in [CLAUDE.md](./CLAUDE.md).
 

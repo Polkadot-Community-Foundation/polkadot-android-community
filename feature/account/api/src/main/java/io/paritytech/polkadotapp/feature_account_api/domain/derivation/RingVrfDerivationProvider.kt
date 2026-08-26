@@ -6,5 +6,5 @@ package io.paritytech.polkadotapp.feature_account_api.domain.derivation
  * Contributed only for the purposes that have a ring-VRF key; an absent entry means the purpose has none.
  */
 interface RingVrfDerivationProvider {
-    fun provideDerivationPath(): String
+    suspend fun provideDerivationPath(): String
 }

@@ -7,5 +7,5 @@ package io.paritytech.polkadotapp.feature_account_api.domain.derivation
  * module that owns the scheme, so `account` never has to know which subtree a feature derives from.
  */
 interface AccountDerivationProvider {
-    fun provideDerivationPath(): String
+    suspend fun provideDerivationPath(): String
 }

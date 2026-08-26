@@ -1,6 +1,8 @@
 package io.paritytech.polkadotapp.app.root.navigation
 
+import io.paritytech.polkadotapp.app.BuildConfig
+
 object LegalUrls {
-    const val PRIVACY_POLICY = "https://example.com/privacy"
-    const val TERMS_OF_USE = "https://example.com/terms"
+    val PRIVACY_POLICY = BuildConfig.PRIVACY_POLICY_URL
+    val TERMS_OF_USE = BuildConfig.TERMS_OF_USE_URL
 }

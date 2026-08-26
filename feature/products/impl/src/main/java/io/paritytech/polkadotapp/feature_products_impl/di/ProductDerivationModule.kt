@@ -10,6 +10,7 @@ import io.paritytech.polkadotapp.feature_account_api.domain.derivation.AccountDe
 import io.paritytech.polkadotapp.feature_account_api.domain.derivation.DerivationIndex32
 import io.paritytech.polkadotapp.feature_account_api.domain.derivation.RingVrfDerivationProvider
 import io.paritytech.polkadotapp.feature_account_api.domain.model.MetaAccount
+import io.paritytech.polkadotapp.feature_dotns_api.domain.DotNsTldProvider
 import io.paritytech.polkadotapp.feature_products_api.model.derivation.ReservedProductIds
 import io.paritytech.polkadotapp.feature_products_impl.domain.derivation.ReservedProductAccountDerivationProvider
 import io.paritytech.polkadotapp.feature_products_impl.domain.derivation.ReservedRingVrfDerivationProvider
@@ -23,35 +24,35 @@ internal object ProductDerivationModule {
     @Provides
     @IntoMap
     @AccountPurposeKey(MetaAccount.Purpose.WALLET)
-    fun provideWalletAccountDerivation(): AccountDerivationProvider {
-        return ReservedProductAccountDerivationProvider(ReservedProductIds.LIGHT_PERSON_IDENTITY)
+    fun provideWalletAccountDerivation(dotNsTldProvider: DotNsTldProvider): AccountDerivationProvider {
+        return ReservedProductAccountDerivationProvider(dotNsTldProvider, ReservedProductIds::lightPersonIdentity)
     }
 
     @Provides
     @IntoMap
     @AccountPurposeKey(MetaAccount.Purpose.DEPOSIT)
-    fun provideDepositAccountDerivation(): AccountDerivationProvider {
-        return ReservedProductAccountDerivationProvider(ReservedProductIds.FUNDING)
+    fun provideDepositAccountDerivation(dotNsTldProvider: DotNsTldProvider): AccountDerivationProvider {
+        return ReservedProductAccountDerivationProvider(dotNsTldProvider, ReservedProductIds::funding)
     }
 
     @Provides
     @IntoMap
     @AccountPurposeKey(MetaAccount.Purpose.CANDIDATE)
-    fun provideCandidateAccountDerivation(): AccountDerivationProvider {
-        return ReservedProductAccountDerivationProvider(ReservedProductIds.GAME)
+    fun provideCandidateAccountDerivation(dotNsTldProvider: DotNsTldProvider): AccountDerivationProvider {
+        return ReservedProductAccountDerivationProvider(dotNsTldProvider, ReservedProductIds::game)
     }
 
     @Provides
     @IntoMap
     @AccountPurposeKey(MetaAccount.Purpose.CANDIDATE)
-    fun provideFullPersonhoodRingVrfDerivation(): RingVrfDerivationProvider {
-        return ReservedRingVrfDerivationProvider(ReservedProductIds.PERSONHOOD, FULL_PERSONHOOD_INDEX)
+    fun provideFullPersonhoodRingVrfDerivation(dotNsTldProvider: DotNsTldProvider): RingVrfDerivationProvider {
+        return ReservedRingVrfDerivationProvider(dotNsTldProvider, ReservedProductIds::personhood, FULL_PERSONHOOD_INDEX)
     }
 
     @Provides
     @IntoMap
     @AccountPurposeKey(MetaAccount.Purpose.WALLET)
-    fun provideLightPersonhoodRingVrfDerivation(): RingVrfDerivationProvider {
-        return ReservedRingVrfDerivationProvider(ReservedProductIds.PERSONHOOD, LIGHT_PERSONHOOD_INDEX)
+    fun provideLightPersonhoodRingVrfDerivation(dotNsTldProvider: DotNsTldProvider): RingVrfDerivationProvider {
+        return ReservedRingVrfDerivationProvider(dotNsTldProvider, ReservedProductIds::personhood, LIGHT_PERSONHOOD_INDEX)
     }
 }

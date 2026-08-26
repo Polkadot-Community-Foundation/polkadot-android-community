@@ -13,9 +13,13 @@ import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.paritytech.polkadotapp.common.utils.CoroutineDispatchers
+import io.paritytech.polkadotapp.feature_dotns_api.domain.DotNsResolver
+import io.paritytech.polkadotapp.feature_dotns_api.domain.DotNsTldProvider
+import io.paritytech.polkadotapp.feature_dotns_api.presentation.DotNsServingHostResolver
+import io.paritytech.polkadotapp.feature_dotns_api.presentation.DotNsWebViewClient
 import io.paritytech.polkadotapp.feature_products_api.model.ProductId
-import io.paritytech.polkadotapp.feature_products_api.model.toUrl
 import io.paritytech.polkadotapp.feature_products_impl.domain.hostApi.FixedProductId
+import io.paritytech.polkadotapp.feature_products_impl.domain.scriptExecutor.WorkerScript
 import kotlinx.coroutines.CoroutineScope
 
 class ChatWebViewProvider @AssistedInject constructor(
@@ -23,17 +27,26 @@ class ChatWebViewProvider @AssistedInject constructor(
     productWebChromeClientFactory: ProductWebChromeClient.Factory,
     webViewPermissionClientFactory: WebViewPermissionClientFactory,
     dispatchers: CoroutineDispatchers,
-    @Assisted private val productId: ProductId,
+    private val dotNsResolver: DotNsResolver,
+    private val dotNsTldProvider: DotNsTldProvider,
+    private val servingHostResolver: DotNsServingHostResolver,
+    @Assisted private val config: ChatWebViewConfig,
     @Assisted private val scope: CoroutineScope,
 ) : WebViewProvider(dispatchers) {
     @AssistedFactory
     interface Factory {
-        fun create(productId: ProductId, scope: CoroutineScope): ChatWebViewProvider
+        fun create(config: ChatWebViewConfig, scope: CoroutineScope): ChatWebViewProvider
     }
+
+    private val productId: ProductId = config.productId
+    private val workerScript: WorkerScript = config.workerScript
 
     override val callingProductIdProvider = FixedProductId(productId)
 
     private val permissionClient = webViewPermissionClientFactory.create(callingProductIdProvider)
+
+    // Serves the worker's archive by host, so the entry module's relative imports resolve too.
+    private val dotNsContentClient = DotNsWebViewClient(dotNsResolver, dotNsTldProvider, servingHostResolver)
     private val chromeClient = productWebChromeClientFactory.create(
         logPrefix = "Script $productId",
         callingProductIdProvider = callingProductIdProvider,
@@ -67,6 +80,7 @@ class ChatWebViewProvider @AssistedInject constructor(
 
                 override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest?): WebResourceResponse? {
                     return permissionClient.shouldInterceptRequest(view, request)
+                        ?: request?.let { dotNsContentClient.shouldInterceptRequest(view, it) }
                 }
             }
             webChromeClient = chromeClient
@@ -91,5 +105,10 @@ class ChatWebViewProvider @AssistedInject constructor(
         }
     }
 
-    private fun getBaseUrl() = productId.toUrl()
+    private fun getBaseUrl() = workerScript.baseUrl
 }
+
+data class ChatWebViewConfig(
+    val productId: ProductId,
+    val workerScript: WorkerScript,
+)

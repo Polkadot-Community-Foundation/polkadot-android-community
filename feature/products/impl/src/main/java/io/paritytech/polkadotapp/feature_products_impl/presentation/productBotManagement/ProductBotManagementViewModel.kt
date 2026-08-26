@@ -2,6 +2,7 @@ package io.paritytech.polkadotapp.feature_products_impl.presentation.productBotM
 
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.paritytech.polkadotapp.common.presentation.screens.BaseViewModel
+import io.paritytech.polkadotapp.common.utils.flatMap
 import io.paritytech.polkadotapp.common.utils.launchUnit
 import io.paritytech.polkadotapp.common.utils.mapList
 import io.paritytech.polkadotapp.common.utils.requireSuffix
@@ -21,16 +22,16 @@ class ProductBotManagementViewModel @Inject constructor(
     private val interactor: ProductBotManagementInteractor,
     private val router: ProductsRouter,
 ) : BaseViewModel(), ProductBotManagementContract {
-    override val state = MutableStateFlow(ProductBotManagementState())
+    private val tld = interactor.currentTld()
+
+    override val state = MutableStateFlow(ProductBotManagementState(tldSuffix = tld.suffix))
 
     init {
         interactor.observeProducts()
             .mapList { product ->
-                @Suppress("DEPRECATION")
                 ProductUiModel(
                     id = product.id,
                     name = product.name,
-                    scriptUrl = product.scriptUrl,
                     appUrl = product.id.toUrl(),
                 )
             }
@@ -54,14 +55,17 @@ class ProductBotManagementViewModel @Inject constructor(
 
     override fun onEditProductClick(productId: String) {
         val product = state.value.products.find { it.id.value == productId } ?: return
-        state.update {
-            it.copy(
-                dialogState = ProductDialogState.Form(
-                    productId = product.id.value,
-                    dotNsName = product.name,
-                    scriptUrl = product.scriptUrl,
+        launch {
+            val workerUrl = interactor.getUserWorkerUrl(product.id).orEmpty()
+            state.update {
+                it.copy(
+                    dialogState = ProductDialogState.Form(
+                        productId = product.id.value,
+                        dotNsName = product.name,
+                        workerUrl = workerUrl,
+                    )
                 )
-            )
+            }
         }
     }
 
@@ -81,27 +85,30 @@ class ProductBotManagementViewModel @Inject constructor(
         }
     }
 
-    override fun onScriptUrlChanged(url: String) {
+    override fun onWorkerUrlChanged(url: String) {
         state.update {
             val form = it.dialogState as? ProductDialogState.Form ?: return@update it
-            it.copy(dialogState = form.copy(scriptUrl = url))
+            it.copy(dialogState = form.copy(workerUrl = url))
         }
     }
 
     override fun onDialogConfirm() = launchUnit {
         val form = state.value.dialogState as? ProductDialogState.Form ?: return@launchUnit
-        if (form.scriptUrl.isBlank() || form.dotNsName.isBlank()) return@launchUnit
+        if (form.workerUrl.isBlank() || form.dotNsName.isBlank()) return@launchUnit
 
         state.update {
             it.copy(dialogState = form.copy(isSubmitting = true))
         }
 
         val result = if (form.productId != null) {
-            interactor.updateProduct(ProductId.fromStoredValue(form.productId), form.scriptUrl, form.dotNsName)
+            interactor.updateProduct(ProductId.fromStoredValue(form.productId), form.workerUrl, form.dotNsName)
         } else {
-            val dotNs = form.dotNsName.requireSuffix(".dot")
-            val productId = ProductId.fromStoredValue(dotNs)
-            interactor.upsertProduct(productId, form.scriptUrl, form.dotNsName)
+            // Typed by hand in the debug menu, so it is validated rather than trusted.
+            val dotNs = form.dotNsName.lowercase().requireSuffix(tld.suffix)
+
+            ProductId.fromString(dotNs, tld).flatMap { productId ->
+                interactor.upsertProduct(productId, form.workerUrl, form.dotNsName)
+            }
         }
 
         result

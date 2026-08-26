@@ -4,6 +4,7 @@ import android.view.ViewGroup
 import android.webkit.WebView
 import android.widget.FrameLayout
 import androidx.activity.compose.BackHandler
+import androidx.annotation.StringRes
 import androidx.compose.animation.core.AnimationSpec
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
@@ -14,15 +15,20 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import io.paritytech.polkadotapp.design.components.error.DefaultErrorState
 import io.paritytech.polkadotapp.design.components.progress.NovaLinearProgressIndicator
 import io.paritytech.polkadotapp.design.components.surface.PolkadotSurface
 import io.paritytech.polkadotapp.design.theme.PolkadotTheme
 import io.paritytech.polkadotapp.feature_dotns_api.domain.DotNsLoadProgress
+import io.paritytech.polkadotapp.feature_products_api.domain.error.ProductResolutionError
+import io.paritytech.polkadotapp.feature_products_impl.presentation.spaBrowser.SpaBrowserPageState
 import io.paritytech.polkadotapp.feature_products_impl.presentation.spaBrowser.SpaBrowserUiState
 import io.paritytech.polkadotapp.feature_products_impl.presentation.spaBrowser.SpaBrowserViewModel
+import io.paritytech.polkadotapp.common.R as RCommon
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -58,21 +64,9 @@ internal fun SpaBrowserScreenInternal(
                 modifier = Modifier.weight(1f),
                 color = PolkadotTheme.colors.bg.surface.container,
             ) {
-                // A stable host whose child is swapped to the active tab's WebView. The factory runs once, so
-                // we swap in `update` (detaching the WebView from any previous parent first) — otherwise the
-                // first-attached WebView would stick and a tab switch would show the wrong product.
-                AndroidView(
-                    modifier = Modifier.fillMaxSize(),
-                    factory = { context -> FrameLayout(context) },
-                    update = { host ->
-                        if (host.getChildAt(0) !== webView) {
-                            host.removeAllViews()
-                            webView?.let {
-                                (it.parent as? ViewGroup)?.removeView(it)
-                                host.addView(it)
-                            }
-                        }
-                    },
+                SpaBrowserPageContent(
+                    pageState = state.pageState,
+                    webView = webView,
                 )
             }
         }
@@ -123,9 +117,49 @@ private fun DotNsLoadProgressBar(progress: DotNsLoadProgress, modifier: Modifier
     }
 }
 
+@Composable
+private fun SpaBrowserPageContent(
+    pageState: SpaBrowserPageState,
+    webView: WebView?,
+) {
+    when (pageState) {
+        SpaBrowserPageState.Content -> {
+            // The factory runs once, so the active tab's WebView is swapped in `update` (detached
+            // from its previous parent first) — otherwise a tab switch would show the wrong product.
+            AndroidView(
+                modifier = Modifier.fillMaxSize(),
+                factory = { context -> FrameLayout(context) },
+                update = { host ->
+                    if (host.getChildAt(0) !== webView) {
+                        host.removeAllViews()
+                        webView?.let {
+                            (it.parent as? ViewGroup)?.removeView(it)
+                            host.addView(it)
+                        }
+                    }
+                },
+            )
+        }
+
+        SpaBrowserPageState.NoAppSurface -> DefaultErrorState(
+            text = stringResource(RCommon.string.spa_browser_page_no_app_surface),
+        )
+
+        is SpaBrowserPageState.Failed -> DefaultErrorState(
+            text = stringResource(pageState.error.userMessage()),
+        )
+    }
+}
+
 private const val RESOLVE_BAND_END = 0.1f
 private const val DOWNLOAD_BAND_END = 0.9f
 private const val BAND_ANIM_MILLIS = 300
+
+@StringRes
+private fun ProductResolutionError.userMessage(): Int = when (this) {
+    ProductResolutionError.MalformedManifest -> RCommon.string.product_resolution_error_malformed_manifest
+    ProductResolutionError.Unknown -> RCommon.string.product_resolution_error_unknown
+}
 
 @Preview
 @Composable
@@ -134,8 +168,8 @@ private fun SpaBrowserScreenPreview() {
         SpaBrowserScreenInternal(
             state = SpaBrowserUiState(
                 title = "Web3 Summit App",
-                subtitle = "web3summit.com",
-                loadProgress = DotNsLoadProgress.Downloading(0.4f)
+                subtitle = "web3summit.dot",
+                loadProgress = DotNsLoadProgress.Downloading(0.4f),
             ),
             webView = null,
         )

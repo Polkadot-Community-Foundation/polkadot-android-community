@@ -8,6 +8,7 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 import org.web3j.abi.FunctionEncoder
 import org.web3j.abi.TypeReference
+import org.web3j.abi.datatypes.Address
 import org.web3j.abi.datatypes.DynamicBytes
 import org.web3j.abi.datatypes.Function
 import org.web3j.abi.datatypes.Type
@@ -75,6 +76,64 @@ class EvmContractCallerTest {
         assertNull(result)
     }
 
+    @Test
+    fun `encodeResolver produces correct function selector`() {
+        val node = NameHash.nameHash("test.dot")
+        val encoded = EvmContractCaller.encodeResolver(node)
+
+        // resolver(bytes32) selector = keccak256("resolver(bytes32)")[0:4] = 0x0178b8bf
+        assertEquals("0178b8bf", encoded.copyOfRange(0, 4).toHexString())
+    }
+
+    @Test
+    fun `decodeAddress round-trips with sample address`() {
+        val addressHex = "ab".repeat(20)
+        val abiEncoded = abiEncodeAddress("0x$addressHex")
+
+        val decoded = EvmContractCaller.decodeAddress(abiEncoded)
+        assertNotNull(decoded)
+        assertEquals(addressHex, decoded!!.toHexString())
+    }
+
+    @Test
+    fun `decodeAddress returns null for zero address`() {
+        val abiEncoded = abiEncodeAddress("0x" + "00".repeat(20))
+        assertNull(EvmContractCaller.decodeAddress(abiEncoded))
+    }
+
+    @Test
+    fun `decodeAddress returns null for empty output`() {
+        assertNull(EvmContractCaller.decodeAddress(ByteArray(0)))
+    }
+
+    @Test
+    fun `encodeTld produces correct function selector`() {
+        val encoded = EvmContractCaller.encodeTld()
+
+        // tld() selector = keccak256("tld()")[0:4] = 0x2d551432
+        assertEquals("2d551432", encoded.toHexString())
+    }
+
+    @Test
+    fun `decodeTld round-trips with sample data`() {
+        val abiEncoded = abiEncodeString(".paseo")
+
+        val decoded = EvmContractCaller.decodeTld(abiEncoded)
+        assertEquals(".paseo", decoded)
+    }
+
+    @Test
+    fun `decodeTld returns null for empty string`() {
+        val abiEncoded = abiEncodeString("")
+        val result = EvmContractCaller.decodeTld(abiEncoded)
+        assertNull(result)
+    }
+
+    @Test
+    fun `decodeTld returns null for empty output`() {
+        assertNull(EvmContractCaller.decodeTld(byteArrayOf()))
+    }
+
     @Suppress("UNCHECKED_CAST")
     private fun abiEncodeReturnValue(value: Type<*>, typeRef: TypeReference<out Type<*>>): ByteArray {
         // Encode as a function call with the value as input, then strip the 4-byte selector
@@ -90,5 +149,9 @@ class EvmContractCallerTest {
 
     private fun abiEncodeString(str: String): ByteArray {
         return abiEncodeReturnValue(Utf8String(str), object : TypeReference<Utf8String>() {})
+    }
+
+    private fun abiEncodeAddress(hex: String): ByteArray {
+        return abiEncodeReturnValue(Address(hex), object : TypeReference<Address>() {})
     }
 }

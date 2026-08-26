@@ -45,6 +45,10 @@ internal class RealTestnetTransactionOrigins @Inject constructor(
     }
 
     private fun nightlyMnemonic(): Mnemonic {
+        check(NIGHTLY_FUNDING_MNEMONIC.isNotEmpty()) {
+            "NIGHTLY_FUNDING_MNEMONIC must be configured for nightly and production testnet funding"
+        }
+
         return MnemonicCreator.fromWords(NIGHTLY_FUNDING_MNEMONIC)
     }
 }
