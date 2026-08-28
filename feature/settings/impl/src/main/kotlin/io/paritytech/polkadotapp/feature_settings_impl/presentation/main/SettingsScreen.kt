@@ -21,7 +21,6 @@ import io.paritytech.polkadotapp.design.components.icon.vectors.GridOutlined
 import io.paritytech.polkadotapp.design.components.icon.vectors.LaptopOutlined
 import io.paritytech.polkadotapp.design.components.icon.vectors.NotificationsBellOutlined
 import io.paritytech.polkadotapp.design.components.icon.vectors.PaletteOutlined
-import io.paritytech.polkadotapp.design.components.icon.vectors.Refreshing
 import io.paritytech.polkadotapp.design.components.icon.vectors.Settings
 import io.paritytech.polkadotapp.design.components.menu.PolkadotMenuList
 import io.paritytech.polkadotapp.design.components.navigationbar.LocalAppNavigationBarInsets
@@ -49,7 +48,6 @@ fun SettingsScreen() {
         onProductsClick = viewModel::onProductsClick,
         onBlockedUsersClick = viewModel::onBlockedUsersClick,
         onConnectedDevicesClick = viewModel::onLinkedDevicesClick,
-        onForceReclaimClick = viewModel::onForceReclaimClick,
         onPrivacyPolicyClick = viewModel::onPrivacyPolicyClick,
         onTermsOfUseClick = viewModel::onTermsOfUseClick,
         onDebugMenuClick = viewModel::onDebugMenuClick
@@ -65,7 +63,6 @@ private fun SettingsScreenInternal(
     onProductsClick: () -> Unit,
     onBlockedUsersClick: () -> Unit,
     onConnectedDevicesClick: () -> Unit,
-    onForceReclaimClick: () -> Unit,
     onPrivacyPolicyClick: () -> Unit,
     onTermsOfUseClick: () -> Unit,
     onDebugMenuClick: () -> Unit
@@ -151,18 +148,6 @@ private fun SettingsScreenInternal(
 
                 VerticalSpacer { large }
 
-                PolkadotMenuList(
-                    headerText = stringResource(RCommon.string.settings_section_payments)
-                ) {
-                    SettingsMenuItem(
-                        icon = NovaIcons.Refreshing,
-                        title = stringResource(RCommon.string.settings_revoke_payments),
-                        onClick = onForceReclaimClick
-                    )
-                }
-
-                VerticalSpacer { large }
-
                 if (state.isDebug) {
                     PolkadotMenuList(
                         headerText = stringResource(RCommon.string.settings_section_debug)
@@ -200,7 +185,6 @@ private fun SettingsScreenPreview() {
             onProductsClick = {},
             onBlockedUsersClick = {},
             onConnectedDevicesClick = {},
-            onForceReclaimClick = {},
             onPrivacyPolicyClick = {},
             onTermsOfUseClick = {},
             onDebugMenuClick = {}
