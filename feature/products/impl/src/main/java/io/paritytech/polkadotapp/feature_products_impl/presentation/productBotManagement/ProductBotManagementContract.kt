@@ -20,7 +20,7 @@ interface ProductBotManagementContract {
 
     fun onDotNsDomainChanged(dotNsDomain: String)
 
-    fun onScriptUrlChanged(url: String)
+    fun onWorkerUrlChanged(url: String)
 
     fun onDialogConfirm()
 }

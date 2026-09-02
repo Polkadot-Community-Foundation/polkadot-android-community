@@ -5,15 +5,15 @@ How the app talks to substrate chains: storage, runtime APIs, SCALE codec, and c
 ## Rules at a glance
 
 1. **`blocking`** — Editing existing hex in a SCALE conformance test is forbidden — that's the canary for accidental schema breakage.
-2. **`blocking`** — Manual binary serializer for a new type when `@Serializable` / kotlinx-serialization SCALE works (PR #494).
+2. **`blocking`** — Manual binary serializer for a new type when `@Serializable` / kotlinx-serialization SCALE works.
 3. **`major`** — New `QueryableStorageEntry` declared with `binding = ::bindXxx` (legacy) instead of the reified `storageN<T>(name)` form. Make the value `@Serializable`.
 4. **`major`** — Hand-rolled `storageType.fromHex(...)` + `Scale.decode(...)` at a call site. Declare a typed `QueryableStorageEntry` and use `.query()` / `.observe()`.
 5. **`major`** — Raw `ByteArray` in a domain model — use `DataByteArray` (see `code/project-types-and-units.md`).
-6. **`major`** — Raw `String` for `AccountId` / `EncodedPublicKey` / chain hash — use the typed wrappers (PR #544).
+6. **`major`** — Raw `String` for `AccountId` / `EncodedPublicKey` / chain hash — use the typed wrappers.
 7. See `code/results-and-errors.md § getOrThrow — forbidden except at two seams` for the canonical rule. (Chain calls returning `Result<T>` must propagate, not unwrap.)
 8. **`major`** — Manual `Result<>` for a runtime API that returns `Result<T, E>` — use `ScaleResult.toResult()`.
-9. **`major`** — Polling chain state instead of subscribing (`observe`) when the data drives UI (PR #449).
-10. **`major`** — Diffing subscription emissions before persisting — overwrite is fine when updates are rare (PR #449).
+9. **`major`** — Polling chain state instead of subscribing (`observe`) when the data drives UI.
+10. **`major`** — Diffing subscription emissions before persisting — overwrite is fine when updates are rare.
 11. **`major`** — Hand-rolling `runCatching` at storage call sites when `queryCatching` / `subscribeCatching` covers it.
 12. **`minor`** — Hardcoded base URL when `NetworkApiCreator` provides one.
 
@@ -93,7 +93,7 @@ storage.observe(listOf(accountId1, accountId2))  // Flow<Map<AccountId, AccountI
 | Continuously up-to-date data in UI | `.observe()` |
 | Historical value at a specific block | `.query(at = blockHash)` |
 
-**Always subscribe over polling** when the data drives UI (PR #449 lesson).
+**Always subscribe over polling** when the data drives UI.
 
 ---
 
@@ -182,7 +182,7 @@ val typed: AccountInfo = Scale.decode(valueType, dynamicInstance)
 
 ### Don't hand-roll binary encoders
 
-PR #494 (blocking): manual binary encoding is forbidden when `BinaryScale` works. New code should never produce a custom binary serializer that bypasses kotlinx-serialization unless there's a documented format incompatibility.
+**Blocking:** Manual binary encoding is forbidden when `BinaryScale` works. New code should never produce a custom binary serializer that bypasses kotlinx-serialization unless there's a documented format incompatibility.
 
 ### `DataByteArray` for binary data in domain models
 
@@ -240,7 +240,7 @@ For runtime API calls that return `Result<T, E>` on the chain side, decode as `S
 Subscriptions live as long as the chain socket is connected. When the connection drops:
 - The flow does not error by default; it stalls until reconnect.
 - For background work, the default connection isn't always active — request one via `ChainConnectionRefCounter` (see `transactions.md § Background chain work`).
-- Don't depend on a specific node URL; collation may transparently switch (PR #507 context). When you must hit a specific node (e.g. HOP file fetch), open a dedicated socket — don't rely on the chain connection.
+- Don't depend on a specific node URL; collation may transparently switch. When you must hit a specific node (e.g. HOP file fetch), open a dedicated socket — don't rely on the chain connection.
 
 ---
 
@@ -258,12 +258,12 @@ Subscriptions live as long as the chain socket is connected. When the connection
 
 ## Anti-patterns
 
-- **Polling** chain state instead of subscribing — chain pushes events; use `observe` (PR #449).
-- **Manual binary encoders** when `BinaryScale` covers the case (PR #494).
+- **Polling** chain state instead of subscribing — chain pushes events; use `observe`.
+- **Manual binary encoders** when `BinaryScale` covers the case.
 - **`storage0(name, binding = ::bindXxx)`** for a new entry — legacy. Use the reified `storage0<T>(name)` form; make the value `@Serializable` if it isn't already.
 - **Hand-rolled `fromHex(...)` + `Scale.decode(...)`** at a call site instead of declaring a typed `QueryableStorageEntry`.
-- **Diffing** subscription emissions before persisting — overwrite is fine if updates are rare (PR #449).
+- **Diffing** subscription emissions before persisting — overwrite is fine if updates are rare.
 - **Raw `ByteArray`** in data classes — use `DataByteArray`.
-- **`String`** for `AccountId` / `EncodedPublicKey` / hashes — use the typed wrappers (PR #544).
+- **`String`** for `AccountId` / `EncodedPublicKey` / hashes — use the typed wrappers.
 - **`getOrThrow()`** on a chain call — see `code/results-and-errors.md § getOrThrow`.
 - **Hand-rolled `Result<>`** for runtime-API-returning-Result calls — use `ScaleResult.toResult()`.

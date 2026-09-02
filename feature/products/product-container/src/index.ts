@@ -89,13 +89,14 @@ if (navigator.serviceWorker) {
 }
 
 // --- DOM: block iframe creation ---
-const _createElement = document.createElement.bind(document);
-freezeValue(document, 'createElement', (tagName: string, options?: ElementCreationOptions) => {
-  if (tagName.toLowerCase() === 'iframe') {
-    throw new Error('iframe creation is not allowed');
-  }
-  return _createElement(tagName, options);
-});
+// TODO: disabled for now since we need iframes to work. We need to figure out reasonable iframe restrictions by the time trustees products appear
+// const _createElement = document.createElement.bind(document);
+// freezeValue(document, 'createElement', (tagName: string, options?: ElementCreationOptions) => {
+//   if (tagName.toLowerCase() === 'iframe') {
+//     throw new Error('iframe creation is not allowed');
+//   }
+//   return _createElement(tagName, options);
+// });
 
 (window as any).__HOST_WEBVIEW_MARK__ = true;
 
@@ -156,11 +157,17 @@ function toNativeDerivationIndex(index: WireDerivationIndex): number | string {
   return index.tag === 'Index' ? index.value : toHex(index.value);
 }
 
+// Native reads a ProductAccountId as the 2-element tuple `[productId, number | hex]`; its tuple
+// adapter rejects the tagged wire enum, so the selector must be flattened before the call. RFC-0024
+// key handles share this shape while naming a slot in the ring VRF tree, and use it unchanged.
+function toNativeProductAccountId(account: readonly [string, WireDerivationIndex]): [string, number | string] {
+  const [productId, derivationIndex] = account;
+  return [productId, toNativeDerivationIndex(derivationIndex)];
+}
+
 container.handleAccountGet((params, { ok, err }) => {
-  const [productId, derivationIndex] = params;
   const promise: Promise<any> = callNative('accountGet', {
-    productId,
-    derivationIndex: toNativeDerivationIndex(derivationIndex),
+    account: toNativeProductAccountId(params),
   }).then(
     (result) => ok({
       publicKey: fromHex(result.publicKey),
@@ -191,7 +198,7 @@ function toNativeRing(ring: { chainId: string; junctions: Array<{ tag: string; v
 container.handleAccountGetAlias((params, { ok, err }) => {
   const [keyHandle, context, ring] = params;
   return callNative('accountGetAlias', {
-    keyHandle: toNativeKeyHandle(keyHandle),
+    keyHandle: toNativeProductAccountId(keyHandle),
     context: toNativeContext(context),
     ring: toNativeRing(ring),
   }).then(
@@ -221,7 +228,7 @@ container.handleAccountGetAlias((params, { ok, err }) => {
 container.handleAccountCreateProof((params, { ok, err }) => {
   const [keyHandle, context, ring, message] = params;
   return callNative('accountCreateProof', {
-    keyHandle: toNativeKeyHandle(keyHandle),
+    keyHandle: toNativeProductAccountId(keyHandle),
     context: toNativeContext(context),
     ring: toNativeRing(ring),
     message: toHex(message),
@@ -258,13 +265,6 @@ container.handleAccountCreateProof((params, { ok, err }) => {
 
 // --- Ring VRF key registry (RFC-0024) ---
 
-// A key handle is structurally a ProductAccountId, but names a slot in the ring VRF tree. It is
-// opaque to consumers: the raw selector round-trips unchanged rather than being re-narrowed.
-function toNativeKeyHandle(handle: [string, WireDerivationIndex]) {
-  const [productId, derivationIndex] = handle;
-  return { productId, derivationIndex: toNativeDerivationIndex(derivationIndex) };
-}
-
 function fromNativeRing(ring: { chainId: string; junctions: Array<{ tag: string; value: string }> }) {
   return {
     chainId: ring.chainId,
@@ -285,7 +285,7 @@ function fromNativeDerivationIndex(index: number | string): WireDerivationIndex 
 
 function fromNativeRegistryEntry(entry: any) {
   return {
-    handle: [entry.handle.productId, fromNativeDerivationIndex(entry.handle.derivationIndex)] as const,
+    handle: [entry.handle[0], fromNativeDerivationIndex(entry.handle[1])] as const,
     rings: entry.rings.map(fromNativeRing),
     publicKey: entry.publicKey ? fromHex(entry.publicKey) : undefined,
   };
@@ -333,7 +333,7 @@ container.handleAccountListRingVrfKeys((params, { ok, err }) => {
 container.handleAccountRingVrfSign((params, { ok, err }) => {
   const [keyHandle, message] = params;
   return callNative('ringVrfSign', {
-    keyHandle: toNativeKeyHandle(keyHandle),
+    keyHandle: toNativeProductAccountId(keyHandle),
     message: toHex(message),
   }).then(
     (result) => ok(fromHex(result.signature)),
@@ -357,10 +357,8 @@ container.handleAccountRingVrfSign((params, { ok, err }) => {
 // --- Sign VRF (RFC-0023) ---
 
 container.handleAccountSignVrf((params, { ok, err }) => {
-  const [dotNsIdentifier, derivationIndex] = params.account;
   return callNative('accountSignVrf', {
-    productId: dotNsIdentifier,
-    derivationIndex: toNativeDerivationIndex(derivationIndex),
+    account: toNativeProductAccountId(params.account),
     label: toHex(params.transcriptLabel),
     items: params.items.map((item) => ({
       label: toHex(item.label),
@@ -475,7 +473,8 @@ container.handleDeriveEntropy(async (key, { ok, err }) => {
 
 type RawSignPayload = { tag: 'Bytes'; value: Uint8Array } | { tag: 'Payload'; value: string };
 type CreateTxPayload = {
-  genesisHash: Uint8Array;
+  // The `GenesisHash` codec decodes to a 0x-string, unlike the `Bytes()` fields below.
+  genesisHash: string;
   callData: Uint8Array;
   extensions: { id: string; additionalSigned: Uint8Array; extra: Uint8Array }[];
   txExtVersion: number;
@@ -487,7 +486,7 @@ const rawSignNativeData = (payload: RawSignPayload) =>
 // `signer` is the product-account tuple for product signing, or a hex account id for legacy signing.
 const createTxNativeParams = (signer: unknown, payload: CreateTxPayload) => ({
   signer,
-  genesisHash: toHex(payload.genesisHash),
+  genesisHash: payload.genesisHash,
   callData: toHex(payload.callData),
   extensions: payload.extensions.map((e) => ({
     id: e.id,
@@ -499,7 +498,7 @@ const createTxNativeParams = (signer: unknown, payload: CreateTxPayload) => ({
 
 container.handleSignPayload(async ({ account, payload }, { ok, err }) => {
   try {
-    const result = await callNative('signPayload', { account, ...payload });
+    const result = await callNative('signPayload', { account: toNativeProductAccountId(account), ...payload });
     return ok({ signature: result.signature, signedTransaction: result.signedTx ?? undefined });
   } catch (e) {
     return err(new SigningErr.Rejected());
@@ -508,7 +507,7 @@ container.handleSignPayload(async ({ account, payload }, { ok, err }) => {
 
 container.handleSignRaw(async ({ account, payload }, { ok, err }) => {
   try {
-    const result = await callNative('signRaw', { account, ...rawSignNativeData(payload) });
+    const result = await callNative('signRaw', { account: toNativeProductAccountId(account), ...rawSignNativeData(payload) });
     return ok({ signature: result.signature, signedTransaction: result.signedTx ?? undefined });
   } catch (e) {
     return err(new SigningErr.Rejected());
@@ -519,7 +518,7 @@ container.handleSignRaw(async ({ account, payload }, { ok, err }) => {
 
 container.handleCreateTransaction(async (payload, { ok, err }) => {
   try {
-    const result = await callNative('createTransaction', createTxNativeParams(payload.signer, payload));
+    const result = await callNative('createTransaction', createTxNativeParams(toNativeProductAccountId(payload.signer), payload));
     return ok(fromHex(result.signedTx));
   } catch (e) {
     return err(new CreateTransactionErr.Unknown({ reason: String(e) }));
@@ -688,7 +687,7 @@ container.handleStatementStoreCreateProof(async ([account, statement], { ok, err
 
   try {
     const result = await callNative('createStatementProof', {
-      account,
+      account: toNativeProductAccountId(account),
       statement: {
         channel: statement.channel ? toHex(statement.channel) : undefined,
         expiry: statement.expiry?.toString() ?? undefined,

@@ -22,11 +22,11 @@ Classic signed extrinsics + a growing family of custom origins (People-Lite, AsP
 
 ## Rules
 
-1. **`blocking`** — Background work submitting extrinsics uses `ChainConnectionRefCounter.withConnectionEnabled(...)`. The default chain connection isn't active off-screen. (PR #433.)
-2. **`blocking`** — Keypairs are never shared across roles (identity ≠ device key ≠ wallet). Each role derives from its own path. (PR #505.)
-3. **`blocking`** — Multi-extrinsic batches where proof count must match on-chain operation count are not truncated to fit a cap. Plan the batching properly. (PR #486.)
+1. **`blocking`** — Background work submitting extrinsics uses `ChainConnectionRefCounter.withConnectionEnabled(...)`. The default chain connection isn't active off-screen.
+2. **`blocking`** — Keypairs are never shared across roles (identity ≠ device key ≠ wallet). Each role derives from its own path.
+3. **`blocking`** — Multi-extrinsic batches where proof count must match on-chain operation count are not truncated to fit a cap. Plan the batching properly.
 4. **`major`** — A new origin family adds to `SetTransactionExtensionOrigin` via a new `TransactionExtension`. Don't subclass `SignedTransactionOrigin` or compose a custom `TransactionOrigin` from scratch.
-5. **`major`** — Manual binary encoding of arguments is forbidden when `BinaryScale` / `autoEncodedArgs` covers the case. (PR #494.)
+5. **`major`** — Manual binary encoding of arguments is forbidden when `BinaryScale` / `autoEncodedArgs` covers the case.
 6. **`major`** — Origin's `paysFees` flag is the source of truth at the caller. Don't second-guess. Fee estimation uses it; submission uses it.
 7. **`major`** — Multi-extrinsic submission from the same `(chainId, accountId)` uses `ExtrinsicBuilderSequence` for nonce management. Don't hand-roll.
 8. **`major`** — When a new identity-proof origin is added, extend `AsPersonTransactionExtension` and expose via the matching `*Origins` factory (e.g. `PeopleOrigins`, `CoinageTransactionOrigins`). Composition, not inheritance from scratch.
@@ -55,7 +55,7 @@ Classic signed extrinsics + a growing family of custom origins (People-Lite, AsP
 | Multi-extrinsic submission without `ExtrinsicBuilderSequence` | major | use the sequence |
 | Inheritance from `AsPersonTransactionExtension` when composition via `SetTransactionExtensionOrigin` suffices | major | composition first |
 | `getOrThrow()` on a chain `Result` | major | see `code/results-and-errors.md § getOrThrow` |
-| `withSessionEnabled { awaitCancellation() }` for long-lived connections | major | use `requestConnectionEnabled` + `release()` (PR #531) |
+| `withSessionEnabled { awaitCancellation() }` for long-lived connections | major | use `requestConnectionEnabled` + `release()` |
 | Marking on-chain state changes locally without a rollback path | major | architect plan must include rollback (this is a recurring risk, not a recipe) |
 | Polling chain state instead of subscribing | minor | `.observe()` |
 

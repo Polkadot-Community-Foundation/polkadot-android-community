@@ -1,6 +1,7 @@
 package io.paritytech.polkadotapp.feature_dotns_impl.data.contract.abi
 
 import io.novasama.substrate_sdk_android.extensions.fromHex
+import io.paritytech.polkadotapp.feature_revive_api.NameHash
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -8,6 +9,7 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 import org.web3j.abi.FunctionEncoder
 import org.web3j.abi.TypeReference
+import org.web3j.abi.datatypes.Address
 import org.web3j.abi.datatypes.DynamicBytes
 import org.web3j.abi.datatypes.Function
 import org.web3j.abi.datatypes.Type
@@ -75,6 +77,36 @@ class EvmContractCallerTest {
         assertNull(result)
     }
 
+    @Test
+    fun `encodeResolver produces correct function selector`() {
+        val node = NameHash.nameHash("test.dot")
+        val encoded = EvmContractCaller.encodeResolver(node)
+
+        // resolver(bytes32) selector = keccak256("resolver(bytes32)")[0:4] = 0x0178b8bf
+        assertEquals("0178b8bf", encoded.copyOfRange(0, 4).toHexString())
+    }
+
+    @Test
+    fun `decodeAddress round-trips with sample address`() {
+        val addressHex = "ab".repeat(20)
+        val abiEncoded = abiEncodeAddress("0x$addressHex")
+
+        val decoded = EvmContractCaller.decodeAddress(abiEncoded)
+        assertNotNull(decoded)
+        assertEquals(addressHex, decoded!!.toHexString())
+    }
+
+    @Test
+    fun `decodeAddress returns null for zero address`() {
+        val abiEncoded = abiEncodeAddress("0x" + "00".repeat(20))
+        assertNull(EvmContractCaller.decodeAddress(abiEncoded))
+    }
+
+    @Test
+    fun `decodeAddress returns null for empty output`() {
+        assertNull(EvmContractCaller.decodeAddress(ByteArray(0)))
+    }
+
     @Suppress("UNCHECKED_CAST")
     private fun abiEncodeReturnValue(value: Type<*>, typeRef: TypeReference<out Type<*>>): ByteArray {
         // Encode as a function call with the value as input, then strip the 4-byte selector
@@ -90,5 +122,9 @@ class EvmContractCallerTest {
 
     private fun abiEncodeString(str: String): ByteArray {
         return abiEncodeReturnValue(Utf8String(str), object : TypeReference<Utf8String>() {})
+    }
+
+    private fun abiEncodeAddress(hex: String): ByteArray {
+        return abiEncodeReturnValue(Address(hex), object : TypeReference<Address>() {})
     }
 }

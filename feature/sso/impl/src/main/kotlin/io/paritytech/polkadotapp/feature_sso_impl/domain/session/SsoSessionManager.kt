@@ -7,6 +7,7 @@ import io.paritytech.polkadotapp.common.utils.diffed
 import io.paritytech.polkadotapp.common.utils.logFailure
 import io.paritytech.polkadotapp.feature_account_api.data.repository.AccountRepository
 import io.paritytech.polkadotapp.feature_account_api.domain.model.MetaAccount
+import io.paritytech.polkadotapp.feature_dotns_api.domain.DotNsTldProvider
 import io.paritytech.polkadotapp.feature_sso_impl.data.encryption.SsoDerivationDomains
 import io.paritytech.polkadotapp.feature_sso_impl.data.repository.SsoSessionRepository
 import io.paritytech.polkadotapp.feature_sso_impl.domain.model.SsoSessionData
@@ -40,6 +41,7 @@ class SsoSessionManager @Inject constructor(
     private val ssoSessionRepository: SsoSessionRepository,
     private val accountRepository: AccountRepository,
     private val encryptionFactory: CommunicationEncryption.Factory,
+    private val dotNsTldProvider: DotNsTldProvider,
     dispatchers: CoroutineDispatchers
 ) : CoroutineScope {
     companion object {
@@ -156,7 +158,8 @@ class SsoSessionManager @Inject constructor(
         val ssoCommunicationSession = SsoCommunicationSession(
             scope = scope,
             session = sessionData,
-            communicationSession = communicationSession
+            communicationSession = communicationSession,
+            dotNsTldProvider = dotNsTldProvider
         )
 
         sessionsFlow.update {

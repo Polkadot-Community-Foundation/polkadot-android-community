@@ -11,7 +11,6 @@ This file is intentionally **thin**. Detailed architecture and code rules are in
 Index of all docs: `.claude/docs/README.md`.
 
 For PR reviews from CI or against a branch:
-- `/reviewer 574` — fetch PR #574 and review against the docs.
 - `/reviewer` with no arg — review the current branch's diff against `master`.
 
 ## Always-on rules

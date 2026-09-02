@@ -66,6 +66,9 @@ private fun configureAndroidExtension(extension: BaseExtension) = with(extension
         create("nightly") {
             initWith(getByName("debug"))
         }
+        create("safetynet") {
+            initWith(getByName("nightly"))
+        }
         // Public DEV build: same testnet machinery as `nightly` (see common +
         // app module overrides) but a distinct io.pcf.polkadotapp.dev identity and
         // its own Firebase app, for a publicly distributed builder/preview build.

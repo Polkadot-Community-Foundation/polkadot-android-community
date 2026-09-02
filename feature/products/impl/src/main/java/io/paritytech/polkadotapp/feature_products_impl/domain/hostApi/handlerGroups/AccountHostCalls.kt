@@ -22,6 +22,7 @@ import io.paritytech.polkadotapp.feature_products_impl.domain.bot.ProductsBotApi
 import io.paritytech.polkadotapp.feature_products_impl.domain.hostApi.CallingProductIdProvider
 import io.paritytech.polkadotapp.feature_products_impl.domain.hostApi.serialization.DerivationIndexWire
 import io.paritytech.polkadotapp.feature_products_impl.domain.hostApi.serialization.DerivationIndexWireAdapter
+import io.paritytech.polkadotapp.feature_products_impl.domain.hostApi.serialization.ProductAccountIdTupleAdapter
 import io.paritytech.polkadotapp.feature_products_impl.domain.hostApi.serialization.toDomain
 import io.paritytech.polkadotapp.feature_products_impl.domain.jsEngine.ContainerBridge
 import io.paritytech.polkadotapp.feature_products_impl.domain.jsEngine.HostCallException
@@ -32,15 +33,14 @@ class AccountHostCalls(
 ) : HostCallHandlerGroup {
     override fun registerOn(bridge: ContainerBridge) {
         bridge.registerHandler<AccountGetParams, ProductAccountResponse>("accountGet") { params ->
-            val productAccountId = ProductAccountId(params.productId, params.derivationIndex.toDomain().getOrThrow())
-            botApi.accountGet(callingProductIdProvider.getProductId().getOrThrow(), productAccountId)
+            botApi.accountGet(callingProductIdProvider.getProductId().getOrThrow(), params.account)
                 .map { ProductAccountResponse(it.publicKey) }
         }
 
         bridge.registerHandler<AccountGetAliasParams, ContextualAliasWire>("accountGetAlias") { params ->
             botApi.accountGetAlias(
                 callingProductIdProvider.getProductId().getOrThrow(),
-                params.keyHandle.toDomain(),
+                params.keyHandle,
                 params.context.toDomain(),
                 params.ring.toDomain(),
             )
@@ -51,7 +51,7 @@ class AccountHostCalls(
         bridge.registerHandler<AccountCreateProofParams, RingVrfProofWire>("accountCreateProof") { params ->
             botApi.accountCreateProof(
                 callingProductIdProvider.getProductId().getOrThrow(),
-                params.keyHandle.toDomain(),
+                params.keyHandle,
                 params.context.toDomain(),
                 params.ring.toDomain(),
                 DataByteArray.fromHex(params.message).value,
@@ -64,7 +64,7 @@ class AccountHostCalls(
             callingProductIdProvider.getProductId().flatMap { callingProductId ->
                 botApi.accountSignVrf(
                     callingProductId,
-                    ProductAccountId(params.productId, params.derivationIndex.toDomain().getOrThrow()),
+                    params.account,
                     DataByteArray.fromHex(params.label).value,
                     params.items.map { it.toDomain() },
                 )
@@ -154,9 +154,8 @@ private fun RingVrfProof.toWire(): RingVrfProofWire = RingVrfProofWire(
 )
 
 private data class AccountGetParams(
-    val productId: String,
-    @JsonAdapter(DerivationIndexWireAdapter::class)
-    val derivationIndex: DerivationIndexWire,
+    @JsonAdapter(ProductAccountIdTupleAdapter::class)
+    val account: ProductAccountId,
 )
 private data class ProductAccountResponse(val publicKey: String)
 private data class LegacyAccountResponse(val publicKey: String, val name: String?)
@@ -168,25 +167,19 @@ private data class ProductProofContextWire(
 )
 internal data class RingLocationJunctionWire(val tag: String, val value: JsonElement?)
 
-// RFC-0024 key handle: the same (product, index) shape as an sr25519 product account, naming a slot
-// in the owner's ring-VRF domain instead.
-internal data class ProductAccountIdWire(
-    val productId: String,
-    @JsonAdapter(DerivationIndexWireAdapter::class)
-    val derivationIndex: DerivationIndexWire,
-)
-
-internal fun ProductAccountIdWire.toDomain(): ProductAccountId =
-    ProductAccountId(productId, derivationIndex.toDomain().getOrThrow())
 internal data class RingLocationWire(val chainId: HexString, val junctions: List<RingLocationJunctionWire>)
 
+// `keyHandle` shares the (product, index) shape of an sr25519 product account, but names a slot in
+// the owner's ring-VRF domain instead.
 private data class AccountGetAliasParams(
-    val keyHandle: ProductAccountIdWire,
+    @JsonAdapter(ProductAccountIdTupleAdapter::class)
+    val keyHandle: ProductAccountId,
     val context: ProductProofContextWire,
     val ring: RingLocationWire,
 )
 private data class AccountCreateProofParams(
-    val keyHandle: ProductAccountIdWire,
+    @JsonAdapter(ProductAccountIdTupleAdapter::class)
+    val keyHandle: ProductAccountId,
     val context: ProductProofContextWire,
     val ring: RingLocationWire,
     val message: HexString,
@@ -194,9 +187,8 @@ private data class AccountCreateProofParams(
 
 private data class VrfTranscriptItemWire(val label: HexString, val value: HexString)
 private data class AccountSignVrfParams(
-    val productId: String,
-    @JsonAdapter(DerivationIndexWireAdapter::class)
-    val derivationIndex: DerivationIndexWire,
+    @JsonAdapter(ProductAccountIdTupleAdapter::class)
+    val account: ProductAccountId,
     val label: HexString,
     val items: List<VrfTranscriptItemWire>,
 )

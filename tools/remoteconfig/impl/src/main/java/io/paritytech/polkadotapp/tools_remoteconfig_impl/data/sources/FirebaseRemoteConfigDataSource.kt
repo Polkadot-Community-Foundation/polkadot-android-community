@@ -3,11 +3,14 @@ package io.paritytech.polkadotapp.tools_remoteconfig_impl.data.sources
 import com.google.firebase.Firebase
 import com.google.firebase.remoteconfig.ConfigUpdate
 import com.google.firebase.remoteconfig.ConfigUpdateListener
+import com.google.firebase.remoteconfig.CustomSignals
 import com.google.firebase.remoteconfig.FirebaseRemoteConfigException
 import com.google.firebase.remoteconfig.remoteConfig
 import com.google.firebase.remoteconfig.remoteConfigSettings
+import io.paritytech.polkadotapp.common.data.network.TestnetEnvironment
 import io.paritytech.polkadotapp.common.utils.CoroutineDispatchers
 import io.paritytech.polkadotapp.common.utils.coerceToUnit
+import io.paritytech.polkadotapp.common.utils.flatMap
 import io.paritytech.polkadotapp.tools_common.executeSuspend
 import io.paritytech.polkadotapp.tools_remoteconfig_impl.R
 import io.paritytech.polkadotapp.tools_remoteconfig_impl.data.RemoteConfigDataSource
@@ -23,6 +26,7 @@ import javax.inject.Inject
 
 class FirebaseRemoteConfigDataSource @Inject constructor(
     coroutineDispatchers: CoroutineDispatchers,
+    private val testnetEnvironment: TestnetEnvironment,
 ) : RemoteConfigDataSource {
     private val remoteConfig = Firebase.remoteConfig
     private val scope = CoroutineScope(SupervisorJob() + coroutineDispatchers.io)
@@ -50,8 +54,8 @@ class FirebaseRemoteConfigDataSource @Inject constructor(
     }
 
     override suspend fun sync(): Result<Unit> {
-        return remoteConfig.fetchAndActivate()
-            .executeSuspend()
+        return setEnvironmentSignal()
+            .flatMap { remoteConfig.fetchAndActivate().executeSuspend() }
             .coerceToUnit()
     }
 
@@ -68,4 +72,23 @@ class FirebaseRemoteConfigDataSource @Inject constructor(
     }
 
     override fun configUpdates(): Flow<Set<String>> = configUpdates
+
+    private suspend fun setEnvironmentSignal(): Result<Unit> {
+        val signals = CustomSignals.Builder()
+            .put(ENVIRONMENT_SIGNAL, testnetEnvironment.toEnvironmentSignal())
+            .build()
+        return remoteConfig.setCustomSignals(signals).executeSuspend().coerceToUnit()
+    }
+
+    private fun TestnetEnvironment.toEnvironmentSignal(): String {
+        return when (this) {
+            TestnetEnvironment.TESTNET -> "unstable"
+            TestnetEnvironment.NIGHTLY -> "nightly"
+            TestnetEnvironment.PRODUCTION -> "release"
+        }
+    }
+
+    private companion object {
+        const val ENVIRONMENT_SIGNAL = "environment"
+    }
 }

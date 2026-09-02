@@ -22,9 +22,9 @@ Coinage is the payment primitive: money is held as a set of power-of-2-denominat
 
 ## Rules
 
-1. **`blocking`** — A coinage transfer must mark selected coins `SPENT_LOCALLY` **before** the extrinsic submission. On failure, revert. (PR #433.) Why: prevents balance flicker and double-spend race during in-flight tx.
+1. **`blocking`** — A coinage transfer must mark selected coins `SPENT_LOCALLY` **before** the extrinsic submission. On failure, revert. Why: prevents balance flicker and double-spend race during in-flight tx.
 2. **`blocking`** — Keypair derivation goes through `CoinKeypairDerivation` only. Path is `//pps//coin//<n>`. Hand-rolling the derivation is forbidden.
-3. **`blocking`** — Voucher batches submitted under `AsFreeUnloadToken` must have a proof count that matches the on-chain consolidation contract exactly. **Never truncate** the count to stay under a cap. (PR #486.)
+3. **`blocking`** — Voucher batches submitted under `AsFreeUnloadToken` must have a proof count that matches the on-chain consolidation contract exactly. **Never truncate** the count to stay under a cap.
 4. **`major`** — A new on-chain origin used by coinage is built by adding a sealed branch to `AsCoinageInfo` and consuming via `CoinageTransactionOrigins`. Don't bypass the factory.
 5. **`major`** — A new transfer strategy is added as a `tryGet*Plan()` method on `TransferPlanner`. Don't fork the planner.
 6. **`major`** — On-chain coinage state is consumed via `subscribeCoinsInfoFor` / `subscribeAllNotSpentCoins`. Polling is forbidden.
@@ -56,7 +56,7 @@ Coinage is the payment primitive: money is held as a set of power-of-2-denominat
 
 ## North star
 
-- **PR #810: split-capable unload extrinsics.** Vouchers will support partial unload. Don't bake in full-nominal-unload assumptions.
+- **Split-capable unload extrinsics.** Vouchers will support partial unload. Don't bake in full-nominal-unload assumptions.
 - **Full ring-validation for unload.** Current degraded-privacy fallback is temporary. New code must not assume degraded privacy is permanent.
 - **RFC-0010 W3S Allowance.** Coinage will eventually consume `PreimageSubmit` / payment-related off-chain artifacts via the allowance system.
 
@@ -80,3 +80,5 @@ If a new feature crosses any of these, name the alignment in the architect plan.
 | External-payment state machine | `feature/coinage/impl/.../domain/externalPayment/state/` |
 | Coinage worker | `feature/coinage/impl/.../data/worker/` (`code/workers-and-background-sync.md`) |
 | DB changes (CoinLocal, VoucherLocal) | follow `code/database-and-scale.md` |
+| Instance id config | `CoinageInstanceIdProvider` (remote config `coinage_instance_id`) |
+| Instance asset unit | `CoinageInstanceUpdater` syncs `Coinage.Instances` into the storage cache; `CoinageInstanceRepository` reads it from the local source |

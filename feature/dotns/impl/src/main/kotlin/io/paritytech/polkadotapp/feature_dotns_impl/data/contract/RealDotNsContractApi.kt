@@ -1,11 +1,13 @@
 package io.paritytech.polkadotapp.feature_dotns_impl.data.contract
 
 import io.paritytech.polkadotapp.chains.multiNetwork.ChainRegistry
+import io.paritytech.polkadotapp.common.domain.model.AccountId
+import io.paritytech.polkadotapp.common.domain.model.intoAccountId
 import io.paritytech.polkadotapp.common.domain.model.toDataByteArray
 import io.paritytech.polkadotapp.common.utils.flatMap
 import io.paritytech.polkadotapp.feature_dotns_impl.data.config.DotNsConfigProvider
 import io.paritytech.polkadotapp.feature_dotns_impl.data.contract.abi.EvmContractCaller
-import io.paritytech.polkadotapp.feature_dotns_impl.data.contract.abi.NameHash
+import io.paritytech.polkadotapp.feature_revive_api.NameHash
 import io.paritytech.polkadotapp.feature_revive_api.ReviveContractApi
 import javax.inject.Inject
 
@@ -18,9 +20,13 @@ class RealDotNsContractApi @Inject constructor(
         val node = NameHash.nameHash(dotNsName)
         val callData = EvmContractCaller.encodeContentHash(node)
 
-        return callContract(callData).map { outputBytes ->
-            val contentHash = if (outputBytes.isEmpty()) null else EvmContractCaller.decodeContentHash(outputBytes)
-            contentHash?.let(::stripEip1577Prefix)
+        return dotNsConfigProvider.getDotNsConfig().flatMap { config ->
+            contentResolverFor(config, dotNsName).flatMap { resolver ->
+                callContract(callData, resolver).map { outputBytes ->
+                    val contentHash = if (outputBytes.isEmpty()) null else EvmContractCaller.decodeContentHash(outputBytes)
+                    contentHash?.let(::stripEip1577Prefix)
+                }
+            }
         }
     }
 
@@ -28,19 +34,45 @@ class RealDotNsContractApi @Inject constructor(
         val node = NameHash.nameHash(dotNsName)
         val callData = EvmContractCaller.encodeText(node, key)
 
-        return callContract(callData).map { outputBytes ->
-            if (outputBytes.isEmpty()) null else EvmContractCaller.decodeText(outputBytes)
+        return dotNsConfigProvider.getDotNsConfig().flatMap { config ->
+            registryResolverOverrideFor(config, dotNsName).flatMap { resolver ->
+                // Text records live only on a registry resolver, so a name without one has none.
+                if (resolver == null) {
+                    Result.success(null)
+                } else {
+                    callContract(callData, resolver).map { outputBytes ->
+                        if (outputBytes.isEmpty()) null else EvmContractCaller.decodeText(outputBytes)
+                    }
+                }
+            }
         }
     }
 
-    private suspend fun callContract(inputData: ByteArray): Result<ByteArray> {
-        return dotNsConfigProvider.getDotNsConfig().flatMap { config ->
-            reviveContractApi.callReadOnly(
-                chainId = chainRegistry.knownChains.assetHub,
-                contract = config.resolverContractAddress,
-                input = inputData.toDataByteArray(),
-            ).map { it.value }
+    // Legacy names have no registry entry and are served by the fixed content-resolver.
+    private suspend fun contentResolverFor(config: DotNsConfig, dotNsName: String): Result<AccountId> {
+        return registryResolverOverrideFor(config, dotNsName).map { it ?: config.resolverContractAddress }
+    }
+
+    // Null means the name has no registry entry. A failure means the registry call itself failed,
+    // which is distinct from absent.
+    private suspend fun registryResolverOverrideFor(config: DotNsConfig, dotNsName: String): Result<AccountId?> {
+        // An unconfigured registry disables manifest resolution; it must not break legacy names,
+        // which never had a registry entry to begin with.
+        val registry = config.registryContractAddress ?: return Result.success(null)
+
+        val callData = EvmContractCaller.encodeResolver(NameHash.nameHash(dotNsName))
+
+        return callContract(callData, registry).map { outputBytes ->
+            EvmContractCaller.decodeAddress(outputBytes)?.intoAccountId()
         }
+    }
+
+    private suspend fun callContract(inputData: ByteArray, dest: AccountId): Result<ByteArray> {
+        return reviveContractApi.callReadOnly(
+            chainId = chainRegistry.knownChains.assetHub,
+            contract = dest,
+            input = inputData.toDataByteArray(),
+        ).map { it.value }
     }
 
     /**

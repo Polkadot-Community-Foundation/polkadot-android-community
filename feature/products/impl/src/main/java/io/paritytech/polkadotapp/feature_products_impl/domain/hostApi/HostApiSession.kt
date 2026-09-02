@@ -64,7 +64,7 @@ class HostApiSession @AssistedInject constructor(
 
     suspend fun evaluateScript(script: String): Result<String> = runtime.evaluate(script)
 
-    suspend fun evaluateModuleScript(script: String): Result<Unit> = runtime.evaluateAsModule(script)
+    suspend fun loadEntryModule(srcPath: String): Result<Unit> = runtime.loadEntryModule(srcPath)
 
     private fun dispose() {
         bridge.dispose()

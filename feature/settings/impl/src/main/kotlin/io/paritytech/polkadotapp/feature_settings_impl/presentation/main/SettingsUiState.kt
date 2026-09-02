@@ -6,6 +6,10 @@ import io.paritytech.polkadotapp.designsystem.themes.PolkadotAppTheme
 @Immutable
 data class SettingsUiState(
     val isDebug: Boolean,
+    val debugMenuEnabled: Boolean,
+    val linkedDevicesEnabled: Boolean,
+    val productSettingsEnabled: Boolean,
+    val isLanguageSettingsAvailable: Boolean,
     val selectedTheme: PolkadotAppTheme,
     val isBackupMissing: Boolean = false,
     val hasBlockedUsers: Boolean = false,

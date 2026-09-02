@@ -33,10 +33,10 @@ interface JsRuntime {
     suspend fun evaluate(js: String): Result<String>
 
     /**
-     * Evaluate JS as an ES module (`<script type="module">`).
-     * Required for scripts that use `import.meta` or top-level `await`.
+     * Load an entry module relative to the runtime's origin (`<script type="module" src>`), so the
+     * module and its relative imports are fetched from that origin's served archive.
      */
-    suspend fun evaluateAsModule(js: String): Result<Unit>
+    suspend fun loadEntryModule(srcPath: String): Result<Unit>
 
     /**
      * Register [js] to run at document-start on every navigation, before any page script.

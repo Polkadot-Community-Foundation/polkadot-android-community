@@ -26,7 +26,7 @@ private const val KEY_PROPERTY_NAME = "key"
 class PasskeysBackupEncryptionKeyStore @Inject constructor(
     private val fbAuthManager: FirebaseAuthManager,
 ) : BackupEncryptionKeyStore {
-    private val db = Firebase.firestore
+    private val db = Firebase.firestore(BuildConfig.FIRESTORE_DATABASE_ID)
 
     override suspend fun store(key: EncryptionKey): Result<Unit> {
         return fbAuthManager.authenticate(driveScope())

@@ -3,6 +3,7 @@ package io.paritytech.polkadotapp.feature_sso_impl.data.model.scale.session
 import io.novasama.substrate_sdk_android.koltinx_serialization_scale.binary.BinaryScale
 import io.novasama.substrate_sdk_android.koltinx_serialization_scale.binary.types.BSResult
 import io.paritytech.polkadotapp.common.domain.model.toDataByteArray
+import io.paritytech.polkadotapp.feature_dotns_api.domain.DotNsTld
 import io.paritytech.polkadotapp.feature_products_api.model.ProductId
 import io.paritytech.polkadotapp.feature_sso_impl.domain.session.model.SsoSessionId
 import io.paritytech.polkadotapp.feature_sso_impl.domain.session.model.SsoSessionRequest
@@ -22,7 +23,7 @@ class SsoProductSubtreeMessageTest {
     fun `request round trips through the wire`() {
         val request = productSubtreeRequest()
 
-        val decoded = request.toEncodedMessage().toSsoSessionRequest(SESSION_ID).getOrThrow()
+        val decoded = request.toEncodedMessage().toSsoSessionRequest(SESSION_ID, requireNotNull(DotNsTld.parse("dot"))).getOrThrow()
 
         val content = decoded.content as SsoSessionRequest.Content.ProductSubtreeRequest
         assertEquals("browse.dot", content.productId.value)

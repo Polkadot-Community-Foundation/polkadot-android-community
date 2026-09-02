@@ -186,7 +186,7 @@ mod tests {
     fn generic_transcript_matches_sp_core() {
         use sp_core::sr25519::vrf::VrfTranscript;
 
-        let label = b"pcf:generic-vrf";
+        let label = b"test:generic-vrf";
         let items: Vec<(Vec<u8>, Vec<u8>)> = vec![
             (b"empty".to_vec(), Vec::new()),
             (b"short".to_vec(), b"a".to_vec()),

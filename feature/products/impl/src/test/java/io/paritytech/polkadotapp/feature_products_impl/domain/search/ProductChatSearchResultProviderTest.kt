@@ -19,7 +19,7 @@ import org.mockito.Mockito.verify
 class ProductChatSearchResultProviderTest {
     private val productRepository: ProductRepository = mock()
     private val productsRouter: ProductsRouter = mock()
-    private val provider = ProductChatSearchResultProvider(productRepository, productsRouter)
+    private val provider = provider(arbitraryProductsEnabled = true)
 
     @Before
     fun setUp() {
@@ -27,23 +27,17 @@ class ProductChatSearchResultProviderTest {
             Product(
                 id = ProductId.fromStoredValue("coinflip.dot"),
                 name = "Coinflip",
-                scriptUrl = "https://coinflip.dot",
-                contentHash = null,
-                iconUrl = null,
+                icon = null,
             ),
             Product(
                 id = ProductId.fromStoredValue("gamble.dot"),
                 name = "Gamble Game",
-                scriptUrl = "https://gamble.dot",
-                contentHash = null,
-                iconUrl = null,
+                icon = null,
             ),
             Product(
                 id = ProductId.fromStoredValue("nft.dot"),
                 name = "NFT Gallery",
-                scriptUrl = "https://nft.dot",
-                contentHash = null,
-                iconUrl = null,
+                icon = null,
             ),
         )
         runBlocking {
@@ -112,6 +106,20 @@ class ProductChatSearchResultProviderTest {
 
         verify(productsRouter).openSpaBrowser(SpaBrowserPayload.ByProductId("coinflip.dot"))
     }
+
+    @Test
+    fun `returns nothing when arbitrary products are disabled`() = runBlocking {
+        val result = provider(arbitraryProductsEnabled = false).search("")
+
+        assertTrue(result.isSuccess)
+        assertEquals(0, result.getOrThrow().size)
+    }
+
+    private fun provider(arbitraryProductsEnabled: Boolean) = ProductChatSearchResultProvider(
+        arbitraryProductsEnabled = arbitraryProductsEnabled,
+        productRepository = productRepository,
+        productsRouter = productsRouter,
+    )
 
     private fun appResult(id: String) = ChatListSearchResult.App(
         id = id,
