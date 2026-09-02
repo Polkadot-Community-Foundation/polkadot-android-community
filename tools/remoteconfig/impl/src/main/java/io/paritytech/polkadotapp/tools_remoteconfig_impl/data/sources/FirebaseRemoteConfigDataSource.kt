@@ -80,10 +80,23 @@ class FirebaseRemoteConfigDataSource @Inject constructor(
         return remoteConfig.setCustomSignals(signals).executeSuspend().coerceToUnit()
     }
 
+    /**
+     * PCF FORK-LOCAL branch for [TestnetEnvironment.DEV]. Upstream's `when` covers only its own
+     * three environments, and this is an expression, so the fork does not compile without it.
+     *
+     * DEV sends `paseo`, not `nightly`. In the PCF Remote Config template the `environment` signal
+     * conditions map `nightly` -> the paseo-next contour, which the DEV build must never read, and
+     * `paseo` -> the devnet contour, which is what DEV targets. Today the value is not what decides
+     * it: `dev_build_android` (app.id of io.pcf.polkadotapp.dev) is the first condition in the
+     * template and carries a value for every parameter any signal condition carries, so it wins for
+     * the DEV build regardless. This keeps the signal correct anyway, so a future reordering or
+     * removal of that app.id condition degrades to devnet instead of to paseo-next.
+     */
     private fun TestnetEnvironment.toEnvironmentSignal(): String {
         return when (this) {
             TestnetEnvironment.TESTNET -> "unstable"
             TestnetEnvironment.NIGHTLY -> "nightly"
+            TestnetEnvironment.DEV -> "paseo"
             TestnetEnvironment.PRODUCTION -> "release"
         }
     }
