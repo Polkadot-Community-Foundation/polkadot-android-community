@@ -10,8 +10,6 @@ import io.paritytech.polkadotapp.feature_coinage_api.domain.RecyclerVouchersInte
 import io.paritytech.polkadotapp.feature_coinage_api.domain.model.BackupProgress
 import io.paritytech.polkadotapp.feature_coinage_api.domain.model.Coin
 import io.paritytech.polkadotapp.feature_coinage_api.domain.model.RecyclerVoucher
-import io.paritytech.polkadotapp.feature_coinage_api.domain.recycling.CoinageRecyclingStrategySettings
-import io.paritytech.polkadotapp.feature_coinage_api.domain.recycling.RecyclingStrategyType
 import io.paritytech.polkadotapp.feature_coinage_api.domain.service.CoinageBackupService
 import io.paritytech.polkadotapp.feature_coinage_api.domain.usecase.CoinageRecyclingUseCase
 import io.paritytech.polkadotapp.feature_coinage_api.domain.usecase.CoinageTestnetFundUseCase
@@ -39,7 +37,6 @@ class DigitalDollarCardDetailsInteractor @Inject constructor(
     private val shareCoinageLogsUseCase: ShareCoinageLogsUseCase,
     private val coinageRecyclingUseCase: CoinageRecyclingUseCase,
     private val coinageBackupService: CoinageBackupService,
-    private val recyclingStrategySettings: CoinageRecyclingStrategySettings,
     private val fundingDomainProvider: FundingDomainProvider
 ) {
     companion object {
@@ -62,11 +59,6 @@ class DigitalDollarCardDetailsInteractor @Inject constructor(
         .map { it.actionsEnabled() }
 
     fun observeBackupProgress(): Flow<BackupProgress> = coinageBackupService.subscribeProgress()
-
-    fun observePrivacyMode(): Flow<RecyclingStrategyType> = recyclingStrategySettings.strategyFlow()
-
-    suspend fun setPrivacyMode(mode: RecyclingStrategyType): Result<Unit> =
-        recyclingStrategySettings.setStrategy(mode)
 
     context(scope: ComputationalScope)
     fun startDeepSearch() = coinageBackupService.deepSearch()
