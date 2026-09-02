@@ -7,13 +7,13 @@ import io.paritytech.polkadotapp.feature_products_api.model.ProductId
 data class ProductBotManagementState(
     val products: List<ProductUiModel> = emptyList(),
     val dialogState: ProductDialogState = ProductDialogState.None,
+    val tldSuffix: String = "",
 )
 
 @Immutable
 data class ProductUiModel(
     val id: ProductId,
     val name: String,
-    val scriptUrl: String,
     val appUrl: String,
 )
 
@@ -24,7 +24,7 @@ sealed interface ProductDialogState {
     data class Form(
         val productId: String? = null,
         val dotNsName: String = "",
-        val scriptUrl: String = "",
+        val workerUrl: String = "",
         val isSubmitting: Boolean = false,
     ) : ProductDialogState
 }

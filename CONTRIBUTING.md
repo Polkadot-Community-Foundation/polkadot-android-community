@@ -89,10 +89,10 @@ Issue: PANS-1861
 
 ## Pull Request Process
 
-1. Fork the repository and create a topic branch from `master`.
+1. Fork the repository and create a topic branch from `main`.
 2. Make your change, keeping commits focused and tests passing.
 3. Run Detekt and the unit tests locally (see above).
-4. Push your branch and open a pull request against `master`. Describe the
+4. Push your branch and open a pull request against `main`. Describe the
    change, the motivation, and any testing you performed. Link related issues.
 5. CI will run linting, tests, and a build. Please make sure these pass.
 6. A maintainer will review your PR. Address review feedback by pushing

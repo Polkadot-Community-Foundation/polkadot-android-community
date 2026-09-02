@@ -11,13 +11,14 @@ import io.paritytech.polkadotapp.feature_products_api.domain.accountsProtocol.Re
 import io.paritytech.polkadotapp.feature_products_api.domain.accountsProtocol.RingLocationJunction
 import io.paritytech.polkadotapp.feature_products_api.domain.accountsProtocol.RingVrfKeyDisclosure
 import io.paritytech.polkadotapp.feature_products_api.domain.accountsProtocol.RingVrfSignError
+import io.paritytech.polkadotapp.feature_products_api.model.ProductAccountId
 import io.paritytech.polkadotapp.feature_products_api.model.ProductId
 import io.paritytech.polkadotapp.feature_products_impl.domain.bot.ProductsBotApi
 import io.paritytech.polkadotapp.feature_products_impl.domain.hostApi.CallingProductIdProvider
 import io.paritytech.polkadotapp.feature_products_impl.domain.hostApi.serialization.DerivationIndexWire
 import io.paritytech.polkadotapp.feature_products_impl.domain.hostApi.serialization.DerivationIndexWireAdapter
+import io.paritytech.polkadotapp.feature_products_impl.domain.hostApi.serialization.ProductAccountIdTupleAdapter
 import io.paritytech.polkadotapp.feature_products_impl.domain.hostApi.serialization.toDomain
-import io.paritytech.polkadotapp.feature_products_impl.domain.hostApi.serialization.toWire
 import io.paritytech.polkadotapp.feature_products_impl.domain.jsEngine.ContainerBridge
 import io.paritytech.polkadotapp.feature_products_impl.domain.jsEngine.HostCallException
 
@@ -58,7 +59,7 @@ class RingVrfKeyHostCalls(
             callingProductIdProvider.getProductId().flatMap { callingProductId ->
                 botApi.ringVrfSign(
                     callingProductId,
-                    params.keyHandle.toDomain(),
+                    params.keyHandle,
                     DataByteArray.fromHex(params.message).value,
                 )
             }
@@ -75,10 +76,7 @@ private fun String.toDisclosure(): RingVrfKeyDisclosure = when (this) {
 }
 
 private fun RegisteredRingVrfKey.toWire(): RegisteredRingVrfKeyWire = RegisteredRingVrfKeyWire(
-    handle = ProductAccountIdResponse(
-        productId = handle.productId,
-        derivationIndex = handle.index.toWire(),
-    ),
+    handle = handle,
     rings = rings.map { ring ->
         RingLocationResponse(
             chainId = ring.chainId.value.toHexString(withPrefix = true),
@@ -133,18 +131,18 @@ private data class RingVrfPublicKeyWire(val publicKey: HexString)
 
 private data class ListRingVrfKeysParams(val owner: String, val disclosure: String)
 
-private data class RingVrfSignParams(val keyHandle: ProductAccountIdWire, val message: HexString)
+private data class RingVrfSignParams(
+    @JsonAdapter(ProductAccountIdTupleAdapter::class)
+    val keyHandle: ProductAccountId,
+    val message: HexString,
+)
 private data class RingVrfSignatureWire(val signature: HexString)
 
-private data class ProductAccountIdResponse(
-    val productId: String,
-    @JsonAdapter(DerivationIndexWireAdapter::class)
-    val derivationIndex: DerivationIndexWire,
-)
 private data class RingLocationJunctionResponse(val tag: String, val value: String)
 private data class RingLocationResponse(val chainId: HexString, val junctions: List<RingLocationJunctionResponse>)
 private data class RegisteredRingVrfKeyWire(
-    val handle: ProductAccountIdResponse,
+    @JsonAdapter(ProductAccountIdTupleAdapter::class)
+    val handle: ProductAccountId,
     val rings: List<RingLocationResponse>,
     val publicKey: HexString?,
 )

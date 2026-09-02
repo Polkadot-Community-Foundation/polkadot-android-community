@@ -3,6 +3,7 @@ package io.paritytech.polkadotapp.feature_sso_impl.domain.session
 import io.paritytech.polkadotapp.common.utils.InformationSize.Companion.bytes
 import io.paritytech.polkadotapp.common.utils.flatMap
 import io.paritytech.polkadotapp.common.utils.mapError
+import io.paritytech.polkadotapp.feature_dotns_api.domain.DotNsTldProvider
 import io.paritytech.polkadotapp.feature_sso_impl.data.model.scale.session.decodeAlwaysDecodableSsoMessagePart
 import io.paritytech.polkadotapp.feature_sso_impl.data.model.scale.session.toEncodedMessage
 import io.paritytech.polkadotapp.feature_sso_impl.data.model.scale.session.toSsoSessionRequest
@@ -29,6 +30,7 @@ class SsoCommunicationSession(
     scope: CoroutineScope,
     private val session: SsoSessionData,
     private val communicationSession: CommunicationSession,
+    private val dotNsTldProvider: DotNsTldProvider,
 ) : CoroutineScope by scope {
     val id = session.id
 
@@ -91,7 +93,8 @@ class SsoCommunicationSession(
 
     private suspend fun handleNewMessagesReceived(messages: List<EncodedMessage>) {
         for (message in messages) {
-            message.toSsoSessionRequest(session.id)
+            dotNsTldProvider.getTld()
+                .flatMap { tld -> message.toSsoSessionRequest(session.id, tld) }
                 .onSuccess { request -> _requests.emit(request) }
                 .onFailure { error ->
                     Timber.e(error, "Failed to decode SSO message for session ${session.name}")

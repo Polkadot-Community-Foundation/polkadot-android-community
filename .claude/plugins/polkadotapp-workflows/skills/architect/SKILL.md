@@ -205,12 +205,12 @@ open_questions: []
 
 ## Anti-patterns to flag in the plan stage
 
-- Factory-of-factory-of-factory (PR #452).
-- Special-casing room/extension behavior with extra flags instead of fixing the model (PR #512).
-- Adding a `UseCase` that's a single-line passthrough (PR #479).
-- Adding a `Service`-suffixed class that isn't an Android Service (PR #513).
-- Plumbing a feature-specific entity through `common`/`database` (PR #466).
-- Implicit init-block side effects to trigger Dagger instantiation (PR #499) — use `AppInitializer` instead.
+- Factory-of-factory-of-factory.
+- Special-casing room/extension behavior with extra flags instead of fixing the model.
+- Adding a `UseCase` that's a single-line passthrough.
+- Adding a `Service`-suffixed class that isn't an Android Service.
+- Plumbing a feature-specific entity through `common`/`database`.
+- Implicit init-block side effects to trigger Dagger instantiation — use `AppInitializer` instead.
 - Hand-rolled keypair derivation outside `CoinKeypairDerivation`.
 - Custom polling/decrypt loop instead of `CommunicationSession`.
 - New module without a CODEOWNERS update or with the author as the only owner.

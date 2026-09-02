@@ -10,6 +10,7 @@ import io.paritytech.polkadotapp.chains.util.Sr25519SecretKey
 import io.paritytech.polkadotapp.common.domain.model.AccountId
 import io.paritytech.polkadotapp.common.domain.model.DataByteArray
 import io.paritytech.polkadotapp.common.domain.model.toDataByteArray
+import io.paritytech.polkadotapp.feature_dotns_api.domain.DotNsTld
 import io.paritytech.polkadotapp.feature_products_api.domain.accountsProtocol.ApAllocatableResource
 import io.paritytech.polkadotapp.feature_products_api.domain.accountsProtocol.ApAllocatedResource
 import io.paritytech.polkadotapp.feature_products_api.domain.accountsProtocol.ApAllocationOutcome
@@ -75,25 +76,26 @@ fun EncodedMessage.decodeAlwaysDecodableSsoMessagePart(): Result<AlwaysDecodable
     return runCatching { BinaryScale.decodeFromByteArray<AlwaysDecodableSsoMessagePart>(this) }
 }
 
-fun EncodedMessage.toSsoSessionRequest(sessionId: SsoSessionId): Result<SsoSessionRequest> {
+fun EncodedMessage.toSsoSessionRequest(sessionId: SsoSessionId, tld: DotNsTld): Result<SsoSessionRequest> {
     return decodeSsoSessionMessage().mapCatching { message ->
-        message.toSsoSessionRequest(sessionId)
+        message.toSsoSessionRequest(sessionId, tld)
     }
 }
 
 // ==================== Scale -> Domain mappers ====================
 
-private fun SsoSessionMessage.toSsoSessionRequest(sessionId: SsoSessionId): SsoSessionRequest {
+private fun SsoSessionMessage.toSsoSessionRequest(sessionId: SsoSessionId, tld: DotNsTld): SsoSessionRequest {
     return when (versioned) {
-        is VersionedSsoSessionMessage.V1 -> versioned.message.toSsoSessionRequest(id, sessionId)
+        is VersionedSsoSessionMessage.V1 -> versioned.message.toSsoSessionRequest(id, sessionId, tld)
     }
 }
 
 private fun SsoSessionMessageV1.toSsoSessionRequest(
     messageId: String,
-    sessionId: SsoSessionId
+    sessionId: SsoSessionId,
+    tld: DotNsTld
 ): SsoSessionRequest {
-    val requestContent = content.toRequestContent()
+    val requestContent = content.toRequestContent(tld)
     return SsoSessionRequest(
         sessionId = sessionId,
         requestId = messageId,
@@ -101,7 +103,7 @@ private fun SsoSessionMessageV1.toSsoSessionRequest(
     )
 }
 
-private fun SsoMessageContent.toRequestContent(): SsoSessionRequest.Content {
+private fun SsoMessageContent.toRequestContent(tld: DotNsTld): SsoSessionRequest.Content {
     return when (this) {
         SsoMessageContent.Disconnected -> SsoSessionRequest.Content.Disconnected
         is SsoMessageContent.SigningRequest -> SsoSessionRequest.Content.SigningRequest(request.toDomain())
@@ -146,7 +148,7 @@ private fun SsoMessageContent.toRequestContent(): SsoSessionRequest.Content {
         )
         is SsoMessageContent.SignRawLegacyResponse -> error("SignRawLegacyResponse is a response-only message type")
         is SsoMessageContent.ProductSubtreeRequest -> SsoSessionRequest.Content.ProductSubtreeRequest(
-            productId = ProductId.fromString(productId).getOrThrow(),
+            productId = ProductId.fromString(productId, tld).getOrThrow(),
         )
         is SsoMessageContent.ProductSubtreeResponse -> error("ProductSubtreeResponse is a response-only message type")
         is SsoMessageContent.RegisterRingVrfKeyRequest -> SsoSessionRequest.Content.RegisterRingVrfKeyRequest(

@@ -28,7 +28,7 @@ interface AccountRepository {
 
     suspend fun getAliasAccount(context: BandersnatchContext): MetaAccount
 
-    fun deriveWalletAccountId(entropy: ByteArray): AccountId
+    suspend fun deriveWalletAccountId(entropy: ByteArray): AccountId
 }
 
 suspend fun AccountRepository.getWalletAccountIdIn(chain: Chain): AccountId {

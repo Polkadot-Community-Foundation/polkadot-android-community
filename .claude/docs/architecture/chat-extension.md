@@ -22,17 +22,17 @@ The current code implements **v1**: native `ChatExtension`s plug renderers/overl
 ## Rules
 
 1. **`blocking`** — A `ChatExtension` that owns N rooms is implemented as a `ChatBot` is wrong. `ChatBot` is the 1-room special case only. Use direct `ChatExtension` for N-room or no-room.
-2. **`blocking`** — Overlay must not influence the screen below. `PILL_CLEARANCE`-style bottom padding driven by an overlay is forbidden. (PR #538.)
-3. **`blocking`** — Renderer state lives in a dedicated VM (or `@Singleton` state holder), **never** inside the bot/extension class. (PR #538.)
+2. **`blocking`** — Overlay must not influence the screen below. `PILL_CLEARANCE`-style bottom padding driven by an overlay is forbidden.
+3. **`blocking`** — Renderer state lives in a dedicated VM (or `@Singleton` state holder), **never** inside the bot/extension class.
 4. **`blocking`** — `Fragment` classes do not leak through bot APIs to chat host code. Compose-only API; fragment names allowed only via `ownedFragmentClasses()`.
 5. **`blocking`** — A v1 idiom that bakes in "the Host owns the message store" is forbidden — that's what v2 inverts. Treat message storage as an implementation detail of the Host, not as the contract.
-6. **`blocking`** — Style parameters silently overridden by ambient `CompositionLocal`s are forbidden. If a caller passes `style: ChatMessageSurfaceStyle`, `direction`, etc., the renderer must honor it. (PR #574.)
-7. **`blocking`** — `reverseLayout = true` always in the chat feed. Paging works one direction only. (PR #574.)
-8. **`major`** — Custom item-entry animations are forbidden; use `LazyListScope.animateItem()`. (PR #574.)
+6. **`blocking`** — Style parameters silently overridden by ambient `CompositionLocal`s are forbidden. If a caller passes `style: ChatMessageSurfaceStyle`, `direction`, etc., the renderer must honor it.
+7. **`blocking`** — `reverseLayout = true` always in the chat feed. Paging works one direction only.
+8. **`major`** — Custom item-entry animations are forbidden; use `LazyListScope.animateItem()`.
 9. **`major`** — Other modules access chat capabilities only through the `ChatExtension` interface; never reach into `ChatEngine` or chat-impl types.
-10. **`major`** — Overlay components are named generically (`ChatExtensionOverlay*`), not feature-named (`GamePillOverlay`). (PR #538.)
-11. **`major`** — Bots do not decide when to send their messages if a higher-level engine should drive it. Don't change business logic for a UI-only feature. (PR #538.)
-12. **`major`** — Chat-specific fields (`is_read`, etc.) are not smuggled through generic flags for other features. (PR #431.)
+10. **`major`** — Overlay components are named generically (`ChatExtensionOverlay*`), not feature-named (`GamePillOverlay`).
+11. **`major`** — Bots do not decide when to send their messages if a higher-level engine should drive it. Don't change business logic for a UI-only feature.
+12. **`major`** — Chat-specific fields (`is_read`, etc.) are not smuggled through generic flags for other features.
 13. **`major`** — Custom message renderers are global per extension (v1 limitation). Don't add per-chat hacks on top; v2 fixes the scoping.
 
 ## Seams

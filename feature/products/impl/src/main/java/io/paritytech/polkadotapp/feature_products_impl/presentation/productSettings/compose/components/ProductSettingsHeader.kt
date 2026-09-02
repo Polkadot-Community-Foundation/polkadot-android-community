@@ -6,7 +6,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
+import io.paritytech.polkadotapp.design.components.image.NovaAsyncImage
 import io.paritytech.polkadotapp.design.components.spacer.VerticalSpacer
 import io.paritytech.polkadotapp.design.components.surface.PolkadotSurface
 import io.paritytech.polkadotapp.design.components.text.NovaText
@@ -19,11 +22,21 @@ internal fun ProductSettingsHeader(uiModel: ProductSettingsUiModel) {
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        PolkadotSurface(
-            modifier = Modifier.size(80.dp),
-            shape = PolkadotTheme.shapes.mediumIncreased,
-            color = PolkadotTheme.colors.fg.secondary
-        ) {}
+        if (uiModel.iconUrl != null) {
+            NovaAsyncImage(
+                modifier = Modifier
+                    .size(80.dp)
+                    .clip(PolkadotTheme.shapes.mediumIncreased),
+                model = uiModel.iconUrl,
+                contentScale = ContentScale.Crop,
+            )
+        } else {
+            PolkadotSurface(
+                modifier = Modifier.size(80.dp),
+                shape = PolkadotTheme.shapes.mediumIncreased,
+                color = PolkadotTheme.colors.fg.secondary
+            ) {}
+        }
 
         VerticalSpacer { extraMedium }
 

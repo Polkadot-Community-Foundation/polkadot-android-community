@@ -15,35 +15,43 @@ android {
     namespace = "io.paritytech.polkadotapp.app"
 
     defaultConfig {
-        applicationId = "io.paritytech.polkadotapp"
+        applicationId = localProperties.readSecretOrDefault("APPLICATION_ID", "io.paritytech.polkadotapp")
 
         versionCode = computeVersionCode()
         versionName = computeVersionName()
 
         testInstrumentationRunner = "io.paritytech.polkadotapp.app.HiltTestRunner"
 
+        manifestPlaceholders["appName"] = localProperties.readSecretOrDefault("APP_NAME", "Polkadot")
         manifestPlaceholders["sentryDsn"] = localProperties.readSecretOrNull("SENTRY_DSN") ?: ""
 
-        buildConfigField(
-            "String",
+        buildConfigString(
             "LOG_COLLECTION_EMAIL",
-            "\"${localProperties.readSecretOrNull("LOG_COLLECTION_EMAIL") ?: "logs@example.com"}\""
+            localProperties.readSecretOrDefault("LOG_COLLECTION_EMAIL", "logs@example.com")
+        )
+        buildConfigString(
+            "PRIVACY_POLICY_URL",
+            localProperties.readSecretOrDefault("PRIVACY_POLICY_URL", "https://example.com/privacy")
+        )
+        buildConfigString(
+            "TERMS_OF_USE_URL",
+            localProperties.readSecretOrDefault("TERMS_OF_USE_URL", "https://example.com/terms")
         )
     }
 
     signingConfigs {
         create("dev") {
             storeFile = file(localProperties.readSecretOrNull("DEV_KEYSTORE_FILE") ?: "../develop_key.jks")
-            keyPassword = localProperties.readSecret("CI_KEYSTORE_KEY_PASS")
-            keyAlias = localProperties.readSecret("CI_KEYSTORE_KEY_ALIAS")
-            storePassword = localProperties.readSecret("CI_KEYSTORE_PASS")
+            keyPassword = localProperties.readSecretOrDefault("CI_KEYSTORE_KEY_PASS", "")
+            keyAlias = localProperties.readSecretOrDefault("CI_KEYSTORE_KEY_ALIAS", "")
+            storePassword = localProperties.readSecretOrDefault("CI_KEYSTORE_PASS", "")
         }
 
         create("release") {
             storeFile = file(localProperties.readSecretOrNull("RELEASE_KEYSTORE_FILE") ?: "../release_key.jks")
-            keyPassword = localProperties.readSecret("RELEASE_KEYSTORE_KEY_PASS")
-            keyAlias = localProperties.readSecret("RELEASE_KEYSTORE_KEY_ALIAS")
-            storePassword = localProperties.readSecret("RELEASE_KEYSTORE_PASS")
+            keyPassword = localProperties.readSecretOrDefault("RELEASE_KEYSTORE_KEY_PASS", "")
+            keyAlias = localProperties.readSecretOrDefault("RELEASE_KEYSTORE_KEY_ALIAS", "")
+            storePassword = localProperties.readSecretOrDefault("RELEASE_KEYSTORE_PASS", "")
         }
     }
 
@@ -56,6 +64,10 @@ android {
         getByName("debug") {
             signingConfig = signingConfigs.getByName("dev")
             applicationIdSuffix = ".debug"
+            manifestPlaceholders["appName"] = localProperties.readSecretOrDefault(
+                "DEBUG_APP_NAME",
+                "[Debug] ${localProperties.readSecretOrDefault("APP_NAME", "Polkadot")}"
+            )
 
             buildConfigField("String", "BuildType", "\"debug\"")
         }
@@ -64,6 +76,20 @@ android {
 
             signingConfig = signingConfigs.getByName("dev")
             applicationIdSuffix = ".nightly"
+            manifestPlaceholders["appName"] = localProperties.readSecretOrDefault(
+                "NIGHTLY_APP_NAME",
+                localProperties.readSecretOrDefault("APP_NAME", "Polkadot")
+            )
+        }
+        getByName("safetynet") {
+            matchingFallbacks.addAll(listOf("nightly", "debug"))
+
+            signingConfig = signingConfigs.getByName("dev")
+            applicationIdSuffix = ".safetynet"
+            manifestPlaceholders["appName"] = localProperties.readSecretOrDefault(
+                "SAFETYNET_APP_NAME",
+                "[Safetynet] ${localProperties.readSecretOrDefault("APP_NAME", "Polkadot")}"
+            )
         }
         getByName("dev") {
             matchingFallbacks.add("debug")
@@ -75,6 +101,8 @@ android {
             // io.paritytech base and matches app/src/dev/google-services.json.
         }
     }
+
+    sourceSets.getByName("safetynet").manifest.srcFile("src/nightly/AndroidManifest.xml")
 
     flavorDimensions += "distribution"
 
@@ -151,6 +179,7 @@ dependencies {
     implementation(project(":feature:calls:impl"))
     implementation(project(":feature:coinage:impl"))
     implementation(project(":feature:dotns:impl"))
+    implementation(project(":feature:dotns-gateway:impl"))
     implementation(project(":feature:connection-status:api"))
     implementation(project(":feature:connection-status:impl"))
     implementation(project(":feature:revive:impl"))

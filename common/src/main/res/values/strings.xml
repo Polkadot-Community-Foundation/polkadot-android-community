@@ -368,13 +368,19 @@ I’m attaching PDF with more information and details regarding the Tattoo Stenc
     <string name="pick_username_state_invalid">Try another.</string>
     <string name="pick_username_state_available">It\'s yours!</string>
     <string name="pick_username_digits_taken">Digits taken. Try again.</string>
-    <string name="pick_username_account_already_created">An account has already been created on this device. You can’t create another one on the same device.</string>
     <string name="pick_username_just_claimed_new_digit">This username was just claimed. We picked a new number for you.</string>
     <string name="pick_username_just_claimed_taken">This username was just claimed. Try another.</string>
 
     <string name="pick_username_action_too_short">Minimum %s characters</string>
     <string name="pick_username_action_clear">Clear</string>
     <string name="pick_username_action_claim">Get username</string>
+
+    <string name="username_error_no_connection">No connection. Check your network and try again.</string>
+    <string name="username_error_verification_unavailable">Google Play services aren\'t available on this device. Try installing the vanilla build.</string>
+    <string name="username_error_verification_rejected">We couldn\'t verify this device. Rooted devices and custom ROMs aren\'t supported.</string>
+    <string name="username_error_verification_busy">Device verification is temporarily unavailable. Try again in a moment.</string>
+    <string name="username_error_server">Something went wrong on our side. Try again.</string>
+    <string name="username_error_unknown">Couldn\'t check this username. Try again.</string>
 
     <string name="backup_found_title">We found an existing backup</string>
     <string name="backup_found_description">Restore from the existing backup or remove it and create a new one</string>
@@ -394,6 +400,22 @@ I’m attaching PDF with more information and details regarding the Tattoo Stenc
     <string name="claim_username_onboarding_description">Choose a username to get started.</string>
     <string name="claim_username_recovered_header">Account restored</string>
     <string name="claim_username_recovered_description">Claim a username - it\'s how people find, pay, and message you.</string>
+
+    <string name="registration_queue_title">You\'re almost there</string>
+    <string name="registration_queue_description">The queue helps us protect the service from bots and fake mass sign-ups. It keeps access safe and fair for everyone.</string>
+    <string name="registration_queue_position_caption">Your position</string>
+    <string name="registration_queue_why_waiting">Why am I waiting?</string>
+    <string name="registration_queue_why_title">Why is there a queue?</string>
+    <string name="registration_queue_why_description">We use a queue to protect the service from bots, scripts, and automated mass sign-ups</string>
+    <string name="registration_queue_why_point_secure">Keep the system secure</string>
+    <string name="registration_queue_why_point_fair">Make access fair for real users</string>
+    <string name="registration_queue_why_point_abuse">Prevent abuse and overload</string>
+
+    <string name="claim_unavailable_title">Device verification isn\'t available</string>
+    <string name="claim_unavailable_description">Free username claims require device verification, but this device doesn\'t support the required verification method.</string>
+
+    <string name="integrity_failed_title">App safety check failed</string>
+    <string name="integrity_failed_description">We couldn\'t confirm that this app is safe to use on this device</string>
 
     <string name="backup_override_title">Replacing this backup is permanent.</string>
     <string name="backup_override_description">The account, money, collectables and all information tied to this backup will be lost unless you\'ve already written down the recovery phrase.</string>
@@ -446,7 +468,7 @@ I’m attaching PDF with more information and details regarding the Tattoo Stenc
     <string name="rewards_withdraw_to_address_action">Withdraw Rewards</string>
     <string name="rewards_until_next_withdrawal">Not available</string>
     <string name="rewards_expiration_warning">Reward is expiring in %s. Withdraw it now.</string>
-    <string name="rewards_start_earning_description">Earn CASH by providing judgements, playing weekly games, or inviting friends</string>
+    <string name="rewards_start_earning_description">Earn %1$s by providing judgements, playing weekly games, or inviting friends</string>
     <string name="rewards_start_earning_action">Start earning</string>
     <string name="rewards_remove_address_action">Remove</string>
     <string name="rewards_add_address_action">Add Withdrawal Address</string>
@@ -475,6 +497,9 @@ I’m attaching PDF with more information and details regarding the Tattoo Stenc
 
     <string name="coinage_recycling_worker_notification_title">Coin recycling</string>
     <string name="coinage_recycling_worker_notification_message">Recycling aged coins to keep your wallet healthy</string>
+
+    <string name="coinage_recovery_worker_notification_title">Confirming payments</string>
+    <string name="coinage_recovery_worker_notification_message">Waiting for your recent payments to settle on chain</string>
 
     <string name="revoke_payments_toolbar_title">Revoke Payments</string>
     <string name="revoke_payments_title">Revoke pending payments?</string>
@@ -642,11 +667,14 @@ I’m attaching PDF with more information and details regarding the Tattoo Stenc
     <string name="product_bot_management_empty">No products added</string>
     <string name="product_bot_management_url_hint">Script URL</string>
     <string name="product_bot_management_app_url_hint">App URL</string>
-    <string name="product_bot_management_name_hint">product.dot</string>
+    <string name="product_bot_management_name_hint">product%1$s</string>
     <string name="product_bot_management_confirm">Save</string>
     <string name="spa_browser_menu_open_chat">Open Chat</string>
     <string name="spa_browser_menu_refresh">Refresh</string>
     <string name="spa_browser_menu_share">Share</string>
+    <string name="spa_browser_page_no_app_surface">This product doesn\'t have an app on this device.</string>
+    <string name="product_resolution_error_malformed_manifest">This product published a manifest this app can\'t read. Contact the product\'s developer.</string>
+    <string name="product_resolution_error_unknown">Couldn\'t load this product.</string>
     <string name="debug_menu_enable_retro_mode">Enable retro mode</string>
     <string name="debug_menu_disable_retro_mode">Disable retro mode</string>
     <string name="debug_menu_randomize_account">Randomize account (Test Dev Reset)</string>
@@ -726,7 +754,7 @@ I’m attaching PDF with more information and details regarding the Tattoo Stenc
     <string name="send_enter_amount_placeholder">Enter Amount</string>
     <string name="send_enter_amount_your_balance_label">Available now</string>
     <string name="send_enter_amount_not_enough_funds_error">You don’t have enough funds</string>
-    <string name="send_enter_amount_cash_title">CASH</string>
+    <string name="send_enter_amount_cash_title">%1$s</string>
     <string name="send_enter_amount_submitting">Sending…</string>
     <string name="send_enter_amount_settling">Waiting for seller confirmation…</string>
 
@@ -1044,6 +1072,7 @@ I’m attaching PDF with more information and details regarding the Tattoo Stenc
     <string name="chat_payment_status_detected_on_chain_sender">Sent, pending claim</string>
     <string name="chat_payment_status_detected_on_chain_recipient">Claiming…</string>
     <string name="chat_payment_status_claimed">Claimed</string>
+    <string name="chat_payment_status_partially_claimed">Claimed %1$s, waiting for the rest…</string>
     <string name="chat_payment_status_not_detected">Transaction failed</string>
     <string name="chat_payment_status_failed">Invalid transaction</string>
     <string name="chat_payment_amount_differs">Amount received differs from amount sent</string>
@@ -1109,7 +1138,7 @@ I’m attaching PDF with more information and details regarding the Tattoo Stenc
     <string name="chat_bot_weekly_game_start_playing_action">Start Playing</string>
     <string name="chat_bot_weekly_game_deposit_required_title">Deposit is required</string>
     <string name="chat_bot_weekly_game_deposit_required_subtitle">Deposit %1$s and join the weekly game</string>
-    <string name="chat_bot_weekly_game_deposit_required_description">Deposited funds will be held from you CASH account and sent back after you become a Member.</string>
+    <string name="chat_bot_weekly_game_deposit_required_description">Deposited funds will be held from you %1$s account and sent back after you become a Member.</string>
     <string name="chat_bot_weekly_game_deposit_required_action">Deposit %1$s</string>
     <string name="chat_bot_weekly_game_deposit_required_funding">Funding account, please wait…</string>
 
@@ -1185,7 +1214,7 @@ I’m attaching PDF with more information and details regarding the Tattoo Stenc
     <string name="card_balance_will_be_available_soon">Available soon</string>
 
     <string name="asset_details_fund_button">Fund %1$s</string>
-    <string name="asset_details_fund_digital_dollar">Get CASH</string>
+    <string name="asset_details_fund_digital_dollar">Get %1$s</string>
     <string name="asset_details_transfer_button">Transfer</string>
     <string name="asset_details_actions_disabled">Actions will be available after you finish updating your balance</string>
     <string name="asset_details_backup_in_progress">Updating balance</string>
@@ -1431,8 +1460,9 @@ I’m attaching PDF with more information and details regarding the Tattoo Stenc
     <string name="connection_status_connecting">Connecting... %1$d/%2$d</string>
 
     <string name="pocket_digital_dollar_title">Balance Card</string>
-    <string name="pocket_digital_dollar_card_title">CASH</string>
-    <string name="pocket_digital_dollar_send_button">Send CASH</string>
+    <string name="pocket_digital_dollar_card_title">%1$s</string>
+    <string name="pocket_digital_dollar_send_button">Send %1$s</string>
+    <string name="pocket_digital_dollar_faucet_top_up">Faucet Top Up</string>
     <string name="pocket_collectibles_open_button">View collectibles</string>
     <string name="pocket_collectibles_title">Collectibles</string>
 
@@ -1444,8 +1474,6 @@ I’m attaching PDF with more information and details regarding the Tattoo Stenc
     <string name="w3s_ended">Web3 Summit ended — stay tuned for more updates!</string>
 
     <!-- Keys carried over from the branch, not yet present on master -->
-    <string name="terms_of_use_link" translatable="false">https://example.com/terms</string>
-    <string name="privacy_link" translatable="false">https://example.com/terms</string>
     <string name="video_game_play_host_transition_title">Round %d of %d</string>
     <string name="video_game_play_finished_title">Game\ncomplete</string>
     <string name="video_game_play_finished_description">Check your choices.</string>

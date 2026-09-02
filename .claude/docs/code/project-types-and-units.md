@@ -4,10 +4,10 @@ The codebase has a small set of canonical wrapper types that every feature shoul
 
 ## Rules at a glance
 
-1. **`major`** — `kotlin.time.Duration` for time spans; `kotlinx.datetime.Instant` for moments. Don't expose `timeMillis: Long` / `durationSeconds: Int` (PR #530).
+1. **`major`** — `kotlin.time.Duration` for time spans; `kotlinx.datetime.Instant` for moments. Don't expose `timeMillis: Long` / `durationSeconds: Int`.
 2. **`major`** — `InformationSize` for file/buffer/upload sizes. Don't expose `maxSizeBytes: Long`.
 3. **`major`** — `DataByteArray` for binary blobs in data classes. Raw `ByteArray` has reference-equality `equals`; the hook flags this.
-4. **`major`** — Typed `AccountId` / `EncodedPublicKey` / chain-hash wrappers — not `String` (PR #544).
+4. **`major`** — Typed `AccountId` / `EncodedPublicKey` / chain-hash wrappers — not `String`.
 5. **`major`** — Domain identifiers with invariants use `@JvmInline value class` with private constructor + factory functions. New domain types without invariants use `typealias`. Primitives only for trivial values.
 6. **`minor`** — `Balance` / `BlockNumber` / `Nonce` substrate primitives over raw `BigInteger` / `Long`.
 
@@ -38,8 +38,6 @@ Benefits:
 - No "is it seconds or millis?" confusion at any call site.
 - Arithmetic is dimensionally checked: `Instant + Duration` is an `Instant`; you can't accidentally add a millisecond count to a microsecond count.
 - Display formatting uses the same primitives across the app.
-
-PR #530 lesson.
 
 ### When `Long` is still right
 
@@ -105,7 +103,7 @@ See `architecture/maintainability.md § Narrow typing`. Quick reminder:
 - `typealias` when a new domain type adds readability without invariant.
 - Primitive only when truly trivial.
 
-Don't pass `String` for `AccountId` / `EncodedPublicKey` / chain-hash — use the typed wrappers. PR #544.
+Don't pass `String` for `AccountId` / `EncodedPublicKey` / chain-hash — use the typed wrappers.
 
 ---
 

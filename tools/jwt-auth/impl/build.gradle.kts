@@ -5,16 +5,6 @@ plugins {
 
 android {
     namespace = "io.paritytech.polkadotapp.tools_jwt_auth_impl"
-
-    defaultConfig {
-        buildConfigField("boolean", "DISABLE_AUTH", "false")
-    }
-
-    buildTypes {
-        getByName("nightly") {
-            buildConfigField("boolean", "DISABLE_AUTH", "true")
-        }
-    }
 }
 
 dependencies {

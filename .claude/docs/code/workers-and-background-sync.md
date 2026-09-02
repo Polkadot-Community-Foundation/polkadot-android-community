@@ -49,7 +49,7 @@ class FooSyncWorker @AssistedInject constructor(
    ```
 6. **Periodic vs one-shot** — `PeriodicWorkRequestBuilder` only when the OS scheduling is what you want. For "run when X happens", an event-driven path (subscription + one-shot enqueue) is usually better.
 7. **Unique work names** — every enqueue must specify a unique name and a `ExistingWorkPolicy` (`KEEP` for idempotent, `REPLACE` when re-enqueuing supersedes). Constants in the worker companion.
-8. **Foreground / expedited workers** — if you mark a worker as expedited via `setExpedited(...)`, you **must** override `getForegroundInfo()`. Otherwise WorkManager silently demotes the worker to non-expedited and it may not run promptly (PR #513 lesson).
+8. **Foreground / expedited workers** — if you mark a worker as expedited via `setExpedited(...)`, you **must** override `getForegroundInfo()`. Otherwise WorkManager silently demotes the worker to non-expedited and it may not run promptly.
 9. **Background chain access** — if the worker submits extrinsics or holds a long subscription, wrap in `ChainConnectionRefCounter.withConnectionEnabled(...)` (`architecture/transactions.md § Background chain work`).
 10. **No UI work in `doWork`** — notification posting belongs in a separate helper that takes the result. Workers should be pure logic.
 
@@ -179,9 +179,9 @@ Failing to override `getForegroundInfo` while requesting expedited execution cau
 | Injecting deps via `inputData` instead of `@AssistedInject` | use the Hilt-worker entry point |
 | Enqueueing from a ViewModel directly | route through an interactor / domain entry point |
 | Expedited worker without `getForegroundInfo` override | always override |
-| Submitting an extrinsic without `ChainConnectionRefCounter` | wrap chain calls in `withConnectionEnabled` (PR #433) |
+| Submitting an extrinsic without `ChainConnectionRefCounter` | wrap chain calls in `withConnectionEnabled` |
 | Storing state in a `var` field inside the worker | use the `WorkerStateMachineLocalSession` so it survives process death |
-| Two cleanup verbs on the state holder (e.g. `clear()` and `endSession()`) | one terminal transition, named for what it represents (PR #494) |
+| Two cleanup verbs on the state holder (e.g. `clear()` and `endSession()`) | one terminal transition, named for what it represents |
 | Worker that grows into a multi-stage flow without adopting the state machine | refactor to `BaseWorkerStateMachine` once stages ≥ 2 |
 
 ---

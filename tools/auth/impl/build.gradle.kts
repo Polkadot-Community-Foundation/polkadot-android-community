@@ -14,10 +14,9 @@ android {
     productFlavors {
         create("gp") {
             dimension = "distribution"
-            buildConfigField(
-                "String",
+            buildConfigString(
                 "GOOGLE_OAUTH_ID",
-                localProperties.readStringSecret("GOOGLE_OAUTH_ID")
+                localProperties.readSecretOrDefault("GOOGLE_OAUTH_ID", "")
             )
         }
         create("vanilla") {

@@ -6,14 +6,14 @@ Room is the storage layer; SCALE codec is the wire format. Both are migration-se
 
 1. **`blocking`** — Editing existing files under `database/schemas/` is forbidden (the `PreToolUse` hook will block). Schema files are append-only; bump the DB version and add a `Migration(N, N+1)` instead.
 2. **`blocking`** — Editing existing hex in a SCALE conformance test is forbidden — the test exists to fail loudly when encoding changes. If the schema must change, add a migration and add a new test.
-3. **`blocking`** — Persisted SCALE schemas changed non-additively (remove / reorder / retype field, insert enum variant in middle, add struct field) must ship a `*V<N>.kt` snapshot of the old shape plus a migration (PR #466).
+3. **`blocking`** — Persisted SCALE schemas changed non-additively (remove / reorder / retype field, insert enum variant in middle, add struct field) must ship a `*V<N>.kt` snapshot of the old shape plus a migration.
 4. **`blocking`** — Room schema bump (`@Database(version = N+1, ...)`) must add a paired `Migration(N, N+1)` and pass `MigrationTest.migrateAll()`.
-5. **`major`** — New SCALE type missing a conformance test (PR #466).
-6. **`major`** — Manual binary encoder where `BinaryScale` / `@Serializable` covers it (PR #494).
-7. **`major`** — Repository accessing `Preferences` directly. Use a typed `XxxStorage` interface (PR #503, #498, #457).
-8. **`major`** — Feature-specific entity placed in shared `database/.../entity/` without a feature-prefixed class name (e.g. `VideoGameSessionEntity`, not bare `SessionEntity`) (PR #465).
-9. **`major`** — DAO returning `List<…>` just to check existence — use `@Query("SELECT EXISTS(...)")` (PR #461).
-10. **`major`** — Legacy `Entry<N>Encoders` introduced in new code (only for migrating old data) (PR #533).
+5. **`major`** — New SCALE type missing a conformance test.
+6. **`major`** — Manual binary encoder where `BinaryScale` / `@Serializable` covers it.
+7. **`major`** — Repository accessing `Preferences` directly. Use a typed `XxxStorage` interface.
+8. **`major`** — Feature-specific entity placed in shared `database/.../entity/` without a feature-prefixed class name (e.g. `VideoGameSessionEntity`, not bare `SessionEntity`).
+9. **`major`** — DAO returning `List<…>` just to check existence — use `@Query("SELECT EXISTS(...)")`.
+10. **`major`** — Legacy `Entry<N>Encoders` introduced in new code (only for migrating old data).
 11. **`minor`** — Append-only addition at the **end** of an enum is the one SCALE additive change that doesn't need a migration.
 
 ---
@@ -39,7 +39,7 @@ database/
 | Shared across multiple features (Account, Chain, ChatMessage) | `database/.../entity/` |
 | Feature-private | `feature/<X>/impl/.../data/local/entity/` — kept in the feature module's part of the schema |
 
-If you put a feature-specific entity in shared `database`, **prefix the class name with the feature** (`VideoGameSessionEntity`, not `SessionEntity`) — PR #465 lesson.
+If you put a feature-specific entity in shared `database`, **prefix the class name with the feature** (`VideoGameSessionEntity`, not `SessionEntity`).
 
 ### Repositories own entity ↔ domain mapping
 
@@ -71,8 +71,6 @@ class RealCredentialClaimedStorage @Inject constructor(
 ) : CredentialClaimedStorage { ... }
 ```
 
-PR #503, #498, #457: "We don't use Preferences directly in repositories; we use an abstraction".
-
 ---
 
 ## Room migrations
@@ -101,8 +99,6 @@ suspend fun hasBlockedContacts(): Boolean = dao.getAllBlocked().isNotEmpty()
 suspend fun hasBlockedContacts(): Boolean
 ```
 
-PR #461 lesson.
-
 ---
 
 ## SCALE — when migrations are required
@@ -125,14 +121,14 @@ For any SCALE-serialized type that lives **on disk** (chat message content, push
 
 ### How to add a SCALE migration
 
-The recipe (per PR #466 blocking):
+The recipe:
 
 1. **Copy the pre-change type to a versioned file**: `ChatMessageContentLocalV24.kt` containing the exact pre-PR shape.
 2. **Update the live type** with the new shape.
 3. **Write a migration** that reads `V24` bytes and produces the new shape. Be **extremely careful** with indices and order — when asking an AI to write it from scratch, double-check the index mapping against the V24 file.
 4. **Add a conformance test** for the new shape (see below).
 
-Editing a SCALE-encoded persisted type in place is OK **only when accompanied by a migration**. A diff that touches the live shape **must** also add the `*V<N>.kt` snapshot and the migration; otherwise older nightly users' on-disk bytes are corrupt on upgrade (PR #466 blocking). Reviewer: **blocking** when a persisted SCALE type changes shape without a paired migration + conformance test.
+Editing a SCALE-encoded persisted type in place is OK **only when accompanied by a migration**. A diff that touches the live shape **must** also add the `*V<N>.kt` snapshot and the migration; otherwise older nightly users' on-disk bytes are corrupt on upgrade. Reviewer: **blocking** when a persisted SCALE type changes shape without a paired migration + conformance test.
 
 ### SCALE conformance tests — the canary
 
@@ -143,7 +139,7 @@ The flow:
 2. Run it; copy the produced hex output.
 3. Add a test that decodes that hex into the latest type.
 
-**Never edit existing hex strings in conformance tests.** If you find yourself doing it, that's the signal that you've changed encoding non-additively — add a migration. (PR #466 blocking; memory `feedback_scale_conformance_test`.)
+**Never edit existing hex strings in conformance tests.** If you find yourself doing it, that's the signal that you've changed encoding non-additively — add a migration.
 
 Tests live in `feature/<X>/impl/src/test/.../ScaleConformanceTest.kt` (or in the database module for shared schemas).
 
@@ -174,7 +170,7 @@ For exotic encodings, write a `KSerializer` that goes through `ScaleEncoder` / `
 
 ### Don't hand-roll binary encoders
 
-PR #494 blocking. If you find yourself manually packing bytes, switch to `BinaryScale`. Hand-rolled binary code rarely matches the canonical encoding under all edge cases (length prefixes, var-ints, etc.).
+If you find yourself manually packing bytes, switch to `BinaryScale`. Hand-rolled binary code rarely matches the canonical encoding under all edge cases (length prefixes, var-ints, etc.).
 
 ---
 
@@ -182,7 +178,7 @@ PR #494 blocking. If you find yourself manually packing bytes, switch to `Binary
 
 The codebase has legacy hooks like `Entry3Encoders` (in `chains/.../storage/source/query/api/QueryableStorageEntry3.kt`) that exist solely to support entries with custom manual binders for backward compatibility with older code that predates kotlinx-serialization SCALE. **New entries should not reach for these** — declare the value type as `@Serializable` and use the reified `storageN<T>(name)` factory (see `architecture/chain-integration.md § Storage reads`).
 
-PR #533 lesson: don't proactively introduce manual `Entry<N>Encoders` wrappers around new code; the `Auto` encoder via `Scale.encode/decode` is the canonical path.
+Don't proactively introduce manual `Entry<N>Encoders` wrappers around new code; the `Auto` encoder via `Scale.encode/decode` is the canonical path.
 
 ---
 
@@ -190,6 +186,6 @@ PR #533 lesson: don't proactively introduce manual `Entry<N>Encoders` wrappers a
 
 Notification payloads (and similar wire-style payloads) follow the same rules: any change to the on-wire shape is a migration, conformance tests cover it.
 
-The push handler is allowed to span all three layers (data / domain / presentation) currently — it's an acknowledged seam that will be properly layered later (PR #466). When adding to it, keep the additions in obvious places (data: payload parsing; domain: state computation; presentation: notification rendering).
+The push handler is allowed to span all three layers (data / domain / presentation) currently — it's an acknowledged seam that will be properly layered later. When adding to it, keep the additions in obvious places (data: payload parsing; domain: state computation; presentation: notification rendering).
 
 | Tempted to write a manual binary encoder | Don't. Use `BinaryScale`. |

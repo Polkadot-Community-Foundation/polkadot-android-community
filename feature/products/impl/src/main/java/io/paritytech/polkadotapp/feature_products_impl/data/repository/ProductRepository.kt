@@ -14,13 +14,16 @@ interface ProductRepository {
 
     suspend fun getProductById(id: ProductId): Product?
 
-    suspend fun addProduct(id: ProductId, name: String, scriptUrl: String): ProductId
+    /** Debug-menu worker URL for [id], or null if none. */
+    suspend fun getUserWorkerUrl(id: ProductId): String?
 
-    suspend fun updateProduct(id: ProductId, name: String, scriptUrl: String)
+    suspend fun addProduct(id: ProductId, name: String): ProductId
 
-    suspend fun updateContentHash(id: ProductId, contentHash: String)
+    /** Separate from [upsertResolvedProduct], which must not clobber a set `userWorkerUrl`. */
+    suspend fun upsertManualProduct(id: ProductId, name: String, userWorkerUrl: String)
 
-    suspend fun updateIcon(id: ProductId, iconUrl: String)
+    /** Writes name + icon without clobbering integrations, permissions or `userWorkerUrl`. */
+    suspend fun upsertResolvedProduct(product: Product)
 
     suspend fun deleteProduct(id: ProductId)
 }
@@ -38,29 +41,37 @@ class RealProductRepository @Inject constructor(
         return productDao.getById(id.value)?.toProduct()
     }
 
-    override suspend fun addProduct(id: ProductId, name: String, scriptUrl: String): ProductId {
+    override suspend fun getUserWorkerUrl(id: ProductId): String? {
+        return productDao.getUserWorkerUrl(id.value)
+    }
+
+    override suspend fun addProduct(id: ProductId, name: String): ProductId {
         productDao.insert(
             ProductLocal(
                 id = id.value,
                 name = name,
-                scriptUrl = scriptUrl,
-                contentHash = null,
-                iconUrl = null
+                iconCid = null,
+                iconFormat = null,
+                userWorkerUrl = null,
             )
         )
         return id
     }
 
-    override suspend fun updateProduct(id: ProductId, name: String, scriptUrl: String) {
-        productDao.update(id = id.value, name = name, scriptUrl = scriptUrl)
+    override suspend fun upsertManualProduct(id: ProductId, name: String, userWorkerUrl: String) {
+        productDao.upsertManual(
+            ProductLocal(
+                id = id.value,
+                name = name,
+                iconCid = null,
+                iconFormat = null,
+                userWorkerUrl = userWorkerUrl,
+            )
+        )
     }
 
-    override suspend fun updateContentHash(id: ProductId, contentHash: String) {
-        productDao.updateContentHash(id = id.value, contentHash = contentHash)
-    }
-
-    override suspend fun updateIcon(id: ProductId, iconUrl: String) {
-        productDao.updateIcon(id = id.value, iconUrl = iconUrl)
+    override suspend fun upsertResolvedProduct(product: Product) {
+        productDao.upsertResolved(product.toLocal())
     }
 
     override suspend fun deleteProduct(id: ProductId) {

@@ -5,7 +5,9 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.paritytech.polkadotapp.common.presentation.screens.BaseViewModel
 import io.paritytech.polkadotapp.common.utils.flowOf
+import io.paritytech.polkadotapp.common.utils.logFailure
 import io.paritytech.polkadotapp.common.utils.shareInBackground
+import io.paritytech.polkadotapp.feature_dotns_api.domain.DotNsTldProvider
 import io.paritytech.polkadotapp.feature_products_api.model.ProductId
 import io.paritytech.polkadotapp.feature_products_api.presentation.SpaBrowserPayload
 import io.paritytech.polkadotapp.feature_products_impl.domain.bot.ProductsBotApiImpl
@@ -21,6 +23,7 @@ import io.paritytech.polkadotapp.feature_products_impl.domain.product.launchEnsu
 import io.paritytech.polkadotapp.feature_products_impl.domain.webView.BrowserWebViewProvider
 import io.paritytech.polkadotapp.feature_products_impl.presentation.productBotManagement.ProductsRouter
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
@@ -38,6 +41,7 @@ class ExploreProductsViewModel @Inject constructor(
     private val productRegistrar: ProductRegistrar,
     private val router: ProductsRouter,
     private val exploreProductsService: ExploreProductsService,
+    private val dotNsTldProvider: DotNsTldProvider,
 ) : BaseViewModel() {
     private data class SessionComponents(
         val session: HostApiSession,
@@ -46,7 +50,7 @@ class ExploreProductsViewModel @Inject constructor(
 
     private val componentsFlow = flowOf {
         createComponents()
-    }.shareInBackground()
+    }.filterNotNull().shareInBackground()
 
     val webViewFlow = componentsFlow
         .map { it.provider.getWebView() }
@@ -70,13 +74,18 @@ class ExploreProductsViewModel @Inject constructor(
         launch { componentsFlow.first().provider.resumeConnections() }
     }
 
-    private fun createComponents(): SessionComponents {
-        val navigationPolicy = NavigationPolicy.CatalogNavigation(::onProductSelected)
+    private suspend fun createComponents(): SessionComponents? {
+        val exploreUrl = exploreProductsService.getExploreUrl()
+            .logFailure("Failed to resolve explore url")
+            .getOrNull() ?: return null
 
-        val webViewProvider = browserWebViewProviderFactory.create(exploreProductsService.getExploreUrl(), navigationPolicy, viewModelScope)
+        val navigationPolicy = NavigationPolicy.CatalogNavigation(::onProductSelected, dotNsTldProvider)
+
+        val webViewProvider = browserWebViewProviderFactory.create(exploreUrl, navigationPolicy, viewModelScope)
         webViewProvider.addOnPageStartedListener { url ->
-            ProductId.fromUrl(url.toUri())
-                .onSuccess { productRegistrar.launchEnsureRegistered(it, contentHash = null) }
+            dotNsTldProvider.currentTldOrNull()
+                ?.let { tld -> ProductId.fromUrl(url.toUri(), tld).getOrNull() }
+                ?.let { productRegistrar.launchEnsureRegistered(it) }
         }
         val productIdProvider = webViewProvider.callingProductIdProvider
 

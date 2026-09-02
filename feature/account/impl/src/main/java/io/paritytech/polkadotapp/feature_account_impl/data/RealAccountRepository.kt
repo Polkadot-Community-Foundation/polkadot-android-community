@@ -91,15 +91,17 @@ class RealAccountRepository @Inject constructor(
     override suspend fun initAccounts(entropy: ByteArray) = withContext(coroutineDispatchers.io) {
         val mnemonic = MnemonicCreator.fromEntropy(entropy)
 
-        metaAccountDao.withTransaction {
-            for (purpose in MetaAccount.Purpose.entries) {
-                if (purpose == MetaAccount.Purpose.ALIAS) continue
+        val derivationPaths = MetaAccount.Purpose.entries
+            .filter { it != MetaAccount.Purpose.ALIAS }
+            .associateWith { it.derivationPath() }
 
+        metaAccountDao.withTransaction {
+            derivationPaths.forEach { (purpose, derivationPath) ->
                 createMetaAccount(
                     mnemonic = mnemonic,
                     purpose = purpose,
                     aliasContext = null,
-                    derivationPath = purpose.derivationPath()
+                    derivationPath = derivationPath
                 )
             }
         }
@@ -157,7 +159,7 @@ class RealAccountRepository @Inject constructor(
         return metaAccountDao.getAliasAccount(context.value)!!.toDomain()
     }
 
-    override fun deriveWalletAccountId(entropy: ByteArray): io.paritytech.polkadotapp.common.domain.model.AccountId {
+    override suspend fun deriveWalletAccountId(entropy: ByteArray): io.paritytech.polkadotapp.common.domain.model.AccountId {
         val mnemonic = MnemonicCreator.fromEntropy(entropy)
         val secrets = accountSecretsFactory.create(
             mnemonic = mnemonic,
@@ -167,13 +169,13 @@ class RealAccountRepository @Inject constructor(
         return secrets.substrateKeyPair.publicKey.substrateAccountId()
     }
 
-    private fun BandersnatchContext.aliasAccountDerivationPath(): String {
+    private suspend fun BandersnatchContext.aliasAccountDerivationPath(): String {
         val derivationOverride = aliasDerivationOverrides.find { it.context.stringValue == stringValue }
 
-        return derivationOverride?.derivationPath ?: (JunctionDecoder.HARD_SEPARATOR + stringValue)
+        return derivationOverride?.derivationPath?.invoke() ?: (JunctionDecoder.HARD_SEPARATOR + stringValue)
     }
 
-    private fun MetaAccount.Purpose.derivationPath(): String {
+    private suspend fun MetaAccount.Purpose.derivationPath(): String {
         val provider = accountDerivationProviders[this]
             ?: throw IllegalStateException("No derivation provider contributed for purpose $this")
 
