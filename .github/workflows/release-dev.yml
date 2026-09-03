@@ -41,6 +41,11 @@ name: Release (Dev)
 # The vanilla (no-GMS) APK reaches testers through the GitHub Release instead.
 # NOTE the Firebase project is shared with the Parity/Nova `.nightly` pipeline; never
 # target its app id or its tester groups (android-daily-tests, dev-team, ios-*).
+#
+# ⭐ RULE: testers are only ever served by a run that PUBLISHES A RELEASE — a `dev-v*`
+# tag push or the weekly pre-release. Branch/`workflow_dispatch` runs are validation
+# only: they build and upload artifacts and distribute nothing. Keep the release gate
+# ANDed with the `distribute` opt-out; never OR them.
 
 on:
   workflow_dispatch:
@@ -51,7 +56,9 @@ on:
         default: gp vanilla
         options: [gp vanilla, gp, vanilla]
       distribute:
-        description: 'Hand the gp APK to Firebase App Distribution testers'
+        # This input can only SUPPRESS distribution, never force it: a run that
+        # publishes no release hands the APK to nobody regardless of this value.
+        description: 'Allow App Distribution (only takes effect on a release-publishing run)'
         type: boolean
         default: true
   push:
@@ -171,7 +178,9 @@ jobs:
         env:
           GP_APK: ${{ steps.apk.outputs.gp }}
           HAS_FIREBASE_APP: ${{ vars.FIREBASE_APP_ID_ANDROID_DEV != '' }}
-          DISPATCH_DISTRIBUTE: ${{ github.event_name != 'workflow_dispatch' || inputs.distribute }}
+          # Opt-OUT only. True unless a dispatch explicitly cleared `distribute`;
+          # it is ANDed with the release gate below, never ORed with it.
+          DISTRIBUTE_ALLOWED: ${{ github.event_name != 'workflow_dispatch' || inputs.distribute }}
           # Overridable via repo variable so the link can be rotated without a code
           # change (same pattern as TESTFLIGHT_JOIN_URL in the iOS repo).
           INVITE_LINK: ${{ vars.FIREBASE_INVITE_LINK || 'https://appdistribution.firebase.dev/i/f3b79521380b40b9' }}
@@ -231,11 +240,16 @@ jobs:
             cat docs/SUPPORTED_DEVICES.md
           } > "$BODY"
 
-          # Distribute when the channel warrants it AND we actually have a gp APK
-          # plus a configured Firebase app to send it to.
+          # Testers only ever receive a build this run also publishes as a release:
+          # a `dev-v*` tag push, or the weekly pre-release below. A plain
+          # workflow_dispatch is branch validation — it uploads artifacts and
+          # distributes NOTHING, whatever `distribute` was set to. The release gate
+          # and the opt-out are ANDed; putting them in an OR (as an earlier revision
+          # did) makes every trigger distribute, which is how this went wrong.
           DISTRIBUTE=false
           if [ -n "$GP_APK" ] && [ "$HAS_FIREBASE_APP" = "true" ] \
-             && { [ "$IS_TAG" = "true" ] || [ "$IS_WEEKLY" = "true" ] || [ "$DISPATCH_DISTRIBUTE" = "true" ]; }; then
+             && { [ "$IS_TAG" = "true" ] || [ "$IS_WEEKLY" = "true" ]; } \
+             && [ "$DISTRIBUTE_ALLOWED" = "true" ]; then
             DISTRIBUTE=true
           fi
 
@@ -245,7 +259,7 @@ jobs:
             echo "body=$BODY"
             echo "distribute=$DISTRIBUTE"
           } >> "$GITHUB_OUTPUT"
-          echo "channel: tag=$IS_TAG weekly=$IS_WEEKLY → distribute=$DISTRIBUTE"
+          echo "channel: tag=$IS_TAG weekly=$IS_WEEKLY allowed=$DISTRIBUTE_ALLOWED → distribute=$DISTRIBUTE"
 
       - name: Upload gp APK artifact
         if: contains(env.FLAVORS, 'gp')
