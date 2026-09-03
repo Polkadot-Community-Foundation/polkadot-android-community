@@ -3,21 +3,20 @@ package io.paritytech.polkadotapp.feature_wallet_impl.presentation.sendPayment
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.paritytech.polkadotapp.common.presentation.clipboard.ClipboardService
-import io.paritytech.polkadotapp.common.presentation.loading.mapLoading
 import io.paritytech.polkadotapp.common.presentation.screens.BaseViewModel
+import io.paritytech.polkadotapp.common.presentation.search.mapSearchResults
+import io.paritytech.polkadotapp.common.utils.OneShotEventChannel
 import io.paritytech.polkadotapp.common.utils.flowOf
 import io.paritytech.polkadotapp.common.utils.launchUnit
-import io.paritytech.polkadotapp.common.utils.mapValuesNotNull
 import io.paritytech.polkadotapp.common.utils.shareInBackground
-import io.paritytech.polkadotapp.design.components.avatar.AvatarUiModel
-import io.paritytech.polkadotapp.design.configs.colors.AvatarColorScheme
+import io.paritytech.polkadotapp.common.utils.toSizedList
 import io.paritytech.polkadotapp.feature_account_api.presentation.address.converter.ParseAddressConverterFactory
 import io.paritytech.polkadotapp.feature_account_api.presentation.address.mixin.AddressInputMixin
-import io.paritytech.polkadotapp.feature_account_api.presentation.address.model.ExtractedAddress
 import io.paritytech.polkadotapp.feature_account_api.presentation.address.model.toParcel
 import io.paritytech.polkadotapp.feature_chats_api.domain.model.hasEstablishedChat
 import io.paritytech.polkadotapp.feature_chats_api.domain.usecase.GetContactsUseCase
 import io.paritytech.polkadotapp.feature_chats_api.presentation.ChatStarter
+import io.paritytech.polkadotapp.feature_chats_api.presentation.address.ContactsAddressConverterFactory
 import io.paritytech.polkadotapp.feature_transfers_api.presentation.PreviousPaymentsAddressConverterFactory
 import io.paritytech.polkadotapp.feature_usernames_api.presentation.address.ParseAddressUsernameConverterFactory
 import io.paritytech.polkadotapp.feature_usernames_api.presentation.address.UsernameAddressConverterFactory
@@ -27,20 +26,15 @@ import io.paritytech.polkadotapp.feature_wallet_api.presentation.enterAmount.Tra
 import io.paritytech.polkadotapp.feature_wallet_impl.PocketRouter
 import io.paritytech.polkadotapp.feature_wallet_impl.presentation.scanAddressQr.ScanAddressQrResultPayload
 import io.paritytech.polkadotapp.feature_wallet_impl.presentation.sendPayment.domain.SendPaymentInteractor
-import kotlinx.collections.immutable.toImmutableList
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.mapLatest
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import javax.inject.Inject
-import kotlin.time.Duration.Companion.milliseconds
+import io.paritytech.polkadotapp.common.R as RCommon
 
 @HiltViewModel
 class SendPaymentViewModel @Inject constructor(
@@ -53,62 +47,37 @@ class SendPaymentViewModel @Inject constructor(
     parseAddressConverterFactory: ParseAddressConverterFactory,
     parserAddressUsernameConverterFactory: ParseAddressUsernameConverterFactory,
     previousPaymentsAddressConverterFactory: PreviousPaymentsAddressConverterFactory,
+    contactsAddressConverterFactory: ContactsAddressConverterFactory,
     interactor: SendPaymentInteractor,
 ) : BaseViewModel(), SendPaymentContract {
     private val contacts = flowOf { getContactsUseCase() }
         .shareInBackground()
 
+    private val _messageEvents = OneShotEventChannel<Int>()
+    override val messageEvents = _messageEvents.receiveAsFlow()
+
     private val addressInputMixin = addressInputMixinFactory.create(
         coroutineScope = viewModelScope,
         converters = listOf(
+            previousPaymentsAddressConverterFactory.create(interactor.chainId()),
+            contactsAddressConverterFactory.create(),
             parserAddressUsernameConverterFactory.create(
                 parseAddressConverterFactory.create(interactor.chainId())
             ),
             usernameAddressConverterFactory.create(),
-            previousPaymentsAddressConverterFactory.create(interactor.chainId())
         )
     )
 
-    private val input = MutableStateFlow("")
-
     private val addressCandidates = addressInputMixin.addressCandidates
-        .mapLoading { result ->
-            buildList {
-                result.forEach {
-                    addAll(it.value)
-                }
-            }
-                .groupBy { it.accountId }
-                .mapValuesNotNull { (_, group) ->
-                    group
-                        .find {
-                            it.type == ExtractedAddress.DisplayType.USERNAME
-                        }
-                        ?: group
-                            .find {
-                                it.type == ExtractedAddress.DisplayType.ADDRESS
-                            }
-                }
-                .values
-                .map { extractedAddress ->
-                    PaymentSearchResultUiModel(
-                        extractedAddress = extractedAddress,
-                        avatarModel = AvatarUiModel.Name(
-                            name = extractedAddress.display,
-                            colorScheme = AvatarColorScheme.from(extractedAddress.accountId.value)
-                        ),
-                    )
-                }
-                .toImmutableList()
-        }
+        .mapSearchResults { candidates -> candidates.toSearchSections().toSizedList() }
 
     override val state: StateFlow<SendPaymentUiState> = combine(
-        input,
+        addressInputMixin.input,
         addressCandidates
-    ) { inputValue, loadingState ->
+    ) { inputValue, searchState ->
         SendPaymentUiState(
             input = inputValue,
-            loadingState = loadingState,
+            searchState = searchState,
         )
     }.stateIn(
         scope = this,
@@ -116,21 +85,12 @@ class SendPaymentViewModel @Inject constructor(
         initialValue = SendPaymentUiState()
     )
 
-    init {
-        input
-            .debounce(300.milliseconds)
-            .mapLatest {
-                addressInputMixin.input.value = it
-            }
-            .launchIn(this)
-    }
-
     fun onQrResult(payload: ScanAddressQrResultPayload) {
         onInputChange(payload.address)
     }
 
     override fun onInputChange(value: String) {
-        input.update { value.filterAvailableUsernameSymbols() }
+        addressInputMixin.input.update { value.filterAvailableUsernameSymbols() }
     }
 
     override fun onRecipientSelect(recipient: PaymentSearchResultUiModel) = launchUnit {
@@ -146,6 +106,8 @@ class SendPaymentViewModel @Inject constructor(
                 )
             )
         } else {
+            _messageEvents.trySend(RCommon.string.send_payment_open_chat_message)
+
             chatStarter.openChatWith(accountId)
                 .onFailure(::showError)
         }
