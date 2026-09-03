@@ -8,15 +8,20 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import io.paritytech.polkadotapp.common.utils.notFoundResponse
 import io.paritytech.polkadotapp.feature_dotns_api.domain.DotNsResolver
+import io.paritytech.polkadotapp.feature_dotns_api.domain.DotNsTldProvider
 import io.paritytech.polkadotapp.feature_dotns_api.domain.DotNsUtils
+import io.paritytech.polkadotapp.feature_dotns_api.domain.getTldRetrying
 import io.paritytech.polkadotapp.feature_dotns_api.domain.resolveToLocalFile
 import kotlinx.coroutines.runBlocking
 import timber.log.Timber
 import java.io.ByteArrayInputStream
 import java.io.File
+import java.net.URLConnection
 
 open class DotNsWebViewClient(
-    private val dotNsResolver: DotNsResolver
+    private val dotNsResolver: DotNsResolver,
+    private val dotNsTldProvider: DotNsTldProvider,
+    private val servingHostResolver: DotNsServingHostResolver = DotNsServingHostResolver.Identity,
 ) : WebViewClient() {
     override fun shouldInterceptRequest(
         view: WebView,
@@ -26,8 +31,8 @@ open class DotNsWebViewClient(
 
         Timber.d("Intercepting request for $url")
 
-        // Intercept http(s)://*.dot requests and serve from local content
-        if (!DotNsUtils.isDotDomain(url)) {
+        val tld = runBlocking { dotNsTldProvider.getTldRetrying() }
+        if (!DotNsUtils.isDotDomain(url, tld)) {
             Timber.d("Not dotNs domain: $url")
 
             return null
@@ -39,14 +44,14 @@ open class DotNsWebViewClient(
             Timber.w("Archive root not resolved $url")
             return notFoundResponse()
         }
-        val resolvedFile = resolveFile(resolveHostFile, requestPath) ?: run {
-            Timber.w("File within archive not resolved $url")
-            return notFoundResponse()
-        }
+        val resolvedFile = resolveFile(resolveHostFile, requestPath)
+            ?: spaFallbackFile(resolveHostFile, request)
+            ?: run {
+                Timber.w("File within archive not resolved $url")
+                return notFoundResponse()
+            }
 
-        val mimeType = MimeTypeMap.getSingleton()
-            .getMimeTypeFromExtension(resolvedFile.extension)
-            ?: "application/octet-stream"
+        val mimeType = resolveMimeType(resolvedFile)
 
         Timber.d("Successfully resolved file for $url: ${resolvedFile.name}, mimeType=$mimeType")
 
@@ -54,11 +59,11 @@ open class DotNsWebViewClient(
     }
 
     fun resolveHostFile(uri: Uri?): File? {
-        val host = uri?.host
-        if (host == null) return null
+        val host = uri?.host ?: return null
 
         return runBlocking {
-            dotNsResolver.resolveToLocalFile(host)
+            val servedHost = servingHostResolver.servingHostFor(host)
+            dotNsResolver.resolveToLocalFile(servedHost)
                 .getOrNull() // TODO: Bad ux. We have to ask user to reload the page
         }
     }
@@ -91,6 +96,28 @@ open class DotNsWebViewClient(
 
         return null
     }
+
+    /**
+     * SPA fallback. Client-side routes (e.g. `/apps`) have no matching file in the archive — they
+     * exist only in the app's JS router. When the WebView issues a hard main-frame request for such
+     * a route (back across a cross-document boundary, refresh, or a shared deep link), serve the
+     * archive's root `index.html` so the SPA boots and routes itself from `window.location`, mirroring
+     * a web server rewriting unknown routes to `index.html`. Sub-resource requests still 404 so that
+     * genuinely missing assets are not masked.
+     */
+    private fun spaFallbackFile(contentDir: File?, request: WebResourceRequest): File? {
+        if (!request.isForMainFrame) return null
+        return File(contentDir, "index.html").takeIf { it.exists() && it.isFile }
+    }
+
+    private fun resolveMimeType(file: File): String {
+        return MimeTypeMap.getSingleton().getMimeTypeFromExtension(file.extension)
+            ?: guessMimeFromContent(file)
+            ?: "application/octet-stream"
+    }
+
+    private fun guessMimeFromContent(file: File): String? =
+        file.inputStream().buffered().use { URLConnection.guessContentTypeFromStream(it) }
 
     private fun notFoundResponse(): WebResourceResponse {
         return WebResourceResponse(

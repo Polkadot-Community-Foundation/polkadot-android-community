@@ -8,5 +8,5 @@ class Web3SummitEnvironmentConfig(
     val dotNsUrl: String,
     val contractAddress: EvmAccountId,
 ) {
-    val productId = ProductId.fromUrl(dotNsUrl.toUri()).getOrThrow()
+    val productId = ProductId.fromStoredValue(dotNsUrl.toUri().host ?: dotNsUrl)
 }

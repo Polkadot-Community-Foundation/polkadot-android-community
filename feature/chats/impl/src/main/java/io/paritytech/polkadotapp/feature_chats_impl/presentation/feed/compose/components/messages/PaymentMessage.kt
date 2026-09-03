@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
@@ -44,6 +46,7 @@ import io.paritytech.polkadotapp.feature_tokens_api.presentation.formatter.Local
 import io.paritytech.polkadotapp.feature_tokens_api.presentation.formatter.TokenAmountFormatter
 import io.paritytech.polkadotapp.feature_tokens_api.presentation.model.RoundPrecision
 import io.paritytech.polkadotapp.feature_tokens_api.presentation.model.TokenAmountModel
+import kotlinx.collections.immutable.persistentListOf
 import io.paritytech.polkadotapp.common.R as RCommon
 
 @Composable
@@ -53,6 +56,7 @@ fun PaymentMessage(
     grouping: ChatMessageGrouping,
     isHighlighted: Boolean,
     username: String,
+    canBeReplied: Boolean,
     onMessageAction: (MessageAction) -> Unit,
     onLongPress: (MessageLayoutInfo) -> Unit,
     customBubbleStyle: ChatMessageSurfaceStyle? = null,
@@ -62,7 +66,7 @@ fun PaymentMessage(
         message = message,
         grouping = grouping,
         isHighlighted = isHighlighted,
-        canBeReplied = false,
+        canBeReplied = canBeReplied,
         onMessageAction = onMessageAction,
         onLongPress = onLongPress,
         reactions = message.reactions,
@@ -215,6 +219,8 @@ private fun PaymentStatusIndicator(
         NovaIcons.ArrowUpward
     }
 
+    val formatter = LocalTokenAmountFormatter.current
+
     val icon: ImageVector?
     val text: String
     val color: Color
@@ -246,6 +252,15 @@ private fun PaymentStatusIndicator(
                 } else {
                     RCommon.string.chat_payment_status_detected_on_chain_sender
                 }
+            )
+            color = baseStatusColor
+        }
+
+        status is ChatMessageUiModel.CoinagePayment.Status.PartiallyClaimed -> {
+            icon = arrowIcon
+            text = stringResource(
+                RCommon.string.chat_payment_status_partially_claimed,
+                formatter.formatTokenAmount(status.claimed, RoundPrecision.DEFAULT)
             )
             color = baseStatusColor
         }
@@ -290,13 +305,13 @@ private fun PaymentStatusIndicator(
     }
 }
 
-@Preview(showBackground = true, backgroundColor = 0xFF000000)
+@Preview(showBackground = true, backgroundColor = 0xFF000000, heightDp = PREVIEW_HEIGHT)
 @Composable
 private fun IncomingMessagesPreview() {
     MessagesPreview(direction = ChatMessageUiModel.Direction.INCOMING)
 }
 
-@Preview(showBackground = true, backgroundColor = 0xFF000000)
+@Preview(showBackground = true, backgroundColor = 0xFF000000, heightDp = PREVIEW_HEIGHT)
 @Composable
 private fun OutcomingMessagesPreview() {
     MessagesPreview(direction = ChatMessageUiModel.Direction.OUTGOING)
@@ -310,7 +325,9 @@ private fun MessagesPreview(direction: ChatMessageUiModel.Direction) {
             LocalTokenAmountFormatter provides TokenAmountFormatter.mocked
         ) {
             Column(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 PaymentMessagePreview(
@@ -323,11 +340,32 @@ private fun MessagesPreview(direction: ChatMessageUiModel.Direction) {
                 )
                 PaymentMessagePreview(
                     direction = direction,
-                    paymentStatus = ChatMessageUiModel.CoinagePayment.Status.Transferred(TokenAmountModel.mock),
+                    paymentStatus = ChatMessageUiModel.CoinagePayment.Status.PartiallyClaimed(
+                        TokenAmountModel.mock(value = 500)
+                    ),
                 )
                 PaymentMessagePreview(
                     direction = direction,
+                    paymentStatus = ChatMessageUiModel.CoinagePayment.Status.Transferred(TokenAmountModel.mock),
+                )
+                // Claiming ended short: the amount is struck through and the shortfall called out. Only a
+                // finished claim reaches this, which is what keeps it off the screen while a retry is due.
+                PaymentMessagePreview(
+                    direction = direction,
                     paymentStatus = ChatMessageUiModel.CoinagePayment.Status.Transferred(TokenAmountModel.mock(value = 500)),
+                )
+                PaymentMessagePreview(
+                    direction = direction,
+                    paymentStatus = ChatMessageUiModel.CoinagePayment.Status.FailedDetection,
+                )
+                PaymentMessagePreview(
+                    direction = direction,
+                    paymentStatus = ChatMessageUiModel.CoinagePayment.Status.FailedTransfer,
+                )
+                PaymentMessagePreview(
+                    direction = direction,
+                    paymentStatus = ChatMessageUiModel.CoinagePayment.Status.Detected(TokenAmountModel.mock),
+                    deliveryStatus = ChatMessageUiModel.Status.FAILED,
                 )
             }
         }
@@ -337,24 +375,29 @@ private fun MessagesPreview(direction: ChatMessageUiModel.Direction) {
 @Composable
 private fun PaymentMessagePreview(
     direction: ChatMessageUiModel.Direction,
-    paymentStatus: ChatMessageUiModel.CoinagePayment.Status
+    paymentStatus: ChatMessageUiModel.CoinagePayment.Status,
+    deliveryStatus: ChatMessageUiModel.Status = ChatMessageUiModel.Status.SENT
 ) {
     PaymentMessage(
         modifier = Modifier.fillMaxWidth(),
         message = ChatMessageUiModel.CoinagePayment(
             id = "1",
             direction = direction,
-            status = ChatMessageUiModel.Status.SENT,
+            status = deliveryStatus,
             timestamp = System.currentTimeMillis(),
             amount = TokenAmountModel.mock,
             paymentStatus = paymentStatus,
             origin = ChatMessageOrigin.User,
-            reactions = emptyList()
+            reactions = persistentListOf()
         ),
         grouping = ChatMessageGrouping.Standalone,
         isHighlighted = false,
         username = "Glak",
+        canBeReplied = true,
         onMessageAction = {},
         onLongPress = {}
     )
 }
+
+/** Tall enough for the whole status gallery; the scroll is for the interactive preview. */
+private const val PREVIEW_HEIGHT = 1400

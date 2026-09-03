@@ -1,6 +1,8 @@
 plugins {
-    alias(libs.plugins.kotlin.compose)
-    alias(libs.plugins.dagger.hilt)
+    id("jacoco")
+    id("polkadotapp.android.library")
+    id("polkadotapp.android.compose")
+    id("polkadotapp.android.hilt")
     alias(libs.plugins.kotlin.parcelize)
     alias(libs.plugins.kotlin.serialization)
 }
@@ -13,8 +15,6 @@ dependencies {
     api(project(":feature:chats:api"))
     implementation(project(":feature:chats:transport-protocol"))
 
-    implementation(libs.hilt.android)
-    ksp(libs.hilt.android.compiler)
     ksp(libs.hilt.androidx.compiler)
 
     implementation(libs.hilt.androidx.work)
@@ -41,6 +41,26 @@ dependencies {
     implementation(project(":feature:scan:api"))
 
     implementation(project(":tools:push-notifications:api"))
+    implementation(project(":tools:ipfs:api"))
 
     testImplementation(project(":test-shared"))
+    testImplementation(libs.mockk)
+    testImplementation(libs.kotlinx.coroutines.test)
+}
+
+tasks.register<JacocoReport>("chatsCoverage") {
+    dependsOn("testDebugUnitTest")
+
+    executionData.setFrom(fileTree(layout.buildDirectory).matching { include("**/testDebugUnitTest.exec") })
+    sourceDirectories.setFrom(files("src/main/java"))
+    classDirectories.setFrom(
+        fileTree(layout.buildDirectory.dir("tmp/kotlin-classes/debug")).matching {
+            exclude("**/di/**", "**/*_Factory*", "**/*_HiltModules*", "**/hilt_aggregated_deps/**", "**/*Module*")
+        }
+    )
+
+    reports {
+        xml.required.set(true)
+        html.required.set(true)
+    }
 }

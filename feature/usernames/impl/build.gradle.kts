@@ -1,8 +1,9 @@
 plugins {
+    id("polkadotapp.android.library")
+    id("polkadotapp.android.compose")
+    id("polkadotapp.android.hilt")
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.kotlin.parcelize)
-    alias(libs.plugins.kotlin.compose)
-    alias(libs.plugins.dagger.hilt)
 }
 
 android {
@@ -10,11 +11,6 @@ android {
 }
 
 dependencies {
-    api(project(":feature:usernames:api"))
-
-    implementation(libs.hilt.android)
-    ksp(libs.hilt.android.compiler)
-
     implementation(libs.androidx.fragment.ktx)
 
     implementation(project(":chains"))
@@ -22,8 +18,15 @@ dependencies {
     implementation(project(":feature:backup:api"))
     implementation(project(":feature:usernames:api"))
     implementation(project(":feature:chain-resources:api"))
+    implementation(project(":feature:dotns-gateway:api"))
     implementation(project(":feature:web3summit:api"))
 
     implementation(project(":tools:integrity:api"))
     implementation(project(":tools:jwt-auth:api"))
+
+    testImplementation(project(":test-shared"))
+    testImplementation(libs.junit)
+    testImplementation(libs.mockito.core)
+    testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.squareup.retrofit2.core)
 }

@@ -2,7 +2,9 @@ package io.paritytech.polkadotapp.feature_usernames_impl.presentation.claim
 
 import androidx.compose.runtime.Immutable
 import io.paritytech.polkadotapp.feature_usernames_api.presentation.model.DigitsFieldState
-import io.paritytech.polkadotapp.feature_usernames_api.presentation.model.UsernameFieldState
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 
 enum class ClaimUsernameProgress {
@@ -16,19 +18,24 @@ enum class ClaimUsernameProgress {
 data class ClaimUsernameState(
     val username: String = "",
     /** Zero-padded digit suffixes returned by the backend for client-side validation. */
-    val availableDigits: List<String> = emptyList(),
-    val fieldState: UsernameFieldState = UsernameFieldState.NEUTRAL,
+    val availableDigits: ImmutableList<String> = persistentListOf(),
+    val fieldState: ClaimUsernameFieldState = ClaimUsernameFieldState.Neutral,
     val digitsFieldState: DigitsFieldState = DigitsFieldState.Hidden,
     val progress: ClaimUsernameProgress = ClaimUsernameProgress.NONE,
     val showRecoverOption: Boolean = true,
 ) {
     val claimButtonEnabled: Boolean
-        get() = fieldState == UsernameFieldState.AVAILABLE &&
+        get() = fieldState is ClaimUsernameFieldState.Available &&
             (digitsFieldState is DigitsFieldState.Hidden || (digitsFieldState is DigitsFieldState.Visible && digitsFieldState.isValid))
+
+    val showClearAction: Boolean
+        get() = fieldState is ClaimUsernameFieldState.Taken
 }
 
 interface ClaimUsernameContract {
     val state: StateFlow<ClaimUsernameState>
+
+    val messageEvents: SharedFlow<Int>
 
     fun backPressed()
 

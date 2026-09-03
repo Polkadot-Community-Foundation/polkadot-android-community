@@ -1,38 +1,37 @@
 import com.android.build.gradle.internal.cxx.configure.gradleLocalProperties
 
 plugins {
-    alias(libs.plugins.dagger.hilt)
+    id("polkadotapp.android.library")
+    id("polkadotapp.android.hilt")
 }
 
 android {
     namespace = "io.paritytech.polkadotapp.tools_integrity_impl"
     val localProperties = gradleLocalProperties(rootDir, providers)
 
-    defaultConfig {
-        buildConfigField(
-            "long",
-            "GOOGLE_PROJECT_ID",
-            localProperties.readSecret("GOOGLE_PROJECT_ID")
-        )
-    }
-
     flavorDimensions += "distribution"
 
     productFlavors {
-        create("gp") { dimension = "distribution" }
-        create("vanilla") { dimension = "distribution" }
+        create("gp") {
+            dimension = "distribution"
+            buildConfigField(
+                "long",
+                "GOOGLE_PROJECT_ID",
+                localProperties.readSecretOrDefault("GOOGLE_PROJECT_ID", "0")
+            )
+        }
+        create("vanilla") {
+            dimension = "distribution"
+            buildConfigField("long", "GOOGLE_PROJECT_ID", "0L")
+        }
     }
 }
 
 dependencies {
     api(project(":tools:integrity:api"))
 
-    implementation(libs.hilt.android)
-    ksp(libs.hilt.android.compiler)
-
     implementation(libs.google.integrity)
 
-    implementation(platform(libs.firebase.bom))
-    implementation(libs.firebase.integrity)
-    implementation(libs.firebase.integrity.debug)
+    testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
 }

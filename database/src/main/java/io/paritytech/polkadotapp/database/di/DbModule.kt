@@ -8,10 +8,14 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import io.paritytech.polkadotapp.common.data.storage.preferences.Preferences
 import io.paritytech.polkadotapp.database.AppDatabase
+import io.paritytech.polkadotapp.database.dao.BrowserTabDao
+import io.paritytech.polkadotapp.database.dao.ChatDraftDao
+import io.paritytech.polkadotapp.database.dao.ChatMessageCompactionDao
 import io.paritytech.polkadotapp.database.dao.ChatMessageDao
 import io.paritytech.polkadotapp.database.dao.ChatRequestDao
 import io.paritytech.polkadotapp.database.dao.ChatRequestSyncStateDao
 import io.paritytech.polkadotapp.database.dao.ChatRoomDao
+import io.paritytech.polkadotapp.database.dao.ChatSearchRecentDao
 import io.paritytech.polkadotapp.database.dao.CoinDao
 import io.paritytech.polkadotapp.database.dao.ContactDao
 import io.paritytech.polkadotapp.database.dao.ContactDeviceDao
@@ -24,6 +28,7 @@ import io.paritytech.polkadotapp.database.dao.ProductIntegrationDao
 import io.paritytech.polkadotapp.database.dao.ProductPermissionGrantDao
 import io.paritytech.polkadotapp.database.dao.RecyclerVoucherDao
 import io.paritytech.polkadotapp.database.dao.RemovedChatDao
+import io.paritytech.polkadotapp.database.dao.RingVrfKeyRegistrationDao
 import io.paritytech.polkadotapp.database.dao.ScheduledProductNotificationDao
 import io.paritytech.polkadotapp.database.dao.SsoHandledRequestDao
 import io.paritytech.polkadotapp.database.dao.SsoSessionDao
@@ -69,6 +74,11 @@ class DbModule {
 
     @Provides
     @Singleton
+    fun provideChatMessageCompactionDao(appDatabase: AppDatabase): ChatMessageCompactionDao =
+        appDatabase.chatMessageCompactionDao()
+
+    @Provides
+    @Singleton
     fun provideContactDao(appDatabase: AppDatabase): ContactDao = appDatabase.contactDao()
 
     @Provides
@@ -93,11 +103,7 @@ class DbModule {
 
     @Provides
     @Singleton
-    fun provideCoinageTransferDetectionDao(appDatabase: AppDatabase) = appDatabase.coinageTransferDetectionDao()
-
-    @Provides
-    @Singleton
-    fun provideCoinageTransferWalDao(appDatabase: AppDatabase) = appDatabase.coinageTransferWalDao()
+    fun provideCoinageEntryDao(appDatabase: AppDatabase) = appDatabase.coinageEntryDao()
 
     @Provides
     @Singleton
@@ -139,6 +145,10 @@ class DbModule {
     @Provides
     @Singleton
     fun provideProductDao(appDatabase: AppDatabase): ProductDao = appDatabase.productDao()
+
+    @Provides
+    @Singleton
+    fun provideBrowserTabDao(appDatabase: AppDatabase): BrowserTabDao = appDatabase.browserTabDao()
 
     @Provides
     @Singleton
@@ -205,4 +215,17 @@ class DbModule {
     @Provides
     @Singleton
     fun provideRemovedChatDao(appDatabase: AppDatabase): RemovedChatDao = appDatabase.removedChatDao()
+
+    @Provides
+    @Singleton
+    fun provideChatDraftDao(appDatabase: AppDatabase): ChatDraftDao = appDatabase.chatDraftDao()
+
+    @Provides
+    @Singleton
+    fun provideChatSearchRecentDao(appDatabase: AppDatabase): ChatSearchRecentDao = appDatabase.chatSearchRecentDao()
+
+    @Provides
+    @Singleton
+    fun provideRingVrfKeyRegistrationDao(appDatabase: AppDatabase): RingVrfKeyRegistrationDao =
+        appDatabase.ringVrfKeyRegistrationDao()
 }

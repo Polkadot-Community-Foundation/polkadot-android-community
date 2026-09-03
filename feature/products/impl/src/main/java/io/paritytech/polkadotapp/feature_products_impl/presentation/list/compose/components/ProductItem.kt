@@ -8,10 +8,13 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import io.paritytech.polkadotapp.design.components.icon.NovaIcon
 import io.paritytech.polkadotapp.design.components.icon.NovaIcons
 import io.paritytech.polkadotapp.design.components.icon.vectors.ArrowRight
+import io.paritytech.polkadotapp.design.components.image.NovaAsyncImage
 import io.paritytech.polkadotapp.design.components.surface.PolkadotSurface
 import io.paritytech.polkadotapp.design.components.text.NovaText
 import io.paritytech.polkadotapp.design.theme.PolkadotTheme
@@ -32,11 +35,21 @@ internal fun ProductItem(
         horizontalArrangement = Arrangement.spacedBy(PolkadotTheme.spacings.small),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        PolkadotSurface(
-            modifier = Modifier.size(32.dp),
-            shape = PolkadotTheme.shapes.small,
-            color = PolkadotTheme.colors.fg.secondary
-        ) {}
+        if (item.iconUrl != null) {
+            NovaAsyncImage(
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(PolkadotTheme.shapes.small),
+                model = item.iconUrl,
+                contentScale = ContentScale.Crop,
+            )
+        } else {
+            PolkadotSurface(
+                modifier = Modifier.size(32.dp),
+                shape = PolkadotTheme.shapes.small,
+                color = PolkadotTheme.colors.fg.secondary
+            ) {}
+        }
 
         NovaText(
             modifier = Modifier.weight(1f),

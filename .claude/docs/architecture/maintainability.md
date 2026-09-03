@@ -4,13 +4,13 @@ Cross-cutting principles that hold across every module and layer. Each rule incl
 
 ## Rules at a glance
 
-1. **`major`** — Single concern per class. Two unrelated concerns (load + decide + render) must be separated (PR #494).
-2. **`major`** — Domain identifiers use `@JvmInline value class` (when invariants apply) or `typealias` (when only naming applies). Primitives only for trivial values (PR #442).
+1. **`major`** — Single concern per class. Two unrelated concerns (load + decide + render) must be separated.
+2. **`major`** — Domain identifiers use `@JvmInline value class` (when invariants apply) or `typealias` (when only naming applies). Primitives only for trivial values.
 3. **`major`** — Composition over inheritance. New hierarchies need exhaustive-matching or shared-finalize justification.
-4. **`major`** — Constructor injection over implicit cross-dependencies via globals (PR #499 — no init-block side effects via Dagger).
-5. **`major`** — No factory soup. Single `Factory.create(scope, config)` over factory-of-factory chains (PR #452).
-6. **`major`** — Don't paper symptoms — fix root causes (PR #512 — `AlwaysFirst` over `PinToTop`; PR #538 — `synthesizeSnapshot`).
-7. **`major`** — No leaky abstractions. Style params honored; renderers don't smuggle Fragments (PR #574, #538).
+4. **`major`** — Constructor injection over implicit cross-dependencies via globals (no init-block side effects via Dagger).
+5. **`major`** — No factory soup. Single `Factory.create(scope, config)` over factory-of-factory chains.
+6. **`major`** — Don't paper symptoms — fix root causes (`AlwaysFirst` over `PinToTop`; `synthesizeSnapshot`).
+7. **`major`** — No leaky abstractions. Style params honored; renderers don't smuggle Fragments.
 8. **`major`** — Feature boundaries are real — `impl` is private; shared types go in the most general module that doesn't pull in unrelated concerns.
 9. **`major`** — When the codebase is mid-migration, new code points at the north star even when shipping current-state idioms.
 10. **`major`** — Reuse before you build. Check `design/`, `common/utils/`, the doc tree before introducing a new primitive.
@@ -19,8 +19,8 @@ Cross-cutting principles that hold across every module and layer. Each rule incl
 
 A class has **one reason to change**. Its public API should describe one job.
 
-- ✗ `SessionManager` knowing about specific custom message types (PR #494) — violates SRP because adding a new message type forces a change in `SessionManager`. Fix: expose a generic subscription API.
-- ✗ `ConfettiSoundPlayer` *both* setting up MediaPlayer *and* deciding when to play (PR #494). Fix: VM decides when; player just plays.
+- ✗ `SessionManager` knowing about specific custom message types — violates SRP because adding a new message type forces a change in `SessionManager`. Fix: expose a generic subscription API.
+- ✗ `ConfettiSoundPlayer` *both* setting up MediaPlayer *and* deciding when to play. Fix: VM decides when; player just plays.
 
 When a class grows past one job, split. When two jobs always travel together, the abstraction is wrong — find the unifying concept or accept the split.
 
@@ -48,7 +48,7 @@ value class ProductId private constructor(val value: String) {
 typealias ChainId = String
 
 // ✗ Bare String for a domain identifier with rules
-fun openProduct(productId: String) // — caller can pass anything; PR #442 lesson
+fun openProduct(productId: String) // — caller can pass anything
 ```
 
 ## 3. Composition over inheritance
@@ -65,35 +65,35 @@ Default to composition. Inheritance has narrow legitimate uses:
 
 If a class needs something, it gets it via constructor. Two classes don't communicate through a global state holder unless that state holder is itself a documented abstraction (e.g. `ChatBotStateController`).
 
-- ✗ Injecting a class only to trigger Dagger to construct it so its `init {}` block runs side effects (PR #499). Fix: use `AppInitializer` + `AppInitializerPipeline` (already in code: `common/.../presentation/AppInitializer.kt`).
-- ✗ A VM reaching for `Activity` to fire side effects (PR #460). Fix: emit a one-shot command to the screen which dispatches.
-- ✗ A repository handling persistence directly via `Preferences` (PR #503). Fix: typed `XxxStorage` interface, repository depends on the typed storage.
+- ✗ Injecting a class only to trigger Dagger to construct it so its `init {}` block runs side effects. Fix: use `AppInitializer` + `AppInitializerPipeline` (already in code: `common/.../presentation/AppInitializer.kt`).
+- ✗ A VM reaching for `Activity` to fire side effects. Fix: emit a one-shot command to the screen which dispatches.
+- ✗ A repository handling persistence directly via `Preferences`. Fix: typed `XxxStorage` interface, repository depends on the typed storage.
 
 ## 5. No factory soup
 
 When you have a factory whose only job is to create another factory, the abstraction is wrong. Question every layer of indirection: does it earn its keep?
 
-- ✗ "Factory creates Factory creates Builder creates Provider" (PR #452).
+- ✗ "Factory creates Factory creates Builder creates Provider".
 - ✓ Single `Factory.create(scope, config)` returns the working instance.
 
 ## 6. Don't paper symptoms — fix root causes
 
 When a workaround surfaces (extra flag, escape-hatch method, conditional special case), step back. Usually the root model is wrong.
 
-- ✗ Adding `AlwaysFirst` ordering "above the top" because `PinToTop` ties with multiple bots (PR #512). Fix the ordering model, don't stack flags.
-- ✗ `synthesizeSnapshot()` because the snapshot is now needed outside service lifetime (PR #538). Fix: make the snapshot a global state holder regardless of service.
+- ✗ Adding `AlwaysFirst` ordering "above the top" because `PinToTop` ties with multiple bots. Fix the ordering model, don't stack flags.
+- ✗ `synthesizeSnapshot()` because the snapshot is now needed outside service lifetime. Fix: make the snapshot a global state holder regardless of service.
 
 ## 7. No leaky abstractions
 
 A class advertises behavior X; do that. Don't take secret detours.
 
-- ✗ A `style: ChatMessageSurfaceStyle` parameter that's silently overridden by an ambient `LocalGlassMessageBubbles` (PR #574). Caller passing a style has a right to expect it's respected.
-- ✗ A `ChatExtension` smuggling Fragments into composable UI (PR #538). Encapsulate; expose Compose API only.
+- ✗ A `style: ChatMessageSurfaceStyle` parameter that's silently overridden by an ambient `LocalGlassMessageBubbles`. Caller passing a style has a right to expect it's respected.
+- ✗ A `ChatExtension` smuggling Fragments into composable UI. Encapsulate; expose Compose API only.
 
 ## 8. Boundaries are real — features don't reach into other features' privates
 
 - A feature's `impl` module **must not** be referenced by another feature.
-- A feature's public types **must not** leak into `common`/`design`/`database` (PR #466 example: video-game-specific entity in common DB → required `VideoGame` prefix or move).
+- A feature's public types **must not** leak into `common`/`design`/`database` (review example: video-game-specific entity in common DB → required `VideoGame` prefix or move).
 - An RFC-defined cross-app concern (e.g. chat protocol) lives in the smallest module that everyone agrees on, not in whatever feature first needed it.
 
 ## 9. The "north star" exists
@@ -109,7 +109,7 @@ Before introducing a new widget/utility/abstraction, check what exists:
 - Result/Flow extensions → `common/utils/Result.kt`, `common/utils/Flows.kt`.
 - Loading state → `LoadingState<T>` + `.withLoading("Tag")`.
 - Storage → typed `XxxStorage` interfaces, not bare `Preferences`.
-- HTTP — Retrofit + `NetworkApiCreator`; don't duplicate base URLs (PR #544).
+- HTTP — Retrofit + `NetworkApiCreator`; don't duplicate base URLs.
 
 When reuse genuinely doesn't fit, *that's* when you build new — and you build it in the most general module that doesn't pull in unrelated concerns.
 

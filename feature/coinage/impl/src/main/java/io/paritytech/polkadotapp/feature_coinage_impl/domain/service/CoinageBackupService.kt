@@ -13,10 +13,8 @@ import io.paritytech.polkadotapp.feature_account_api.data.storage.newaccount.New
 import io.paritytech.polkadotapp.feature_coinage_api.domain.model.BackupProgress
 import io.paritytech.polkadotapp.feature_coinage_api.domain.model.Coin
 import io.paritytech.polkadotapp.feature_coinage_api.domain.model.Coin.Age
-import io.paritytech.polkadotapp.feature_coinage_api.domain.model.Coin.SpentState
 import io.paritytech.polkadotapp.feature_coinage_api.domain.model.RecyclerVoucher
 import io.paritytech.polkadotapp.feature_coinage_api.domain.model.RecyclerVoucher.Location
-import io.paritytech.polkadotapp.feature_coinage_api.domain.model.RecyclerVoucher.UsageState
 import io.paritytech.polkadotapp.feature_coinage_api.domain.model.ValueExponent
 import io.paritytech.polkadotapp.feature_coinage_api.domain.model.toRingCollectionId
 import io.paritytech.polkadotapp.feature_coinage_api.domain.service.CoinageBackupService
@@ -24,6 +22,7 @@ import io.paritytech.polkadotapp.feature_coinage_impl.data.derivation.CoinKeypai
 import io.paritytech.polkadotapp.feature_coinage_impl.data.derivation.VoucherRingDerivation
 import io.paritytech.polkadotapp.feature_coinage_impl.data.derivation.getDerivedAccountIds
 import io.paritytech.polkadotapp.feature_coinage_impl.data.derivation.getDerivedMemberKeys
+import io.paritytech.polkadotapp.feature_coinage_impl.data.model.OnChainAliasState
 import io.paritytech.polkadotapp.feature_coinage_impl.data.model.OnChainCoinInfo
 import io.paritytech.polkadotapp.feature_coinage_impl.data.repository.CoinRepository
 import io.paritytech.polkadotapp.feature_coinage_impl.data.repository.VoucherRepository
@@ -87,9 +86,9 @@ class RealCoinageBackupService @Inject constructor(
 
     override fun subscribeProgress() = _progress
 
-    context(ComputationalScope)
+    context(scope: ComputationalScope)
     override fun start() {
-        launch {
+        scope.launch {
             val isNewAccount = newAccountStorage.requireValue()
             val coinsDeepCompleted = coinsDeepBackupCompletedStorage.requireValue()
             val coinsInitialCompleted = coinsInitialBackupCompletedStorage.requireValue()
@@ -111,18 +110,18 @@ class RealCoinageBackupService @Inject constructor(
         }
     }
 
-    context(ComputationalScope)
+    context(scope: ComputationalScope)
     override fun deepSearch() {
-        launch {
+        scope.launch {
             if (_progress.first().isInProgress()) return@launch
             launch { backupCoinsDeep() }
             launch { backupVouchersDeep() }
         }
     }
 
-    context(ComputationalScope)
+    context(scope: ComputationalScope)
     override fun markAsCompleted() {
-        launch {
+        scope.launch {
             if (_progress.first().isInProgress()) return@launch
 
             coinsDeepBackupCompletedStorage.saveValue(true)
@@ -133,7 +132,6 @@ class RealCoinageBackupService @Inject constructor(
         }
     }
 
-    context(ComputationalScope)
     private suspend fun backupCoins() = measureExecution("Restoring coins") {
         var emptyCoinBatchesInARow = 0
         var coinBackupError: Throwable? = null
@@ -201,9 +199,10 @@ class RealCoinageBackupService @Inject constructor(
         Coin(
             derivationIndex = coinAccountsToCheck[accountId] ?: return@mapNotNull null,
             valueExponent = ValueExponent(onChainInfo.value),
-            spentState = SpentState.NOT_SPENT,
             accountId = accountId,
-            age = Age.Known(onChainInfo.age)
+            // Recovered from a read that found it, so it is on chain by construction.
+            age = Age.Known(onChainInfo.age),
+            isOnChain = true
         )
     }
 
@@ -219,7 +218,6 @@ class RealCoinageBackupService @Inject constructor(
     }
         .map { it.filterNotNull() }
 
-    context(ComputationalScope)
     private suspend fun backupVouchers() = measureExecution("Restoring vouchers") {
         var emptyVoucherBatchesInARow = 0
         var voucherBackupError: Throwable? = null
@@ -281,15 +279,14 @@ class RealCoinageBackupService @Inject constructor(
             )
         }.toMap()
 
-        return voucherRepository.detektNotUnloadedVouchers(chainId, keys.values.toList())
-            .map { resultAliases ->
+        return voucherRepository.fetchRecyclerAliasStates(chainId, keys.values.toList())
+            .map { aliasStates ->
                 keys
                     .mapValues { (_, value) -> value.third.toDataByteArray().toString() }
-                    .mapNotNull { if (resultAliases[it.value] == null) it.key else null }
+                    .mapNotNull { if (aliasStates[it.value] is OnChainAliasState.Unloaded) null else it.key }
             }
     }
 
-    context(ComputationalScope)
     private suspend fun backupVouchersDeep() = measureExecution("Restoring vouchers") {
         var exploredBatches = 0
         var error: Throwable? = null
@@ -334,8 +331,7 @@ class RealCoinageBackupService @Inject constructor(
             location = onChainInfo.getVoucherLocation(),
             allocatedAt = System.currentTimeMillis(),
             delayUnloadUntil = System.currentTimeMillis(),
-            ringHasEnoughRingMembersToWithdraw = false,
-            usageState = UsageState.NOT_USED
+            ringHasEnoughRingMembersToWithdraw = false
         )
     }
 

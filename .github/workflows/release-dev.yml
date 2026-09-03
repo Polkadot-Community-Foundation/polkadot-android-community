@@ -1,5 +1,22 @@
 name: Release (Dev)
 
+# ⭐ FORK POLICY — four inherited upstream workflows are deliberately DELETED here.
+# Do not restore them on a future sync without re-reading this:
+#   nightly_release.yaml            daily 17:00 cron; runs `gh release delete --cleanup-tag`
+#                                   + `gh release create` with github.token — which always
+#                                   works on OUR fork — and distributes to Parity/Nova's
+#                                   tester groups + s3://polkadot-app-artefacts.
+#   genesis_hash_monitor.yml        cron 4x/weekday with contents+pull-requests: write;
+#                                   opens PRs on the fork unattended.
+#   firebase_debug_distribution.yml fires on `pull_request: [closed]` when merged to main —
+#                                   i.e. on the sync merge itself — and distributes.
+#   firebase_release_distribution.yml Parity-wired distribution for `release-*` branches.
+# They were inert only because a Parity secret is absent and the build failed first; that is
+# defence by accident. Adding GOOGLE_SERVICES_JSON_BASE64 (e.g. to green pr.yml) would arm them.
+# Rule: testers are served ONLY by a run that publishes a release — never a cron, never a merge.
+# Kept: pr.yml, detekt.yaml, instrumental_tests.yaml, collect_prs_summary.yml (monthly, inert),
+# release_prepare.yml (workflow_dispatch only).
+#
 # Builds the public DEV variant — a builder/preview build pointed at the bespoke
 # Paseo testnet chain set and (optionally) published. The `dev` buildType uses the
 # dedicated DEV testnet environment (common/build.gradle.kts sets TESTNET_ENVIRONMENT=DEV

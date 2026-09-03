@@ -56,11 +56,26 @@ fun ChatMessage.Content.toLocal(
 fun ChatMessageLocal.toDomain(
     customContentDecoder: CustomContentDecoder,
 ): ChatMessage {
-    val content = runCatching {
+    val contentLocal = runCatching {
         BinaryScale.decodeFromByteArray<ChatMessageContentLocal>(content)
     }.getOrElse {
         Timber.w(it, "Failed to decode content for ChatMessageContentLocal: ${content.toHexString(withPrefix = true)}")
         ChatMessageContentLocal.Unsupported(content)
+    }
+
+    // PCF FORK-LOCAL — keep on upstream conflict; see `LegacyEcdhKeyCleanup` for why.
+    // Decoding the SCALE blob is not the only thing that can fail: mapping it to the domain parses
+    // embedded key material, which a row written by an older build may not satisfy (a pre-X25519
+    // DeviceAdded carries a 65-byte P-256 key where a 32-byte X25519 key is now required — the
+    // stored bytes SCALE-decode fine, since they are just a Vec<u8>, and only then fail to parse).
+    // This runs inside Room Flows, where a throw escapes onto a background dispatcher and kills the
+    // process, so an unmappable stored message degrades to Unsupported — the same fallback the
+    // decode failure above already uses.
+    val domainContent = runCatching {
+        contentLocal.toDomain(customContentDecoder)
+    }.getOrElse {
+        Timber.w(it, "Stored chat message $id has content this build cannot map; rendering it as Unsupported")
+        ChatMessage.Content.Unsupported(content)
     }
 
     return ChatMessage(
@@ -68,7 +83,7 @@ fun ChatMessageLocal.toDomain(
         timestamp = timestamp,
         chatId = ChatId.fromRawValue(chatId),
         origin = origin.toDomain(),
-        content = content.toDomain(customContentDecoder),
+        content = domainContent,
         status = status.toDomain(),
         replyToMessageId = replyToMessageId
     )
@@ -127,6 +142,8 @@ internal fun ChatMessage.Content.toLocalType(): ChatMessageLocal.Type {
         is ChatMessage.Content.DataChannelClosed -> ChatMessageLocal.Type.DATA_CHANNEL_CLOSED
         is ChatMessage.Content.DeviceAdded -> ChatMessageLocal.Type.DEVICE_ADDED
         is ChatMessage.Content.DeviceRemoved -> ChatMessageLocal.Type.DEVICE_REMOVED
+        is ChatMessage.Content.CompactionCommit -> ChatMessageLocal.Type.COMPACTION_COMMIT
+        is ChatMessage.Content.CompactionUnavailable -> ChatMessageLocal.Type.COMPACTION_UNAVAILABLE
     }
 }
 
@@ -152,6 +169,8 @@ internal fun KClass<out ChatMessage.Content>.toLocalType(): ChatMessageLocal.Typ
         ChatMessage.Content.DataChannelClosed::class -> ChatMessageLocal.Type.DATA_CHANNEL_CLOSED
         ChatMessage.Content.DeviceAdded::class -> ChatMessageLocal.Type.DEVICE_ADDED
         ChatMessage.Content.DeviceRemoved::class -> ChatMessageLocal.Type.DEVICE_REMOVED
+        ChatMessage.Content.CompactionCommit::class -> ChatMessageLocal.Type.COMPACTION_COMMIT
+        ChatMessage.Content.CompactionUnavailable::class -> ChatMessageLocal.Type.COMPACTION_UNAVAILABLE
         else -> error("Unknown content type: $this")
     }
 }
@@ -178,7 +197,9 @@ private fun ChatMessage.Content.toSearchableContent(): String {
         is ChatMessage.Content.DeviceRemoved,
         is ChatMessage.Content.Custom<*>,
         is ChatMessage.Content.ChatAccepted,
-        is ChatMessage.Content.DeviceChatAccepted -> ""
+        is ChatMessage.Content.DeviceChatAccepted,
+        is ChatMessage.Content.CompactionCommit,
+        is ChatMessage.Content.CompactionUnavailable -> ""
     }
 }
 
@@ -188,6 +209,7 @@ fun ChatMessage.Status.toLocal(): ChatMessageLocal.Status {
         ChatMessage.Status.NEW -> ChatMessageLocal.Status.NEW
         ChatMessage.Status.IS_SENT -> ChatMessageLocal.Status.IS_SENT
         ChatMessage.Status.IS_READ -> ChatMessageLocal.Status.IS_READ
+        ChatMessage.Status.DELIVERY_FAILED -> ChatMessageLocal.Status.DELIVERY_FAILED
     }
 }
 
@@ -197,5 +219,6 @@ internal fun ChatMessageLocal.Status.toDomain(): ChatMessage.Status {
         ChatMessageLocal.Status.NEW -> ChatMessage.Status.NEW
         ChatMessageLocal.Status.IS_SENT -> ChatMessage.Status.IS_SENT
         ChatMessageLocal.Status.IS_READ -> ChatMessage.Status.IS_READ
+        ChatMessageLocal.Status.DELIVERY_FAILED -> ChatMessage.Status.DELIVERY_FAILED
     }
 }

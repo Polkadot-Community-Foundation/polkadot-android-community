@@ -3,6 +3,7 @@ package io.paritytech.polkadotapp.app.root.navigation
 import android.os.Bundle
 import androidx.annotation.IdRes
 import androidx.navigation.NavController
+import androidx.navigation.NavGraph
 import androidx.navigation.NavOptions
 import io.paritytech.polkadotapp.common.presentation.navigation.ReturnableRouter
 import io.paritytech.polkadotapp.common.presentation.navigation.TabRouter
@@ -73,10 +74,29 @@ abstract class BaseNavigator(private val navigationHolder: NavigationHolder) : R
         navController?.performNavigation(actionId, args, navOptions)
     }
 
-    protected fun popBackstack(@IdRes destinationId: Int, inclusive: Boolean = false) {
-        val navController = navigationHolder.navController
-        navController?.popBackStack(destinationId, inclusive)
+    protected fun performNavigationToGraph(
+        @IdRes actionId: Int,
+        @IdRes graphId: Int,
+        @IdRes startDestinationId: Int,
+        args: Bundle? = null,
+        navOptions: NavOptions? = null
+    ) {
+        val navController = navigationHolder.navController ?: return
+        val graph = navController.graph.findNode(graphId) as? NavGraph
+            ?: error("Navigation graph $graphId was not found")
+
+        graph.setStartDestination(startDestinationId)
+        navController.performNavigation(actionId, args, navOptions)
     }
+
+    /** Returns whether [destinationId] was on the back stack and everything above it got popped. */
+    protected fun popBackstack(@IdRes destinationId: Int, inclusive: Boolean = false): Boolean {
+        val navController = navigationHolder.navController
+        return navController?.popBackStack(destinationId, inclusive) ?: false
+    }
+
+    protected fun isCurrentDestination(@IdRes destinationId: Int): Boolean =
+        navigationHolder.navController?.currentDestination?.id == destinationId
 
     protected fun NavController.performNavigation(
         @IdRes actionId: Int,

@@ -4,8 +4,10 @@ import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
-import io.paritytech.polkadotapp.feature_dotns_api.domain.DotNsContentSeeder
+import dagger.multibindings.IntoSet
+import io.paritytech.polkadotapp.common.presentation.AppInitializer
 import io.paritytech.polkadotapp.feature_dotns_api.domain.DotNsResolver
+import io.paritytech.polkadotapp.feature_dotns_api.domain.DotNsTldProvider
 import io.paritytech.polkadotapp.feature_dotns_impl.data.config.DotNsConfigProvider
 import io.paritytech.polkadotapp.feature_dotns_impl.data.config.RemoteConfigDotNsConfigProvider
 import io.paritytech.polkadotapp.feature_dotns_impl.data.contract.DotNsContractApi
@@ -14,10 +16,13 @@ import io.paritytech.polkadotapp.feature_dotns_impl.data.ipfs.CarFetcher
 import io.paritytech.polkadotapp.feature_dotns_impl.data.ipfs.RealCarFetcher
 import io.paritytech.polkadotapp.feature_dotns_impl.data.storage.ContentHashOverrides
 import io.paritytech.polkadotapp.feature_dotns_impl.data.storage.DotNsContentStorage
+import io.paritytech.polkadotapp.feature_dotns_impl.data.storage.DotNsTldStorage
 import io.paritytech.polkadotapp.feature_dotns_impl.data.storage.RealDotNsContentStorage
+import io.paritytech.polkadotapp.feature_dotns_impl.data.storage.RealDotNsTldStorage
 import io.paritytech.polkadotapp.feature_dotns_impl.data.storage.SharedPrefsContentHashOverrides
-import io.paritytech.polkadotapp.feature_dotns_impl.domain.dotNs.RealDotNsContentSeeder
 import io.paritytech.polkadotapp.feature_dotns_impl.domain.dotNs.RealDotNsResolver
+import io.paritytech.polkadotapp.feature_dotns_impl.domain.tld.RealDotNsTldProvider
+import io.paritytech.polkadotapp.feature_dotns_impl.presentation.DotNsTldInitializer
 import javax.inject.Singleton
 
 @Module
@@ -45,9 +50,17 @@ internal interface DotNsModule {
 
     @Binds
     @Singleton
-    fun bindDotNsContentSeeder(impl: RealDotNsContentSeeder): DotNsContentSeeder
+    fun bindDotNsConfigProvider(impl: RemoteConfigDotNsConfigProvider): DotNsConfigProvider
 
     @Binds
     @Singleton
-    fun bindDotNsConfigProvider(impl: RemoteConfigDotNsConfigProvider): DotNsConfigProvider
+    fun bindDotNsTldProvider(impl: RealDotNsTldProvider): DotNsTldProvider
+
+    @Binds
+    @Singleton
+    fun bindDotNsTldStorage(impl: RealDotNsTldStorage): DotNsTldStorage
+
+    @Binds
+    @IntoSet
+    fun bindDotNsTldInitializer(impl: DotNsTldInitializer): AppInitializer
 }

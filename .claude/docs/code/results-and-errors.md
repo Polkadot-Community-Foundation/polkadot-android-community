@@ -8,8 +8,8 @@ Fallible operations return `Result<T>`. Errors carry domain meaning via sealed `
 2. **`major`** — `getOrThrow()` is forbidden everywhere except `Worker.doWork()` (the Result → WorkManager-Result seam) and test code. **`blocking`** when in a ViewModel, UI mapper, or any main-path code. (The PostToolUse hook will warn on `.kt` files outside `Worker` / tests.)
 3. **`major`** — Compose `Result` chains via `flatMap` / `mapCatching` / `flatRecover`; don't unwrap with `.onSuccess { state.value = ... }` inside non-terminal flows.
 4. **`major`** — `runCatching { throw ... }` ping-pong is forbidden. Return `Result.failure(...)` directly, or `runCatching` only ambient-throwing bodies.
-5. **`major`** — Don't paper failures with a hidden default; propagate `Result` and let the caller decide (PR #457).
-6. **`major`** — ViewModels never carry user-facing text. Errors → sealed `XxxError` types → `@Composable` mapper that resolves to `stringResource(...)` (PR #503).
+5. **`major`** — Don't paper failures with a hidden default; propagate `Result` and let the caller decide.
+6. **`major`** — ViewModels never carry user-facing text. Errors → sealed `XxxError` types → `@Composable` mapper that resolves to `stringResource(...)`.
 7. **`major`** — Reuse `LoadingState<T>` + `.withLoading("Tag")`. Don't invent per-feature `Loading | Loaded | Failed` sealed hierarchies.
 8. **`minor`** — Method name that implies success but returns `Result` and is easy to mis-call — make the returned object the only operate-able instance, or rename.
 9. **`minor`** — `Throwable.message` straight into UI without a sealed-type mapping — wrap the failure or define an error variant.
@@ -137,7 +137,7 @@ return runCatching { doWork() }
 suspend fun getNotUsedCounterIndices(): List<Int> = runCatching { ... }.getOrDefault(emptyList())
 ```
 
-The caller has no idea this silently swallowed an error. Return `Result<List<Int>>` and let the caller decide (PR #457).
+The caller has no idea this silently swallowed an error. Return `Result<List<Int>>` and let the caller decide.
 
 ### Imperative `.onSuccess`/`.onFailure` cascading
 
@@ -209,7 +209,7 @@ Rules:
 - **`Throwable`** still flows through `Result.failure` for unexpected/unmapped errors; the sealed type wraps the known cases.
 - **One mapper per screen / feature**, co-located with the screen.
 
-PR #503 (Kiosk feature) is the canonical reference for moving hardcoded VM error strings into a sealed + resource-mapped form.
+The Kiosk feature is the canonical reference for moving hardcoded VM error strings into a sealed + resource-mapped form.
 
 ---
 
@@ -244,4 +244,3 @@ override fun onConfirm() {
     }
 }
 ```
-

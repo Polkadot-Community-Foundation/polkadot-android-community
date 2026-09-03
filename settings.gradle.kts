@@ -1,4 +1,5 @@
 pluginManagement {
+    includeBuild("build-logic")
     repositories {
         google()
         mavenCentral()
@@ -24,7 +25,7 @@ include(":database")
 
 include(":bindings:bandersnatch-crypto")
 include(":bindings:hydra-dx-math")
-include(":bindings:airdrop-vrf")
+include(":bindings:sr25519-vrf")
 
 include(":test-shared")
 
@@ -97,6 +98,8 @@ include(":feature:coinage:api")
 include(":feature:coinage:impl")
 include(":feature:dotns:api")
 include(":feature:dotns:impl")
+include(":feature:dotns-gateway:api")
+include(":feature:dotns-gateway:impl")
 include(":feature:upgrade-username:api")
 include(":feature:upgrade-username:impl")
 include(":feature:connection-status:api")

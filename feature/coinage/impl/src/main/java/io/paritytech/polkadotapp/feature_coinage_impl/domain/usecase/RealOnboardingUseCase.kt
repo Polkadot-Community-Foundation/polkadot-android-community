@@ -13,8 +13,11 @@ import io.paritytech.polkadotapp.common.utils.coerceToUnit
 import io.paritytech.polkadotapp.common.utils.flatMap
 import io.paritytech.polkadotapp.feature_coinage_api.domain.common.VoucherAllocator
 import io.paritytech.polkadotapp.feature_coinage_api.domain.common.breakdownRoundDown
-import io.paritytech.polkadotapp.feature_coinage_api.domain.common.withTransactionalAllocation
 import io.paritytech.polkadotapp.feature_coinage_api.domain.model.RecyclerVoucher
+import io.paritytech.polkadotapp.feature_coinage_api.domain.transaction.CoinageTransactionService
+import io.paritytech.polkadotapp.feature_coinage_api.domain.transaction.model.CoinageOperationGroupId
+import io.paritytech.polkadotapp.feature_coinage_api.domain.transaction.model.CoinageTransactionRequest
+import io.paritytech.polkadotapp.feature_coinage_api.domain.transaction.model.OwnAsset
 import io.paritytech.polkadotapp.feature_coinage_api.domain.usecase.CoinAmountBreakdownUseCase
 import io.paritytech.polkadotapp.feature_coinage_api.domain.usecase.OnboardingUseCase
 import io.paritytech.polkadotapp.feature_coinage_impl.data.derivation.VoucherRingDerivation
@@ -24,6 +27,7 @@ import io.paritytech.polkadotapp.feature_transactions.api.domain.model.Transacti
 import io.paritytech.polkadotapp.feature_transactions.api.domain.model.accountId
 import kotlinx.serialization.Serializable
 import java.math.BigDecimal
+import java.util.UUID
 import javax.inject.Inject
 
 class RealOnboardingUseCase @Inject constructor(
@@ -32,7 +36,8 @@ class RealOnboardingUseCase @Inject constructor(
     private val extrinsicService: ExtrinsicService,
     private val voucherRingDerivation: VoucherRingDerivation,
     private val coinAmountBreakdownUseCase: CoinAmountBreakdownUseCase,
-    private val coinageOrigins: CoinageTransactionOrigins
+    private val coinageOrigins: CoinageTransactionOrigins,
+    private val transactionService: CoinageTransactionService,
 ) : OnboardingUseCase {
     override suspend fun onboard(
         amount: BigDecimal,
@@ -43,37 +48,43 @@ class RealOnboardingUseCase @Inject constructor(
 
         return coinAmountBreakdownUseCase.createCoinAmountBreakdown()
             .map { it.breakdownRoundDown(amount) }
-            .flatMap { denominations ->
-                voucherAllocator.withTransactionalAllocation(denominations) { vouchers ->
-                    registerVouchers(vouchers, signerSource, accountId, chain)
-                }
-            }
+            .flatMap { denominations -> voucherAllocator.allocateAll(denominations) }
+            .flatMap { vouchers -> registerVouchers(vouchers, signerSource, accountId, chain) }
             .coerceToUnit()
     }
 
+    /**
+     * Vouchers minted out of an external asset: no coinage input, one voucher output each.
+     *
+     * Built as one nonce-sequenced batch and registered as one unit. Either the whole onboarding is in the
+     * ledger or none of it is — a half-registered batch would leave vouchers on chain that nothing is
+     * tracking. What becomes of each one afterwards is still decided per transaction by the recovery pass.
+     */
     private suspend fun registerVouchers(
         vouchers: List<RecyclerVoucher>,
         signerSource: TransactionSignerSource.Signed,
         accountId: AccountId,
         chain: Chain,
-    ): Result<Unit> {
+    ): Result<Unit> = runCatching {
         val txOrigin = coinageOrigins.createInfallibleUnpaidSigned(signerSource)
 
-        return extrinsicService.submitExtrinsicsAndAwaitInBlock(chain) {
+        val extrinsics = extrinsicService.buildExtrinsics(chain, ExtrinsicService.SubmissionOptions()) {
             vouchers.forEach { voucher ->
-                extrinsic(txOrigin) {
-                    loadRecyclerWithExternalAssetUnpaid(voucher, accountId)
-                }
+                extrinsic(txOrigin) { loadRecyclerWithExternalAssetUnpaid(voucher, accountId) }
             }
-        }.map { perExtrinsicResults ->
-            val failedIndices = perExtrinsicResults
-                .zip(vouchers)
-                .mapNotNull { (result, voucher) -> voucher.ringVrfKeyIndex.takeIf { result.isFailure } }
+        }.getOrThrow()
 
-            if (failedIndices.isNotEmpty()) {
-                voucherAllocator.deallocate(failedIndices)
-            }
+        val groupId = CoinageOperationGroupId(UUID.randomUUID().toString())
+
+        val requests = extrinsics.mapIndexed { index, extrinsic ->
+            CoinageTransactionRequest(
+                extrinsic = extrinsic,
+                inputs = emptyList(),
+                outputs = listOf(OwnAsset.Voucher(vouchers[index].ringVrfKeyIndex)),
+            )
         }
+
+        transactionService.submitTransactions(requests, groupId).getOrThrow()
     }
 
     private suspend fun ExtrinsicBuilder.loadRecyclerWithExternalAssetUnpaid(

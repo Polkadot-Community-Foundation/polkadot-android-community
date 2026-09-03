@@ -1,6 +1,7 @@
 package io.paritytech.polkadotapp.feature_products_impl.domain.jsRuntime
 
-import android.util.Base64
+import androidx.webkit.WebViewCompat
+import androidx.webkit.WebViewFeature
 import io.paritytech.polkadotapp.common.utils.evaluateJavascript
 import io.paritytech.polkadotapp.feature_products_impl.domain.jsEngine.ContainerTransport
 import io.paritytech.polkadotapp.feature_products_impl.domain.jsEngine.webView.WebViewJsBridge
@@ -61,24 +62,31 @@ class WebViewRuntime(
         }
     }
 
-    override suspend fun evaluateAsModule(js: String): Result<Unit> {
+    override suspend fun loadEntryModule(srcPath: String): Result<Unit> {
         if (!initialized) return Result.failure(IllegalStateException("Runtime not initialized"))
 
         return runCatching {
-            val encoded = Base64.encodeToString(js.toByteArray(), Base64.NO_WRAP)
+            // The path crosses the dotNS trust boundary, so it is encoded rather than interpolated.
+            val srcLiteral = srcPath.toJsStringLiteral()
             val injector = """
                 (function() {
-                    var decoded = atob('$encoded');
-                    var blob = new Blob([decoded], { type: 'text/javascript' });
-                    var url = URL.createObjectURL(blob);
                     var script = document.createElement('script');
                     script.type = 'module';
-                    script.src = url;
+                    script.src = $srcLiteral;
                     document.head.appendChild(script);
                 })();
             """.trimIndent()
             webViewProvider.accessWebView { it.evaluateJavascript(injector) }
         }
+    }
+
+    override suspend fun injectDocumentStartScript(js: String, allowedOriginRules: Set<String>): Boolean {
+        if (!WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) return false
+
+        webViewProvider.accessWebView {
+            WebViewCompat.addDocumentStartJavaScript(it, js, allowedOriginRules)
+        }
+        return true
     }
 
     override suspend fun waitForReady() {

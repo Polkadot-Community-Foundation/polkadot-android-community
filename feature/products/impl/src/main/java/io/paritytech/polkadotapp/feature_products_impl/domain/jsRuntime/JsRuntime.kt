@@ -33,10 +33,22 @@ interface JsRuntime {
     suspend fun evaluate(js: String): Result<String>
 
     /**
-     * Evaluate JS as an ES module (`<script type="module">`).
-     * Required for scripts that use `import.meta` or top-level `await`.
+     * Load an entry module relative to the runtime's origin (`<script type="module" src>`), so the
+     * module and its relative imports are fetched from that origin's served archive.
      */
-    suspend fun evaluateAsModule(js: String): Result<Unit>
+    suspend fun loadEntryModule(srcPath: String): Result<Unit>
+
+    /**
+     * Register [js] to run at document-start on every navigation, before any page script.
+     *
+     * Used to install the host bridge/container before product code can touch the transport,
+     * closing the race where a product calls into the host API before injection completes
+     * (manifesting as "Environment is not correct"). Persists across navigations.
+     *
+     * @return `true` if document-start injection is active; `false` if the runtime cannot
+     *   support it (e.g. WebView provider too old) so the caller can fall back to page-load injection.
+     */
+    suspend fun injectDocumentStartScript(js: String, allowedOriginRules: Set<String>): Boolean
 
     suspend fun waitForReady()
 

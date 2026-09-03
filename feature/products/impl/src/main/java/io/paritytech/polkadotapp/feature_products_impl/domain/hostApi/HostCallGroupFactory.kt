@@ -1,5 +1,6 @@
 package io.paritytech.polkadotapp.feature_products_impl.domain.hostApi
 
+import io.paritytech.polkadotapp.feature_dotns_api.domain.DotNsTldProvider
 import io.paritytech.polkadotapp.feature_products_impl.data.storage.ProductLocalStorage
 import io.paritytech.polkadotapp.feature_products_impl.domain.bot.ProductsBotApi
 import io.paritytech.polkadotapp.feature_products_impl.domain.hostApi.handlerGroups.AccountHostCalls
@@ -13,6 +14,7 @@ import io.paritytech.polkadotapp.feature_products_impl.domain.hostApi.handlerGro
 import io.paritytech.polkadotapp.feature_products_impl.domain.hostApi.handlerGroups.PaymentHostCalls
 import io.paritytech.polkadotapp.feature_products_impl.domain.hostApi.handlerGroups.PermissionHostCalls
 import io.paritytech.polkadotapp.feature_products_impl.domain.hostApi.handlerGroups.PreimageHostCalls
+import io.paritytech.polkadotapp.feature_products_impl.domain.hostApi.handlerGroups.RingVrfKeyHostCalls
 import io.paritytech.polkadotapp.feature_products_impl.domain.hostApi.handlerGroups.SigningHostCalls
 import io.paritytech.polkadotapp.feature_products_impl.domain.hostApi.handlerGroups.StatementHostCalls
 import io.paritytech.polkadotapp.feature_products_impl.domain.hostApi.handlerGroups.StorageHostCalls
@@ -31,6 +33,7 @@ import javax.inject.Singleton
 @Singleton
 class HostCallGroupFactory @Inject constructor(
     private val productLocalStorage: ProductLocalStorage,
+    private val dotNsTldProvider: DotNsTldProvider,
 ) {
     /**
      * Shared handler groups used by ALL environments.
@@ -41,10 +44,11 @@ class HostCallGroupFactory @Inject constructor(
         navigationPolicy: NavigationPolicy,
     ): List<HostCallHandlerGroup> = listOf(
         AccountHostCalls(botApi, productIdProvider),
+        RingVrfKeyHostCalls(botApi, productIdProvider),
         ChainHostCalls(botApi),
         SigningHostCalls(botApi),
         StorageHostCalls(productLocalStorage, productIdProvider),
-        NavigationHostCalls(navigationPolicy, productIdProvider),
+        NavigationHostCalls(navigationPolicy, productIdProvider, dotNsTldProvider),
         StatementHostCalls(botApi, productIdProvider),
         PreimageHostCalls(botApi, productIdProvider),
         PermissionHostCalls(botApi, productIdProvider),

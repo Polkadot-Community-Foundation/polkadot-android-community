@@ -19,6 +19,7 @@ internal class BearerTokenInterceptor(
 ) : Interceptor {
     override fun intercept(chain: Interceptor.Chain): Response {
         val request = chain.request()
+
         val needsBearer = request.tag(Invocation::class.java)
             ?.method()?.annotations?.any { it is CallWithBearerToken } == true
 
@@ -32,6 +33,7 @@ internal class BearerTokenInterceptor(
                 else -> throw IOException("JWT acquisition failed", e)
             }
         }
+
         val authedRequest = request.newBuilder()
             .header(HEADER_AUTHORIZATION, "$BEARER_PREFIX$token")
             .build()
