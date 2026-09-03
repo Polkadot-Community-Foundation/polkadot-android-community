@@ -64,11 +64,13 @@ on:
   push:
     tags: ['dev-v*']
   schedule:
-    # Weekly public-testnet track (see docs/DEPLOYMENT.md §7). Tuesday 09:00 UTC —
-    # ahead of the devnet's Wednesday activity, leaving a day to smoke-test.
+    # Weekly public-testnet track (see docs/DEPLOYMENT.md §7). Thursday 18:00 UTC, kept in
+    # step with the iOS and desktop weekly builds so the three clients ship as one set.
+    # Cron is UTC and does NOT follow DST: 18:00 UTC is 20:00 CEST in summer, 19:00 CET in
+    # winter — change the hour, not the timezone, if the local slot must hold.
     # GitHub only runs schedules on the default branch, and suspends them after
     # 60 days of repository inactivity.
-    - cron: '0 9 * * 2'
+    - cron: '0 18 * * 4'
 
 permissions:
   contents: write
