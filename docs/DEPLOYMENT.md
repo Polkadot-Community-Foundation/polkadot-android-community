@@ -293,7 +293,7 @@ choices differ from the generic recipe above:
   the GitHub Release instead.
 
 The pipeline fires on three triggers: a `dev-v*` tag (tagged build → GitHub Release +
-App Distribution), a **weekly** schedule (Tuesday 09:00 UTC → dated `dev-weekly-*`
+App Distribution), a **weekly** schedule (Thursday 18:00 UTC → dated `dev-weekly-*`
 pre-release + App Distribution), and manual `workflow_dispatch` (distribution opt-out via the
 `distribute` input). App Distribution retains each binary for ~150 days.
 
