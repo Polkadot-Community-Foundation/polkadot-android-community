@@ -304,8 +304,10 @@ jobs:
       # ----------------------------------------------- Firebase App Distribution (gp)
       # Non-blocking by design: distribution is a convenience on top of an already-published
       # release, and it sits BEFORE the downloads-host step, so a failure here must not take
-      # the R2 publish (or the run) down with it. A red step is the signal; re-run it on its
-      # own with `gh workflow run release-dev.yml --ref <ref> -f distribute=true -f flavor=gp`.
+      # the R2 publish (or the run) down with it. A red step is the signal; retry it by
+      # re-dispatching ON THE TAG — `gh workflow run release-dev.yml --ref dev-vX.Y.Z
+      # -f flavor=gp` — which is what makes IS_TAG true. Dispatching on a BRANCH cannot
+      # distribute, by design; `-f distribute=true` does not override that.
       # `continue-on-error` keeps a failure off the job's critical path, and gating the
       # dependent steps on `.outcome` makes them SKIP rather than fail after it — one red
       # step naming the real cause, not three. (`conclusion` is rewritten to success by
