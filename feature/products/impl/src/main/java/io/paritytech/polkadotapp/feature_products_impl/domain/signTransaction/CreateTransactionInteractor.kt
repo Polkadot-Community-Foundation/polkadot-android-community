@@ -19,33 +19,33 @@ import io.paritytech.polkadotapp.common.domain.model.toDataByteArray
 import io.paritytech.polkadotapp.common.utils.CoroutineDispatchers
 import io.paritytech.polkadotapp.common.utils.flatMap
 import io.paritytech.polkadotapp.feature_products_api.domain.sponsoring.TransactionSponsoring
-import io.paritytech.polkadotapp.feature_products_api.model.ProductAccountId
 import io.paritytech.polkadotapp.feature_products_api.model.signing.SignedTransaction
+import io.paritytech.polkadotapp.feature_products_api.model.signing.SigningAccount
 import io.paritytech.polkadotapp.feature_products_api.model.signing.createTransaction.TxPayload
-import io.paritytech.polkadotapp.feature_products_impl.domain.origin.ProductAccountOrigins
 import io.paritytech.polkadotapp.feature_transactions.api.data.ExtrinsicService
 import io.paritytech.polkadotapp.feature_transactions.api.data.extensions.DecodedTransactionExtensionValue
 import io.paritytech.polkadotapp.feature_transactions.api.data.extensions.TxPayloadExtensionsResolver
 import io.paritytech.polkadotapp.feature_transactions.api.di.ExtrinsicSerializer
+import io.paritytech.polkadotapp.feature_transactions.api.domain.model.SignedTransactionOrigin
 import io.paritytech.polkadotapp.feature_transactions.api.domain.model.TransactionOrigin
 import kotlinx.coroutines.withContext
 
 class CreateTransactionInteractor @AssistedInject constructor(
-    @Assisted private val payload: TxPayload<ProductAccountId>,
+    @Assisted private val payload: TxPayload<*>,
+    @Assisted private val signingSource: ProductSigningSource,
     @param:ExtrinsicSerializer private val extrinsicSerializerGson: Gson,
     private val chainRegistry: ChainRegistry,
     private val extrinsicService: ExtrinsicService,
-    private val productAccountOrigins: ProductAccountOrigins,
     private val coroutineDispatchers: CoroutineDispatchers,
     private val transactionSponsoring: TransactionSponsoring,
     private val extensionsResolver: TxPayloadExtensionsResolver,
 ) : TransactionSignInteractor {
     @AssistedFactory
     interface Factory {
-        fun create(payload: TxPayload<ProductAccountId>): CreateTransactionInteractor
+        fun create(payload: TxPayload<*>, signingSource: ProductSigningSource): CreateTransactionInteractor
     }
 
-    override val account: ProductAccountId get() = payload.signer
+    override val account: SigningAccount get() = signingSource.resolveAccount()
 
     override suspend fun parseSigningContent(): Result<ParsedSigningContent> = runCatching {
         val runtime = runtime()
@@ -55,7 +55,8 @@ class CreateTransactionInteractor @AssistedInject constructor(
 
     override suspend fun humanReadableRepresentation(): Result<String> = runCatching {
         val runtime = runtime()
-        val resolved = extensionsResolver.resolve(payload.extensions, runtime).getOrThrow()
+        val origin = resolveTransactionOrigin().getOrThrow()
+        val resolved = resolveExtensions(origin).getOrThrow()
         val call = GenericCall.fromByteArray(runtime, payload.callData.value)
         val view = createTransactionHumanReadable(call, resolved.allRequestedExtensions)
         extrinsicSerializerGson.toJson(view)
@@ -75,15 +76,19 @@ class CreateTransactionInteractor @AssistedInject constructor(
     }
 
     private suspend fun trySponsorTransaction(context: ExtrinsicBuildingContext): Result<Unit> {
-        return transactionSponsoring.sponsorTransaction(
-            chainId = context.chain.id,
-            call = context.call,
-            account = payload.signer,
-        )
+        return when (val account = signingSource.resolveAccount()) {
+            is SigningAccount.Product -> transactionSponsoring.sponsorTransaction(
+                chainId = context.chain.id,
+                call = context.call,
+                account = account.accountId,
+            )
+            // Identity-account transactions are not sponsored.
+            SigningAccount.IdentityAccount -> Result.success(Unit)
+        }
     }
 
     private suspend fun resolveTransactionOrigin(): Result<TransactionOrigin> {
-        return productAccountOrigins.productAccountOrigin(payload.signer)
+        return signingSource.createTransactionOrigin()
     }
 
     private suspend fun prepareExtrinsicBuildingContext(): Result<ExtrinsicBuildingContext> {
@@ -92,7 +97,7 @@ class CreateTransactionInteractor @AssistedInject constructor(
         val runtime = chainRegistry.getRuntime(chainId)
 
         return resolveTransactionOrigin().flatMap { origin ->
-            extensionsResolver.resolve(payload.extensions, runtime).map { resolved ->
+            resolveExtensions(origin).map { resolved ->
                 val call = GenericCall.fromByteArray(runtime, payload.callData.value)
                 ExtrinsicBuildingContext(
                     chain = chain,
@@ -103,6 +108,15 @@ class CreateTransactionInteractor @AssistedInject constructor(
                 )
             }
         }
+    }
+
+    private suspend fun resolveExtensions(origin: TransactionOrigin): Result<TxPayloadExtensionsResolver.Resolved> {
+        return extensionsResolver.resolve(
+            extensions = payload.extensions,
+            txExtVersion = payload.txExtVersion,
+            chainId = chainId(),
+            isSigned = origin is SignedTransactionOrigin,
+        )
     }
 
     private suspend fun buildExtrinsic(context: ExtrinsicBuildingContext): Result<SendableExtrinsic> {

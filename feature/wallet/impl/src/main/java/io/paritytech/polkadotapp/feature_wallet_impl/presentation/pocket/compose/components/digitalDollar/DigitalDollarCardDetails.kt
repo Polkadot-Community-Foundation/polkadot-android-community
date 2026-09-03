@@ -26,14 +26,17 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.paritytech.polkadotapp.common.presentation.loading.LoadingState
 import io.paritytech.polkadotapp.common.presentation.loading.onLoaded
+import io.paritytech.polkadotapp.common.utils.CurrencyConfig
 import io.paritytech.polkadotapp.design.components.button.common.PolkadotButtonShape
 import io.paritytech.polkadotapp.design.components.button.common.PolkadotButtonStyle
 import io.paritytech.polkadotapp.design.components.button.default.PolkadotButton
+import io.paritytech.polkadotapp.design.components.button.icon.PolkadotIconButton
+import io.paritytech.polkadotapp.design.components.button.icon.PolkadotIconButtonSize
 import io.paritytech.polkadotapp.design.components.icon.NovaIcon
 import io.paritytech.polkadotapp.design.components.icon.NovaIcons
+import io.paritytech.polkadotapp.design.components.icon.vectors.Add
 import io.paritytech.polkadotapp.design.components.icon.vectors.ArrowDownward
 import io.paritytech.polkadotapp.design.components.icon.vectors.ArrowUpwards
-import io.paritytech.polkadotapp.design.components.icon.vectors.Scanner
 import io.paritytech.polkadotapp.design.components.navigationbar.LocalAppNavigationBarInsets
 import io.paritytech.polkadotapp.design.components.spacer.HorizontalSpacer
 import io.paritytech.polkadotapp.design.components.spacer.VerticalSpacer
@@ -74,15 +77,14 @@ fun DigitalDollarCardDetails(
         cardIndex = cardIndex,
         coinageLoadingState = loadingState,
         state = state,
-        onFundClick = viewModel::onFundClick,
         onSendClick = viewModel::onSendClick,
+        onGetCashClick = viewModel::onGetCashClick,
         onAutoFundClick = viewModel::onAutoFundClick,
         makeAllVouchersReady = viewModel::makeAllVouchersReady,
         onShareLogsClick = viewModel::onShareLogsClick,
         onForceRecycleClick = viewModel::onForceRecycleClick,
         onBackupUpdateClick = viewModel::onBackupUpdateClick,
-        onBackupCloseClick = viewModel::onBackupCloseClick,
-        onOpenScanner = viewModel::openScanner
+        onBackupCloseClick = viewModel::onBackupCloseClick
     )
 }
 
@@ -93,15 +95,14 @@ private fun DigitalDollarCardDetailsContent(
     cardIndex: Int,
     coinageLoadingState: LoadingState<CoinageUiState>,
     state: DigitalDollarCardDetailsUiState,
-    onFundClick: () -> Unit,
     onSendClick: () -> Unit,
+    onGetCashClick: () -> Unit,
     onAutoFundClick: () -> Unit,
     makeAllVouchersReady: () -> Unit,
     onShareLogsClick: () -> Unit,
     onForceRecycleClick: (Coin) -> Unit,
     onBackupUpdateClick: () -> Unit,
-    onBackupCloseClick: () -> Unit,
-    onOpenScanner: () -> Unit
+    onBackupCloseClick: () -> Unit
 ) {
     Column(
         modifier = Modifier.fillMaxSize()
@@ -109,13 +110,7 @@ private fun DigitalDollarCardDetailsContent(
         PolkadotTopBar(
             title = stringResource(RCommon.string.pocket_digital_dollar_title),
             navigationAction = rememberTopBarAction(onBack),
-            titleAlignment = TopBarTitleAlignment.Center,
-            actions = persistentListOf(
-                rememberTopBarAction(
-                    action = onOpenScanner,
-                    icon = NovaIcons.Scanner
-                )
-            )
+            titleAlignment = TopBarTitleAlignment.Center
         )
 
         Column(
@@ -127,7 +122,8 @@ private fun DigitalDollarCardDetailsContent(
         ) {
             DigitalDollarCard(
                 modifier = Modifier.pocketCardSharedElement(cardIndex),
-                card = card
+                card = card,
+                isExpanded = true
             )
 
             VerticalSpacer { mediumIncreased }
@@ -144,9 +140,10 @@ private fun DigitalDollarCardDetailsContent(
                     when (balanceRestoreState) {
                         BalanceRestoreUiState.NotDetermined -> Unit
 
-                        BalanceRestoreUiState.SendCash -> SendCashButton(
+                        BalanceRestoreUiState.SendCash -> SendCashActions(
                             modifier = Modifier.fillMaxWidth(),
-                            onClick = onSendClick
+                            onSendClick = onSendClick,
+                            onGetCashClick = onGetCashClick
                         )
 
                         is BalanceRestoreUiState.Restore -> {
@@ -177,7 +174,6 @@ private fun DigitalDollarCardDetailsContent(
 
                 Coinage(
                     loadingState = coinageLoadingState,
-                    onFundClick = onFundClick,
                     onAutoFundClick = onAutoFundClick,
                     makeAllVouchersReady = makeAllVouchersReady,
                     onShareLogsClick = onShareLogsClick,
@@ -191,7 +187,6 @@ private fun DigitalDollarCardDetailsContent(
 @Composable
 private fun ColumnScope.Coinage(
     loadingState: LoadingState<CoinageUiState>,
-    onFundClick: () -> Unit,
     onAutoFundClick: () -> Unit,
     makeAllVouchersReady: () -> Unit,
     onShareLogsClick: () -> Unit,
@@ -227,7 +222,6 @@ private fun ColumnScope.Coinage(
                 ) {
                     CoinageCardContent(
                         state = state,
-                        onFundClick = onFundClick,
                         onAutoFundClick = onAutoFundClick,
                         makeAllVouchersReady = makeAllVouchersReady,
                         onShareLogsClick = onShareLogsClick,
@@ -236,6 +230,34 @@ private fun ColumnScope.Coinage(
                 }
             }
         }
+}
+
+@Composable
+private fun SendCashActions(
+    modifier: Modifier = Modifier,
+    onSendClick: () -> Unit,
+    onGetCashClick: () -> Unit
+) {
+    Row(
+        modifier = modifier.height(IntrinsicSize.Min),
+        horizontalArrangement = Arrangement.spacedBy(PolkadotTheme.spacings.small),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        SendCashButton(
+            modifier = Modifier.weight(1f),
+            onClick = onSendClick
+        )
+
+        PolkadotIconButton(
+            modifier = Modifier
+                .fillMaxHeight()
+                .aspectRatio(1f),
+            icon = NovaIcons.Add,
+            onClick = onGetCashClick,
+            shape = PolkadotButtonShape.pill,
+            size = PolkadotIconButtonSize.medium()
+        )
+    }
 }
 
 @Composable
@@ -258,7 +280,7 @@ private fun SendCashButton(
                 imageVector = NovaIcons.ArrowUpwards
             )
 
-            NovaText(stringResource(RCommon.string.pocket_digital_dollar_send_button))
+            NovaText(stringResource(RCommon.string.pocket_digital_dollar_send_button, CurrencyConfig.symbol))
         }
     }
 }
@@ -281,8 +303,8 @@ private fun DigitalDollarCardDetailsPreview() {
                             spendableSecuredBalance = TokenAmountModel.mock,
                             spendableDegradedBalance = TokenAmountModel.mock,
                             pendingBalance = TokenAmountModel.mock,
-                            coinList = emptyList(),
-                            voucherList = emptyList()
+                            coinList = persistentListOf(),
+                            voucherList = persistentListOf()
                         ),
                         autoFundAvailable = true,
                         fundInProgress = false,
@@ -292,15 +314,14 @@ private fun DigitalDollarCardDetailsPreview() {
                     )
                 ),
                 state = DigitalDollarCardDetailsUiState(BalanceRestoreUiState.SendCash),
-                onFundClick = {},
                 onSendClick = {},
+                onGetCashClick = {},
                 onAutoFundClick = {},
                 makeAllVouchersReady = {},
                 onShareLogsClick = {},
                 onForceRecycleClick = {},
                 onBackupUpdateClick = {},
-                onBackupCloseClick = {},
-                onOpenScanner = {}
+                onBackupCloseClick = {}
             )
         }
     }

@@ -10,8 +10,8 @@ import io.paritytech.polkadotapp.feature_coinage_api.domain.model.StrategyType
 import io.paritytech.polkadotapp.feature_coinage_api.domain.model.TransferPlan
 import io.paritytech.polkadotapp.feature_coinage_api.domain.model.ValueExponent
 import io.paritytech.polkadotapp.feature_coinage_api.domain.model.ageOrDefault
-import io.paritytech.polkadotapp.feature_coinage_api.domain.model.canBeSpent
-import io.paritytech.polkadotapp.feature_coinage_api.domain.model.isReadyToUse
+import io.paritytech.polkadotapp.feature_coinage_api.domain.model.isAgeValidToSpend
+import io.paritytech.polkadotapp.feature_coinage_api.domain.model.isInRecycler
 import io.paritytech.polkadotapp.feature_coinage_api.domain.model.isReadyToUseSecured
 import io.paritytech.polkadotapp.feature_coinage_api.domain.model.recyclerLocationOrThrow
 import io.paritytech.polkadotapp.feature_coinage_impl.domain.planner.exceptions.InsufficientBalanceException
@@ -26,15 +26,17 @@ class TransferPlanner(
         amount: BigDecimal,
         coins: List<Coin>,
         vouchers: List<RecyclerVoucher>
-    ): TransferPlan {
-        breakdownAmount.breakdown(amount)
+    ): Result<TransferPlan> {
+        return runCatching {
+            breakdownAmount.breakdown(amount)
 
-        val strategyType = tryGetExactMatchPlan(amount, coins)
-            ?: tryGetSingleSplitPlan(amount, coins)
-            ?: tryGetCoinsAndUnloadPlan(amount, coins, vouchers)
-            ?: throw InsufficientBalanceException()
+            val strategyType = tryGetExactMatchPlan(amount, coins)
+                ?: tryGetSingleSplitPlan(amount, coins)
+                ?: tryGetCoinsAndUnloadPlan(amount, coins, vouchers)
+                ?: throw InsufficientBalanceException()
 
-        return TransferPlan(strategyType)
+            TransferPlan(strategyType)
+        }
     }
 
     private fun tryGetExactMatchPlan(
@@ -58,7 +60,7 @@ class TransferPlanner(
         if (restAmount <= BigDecimal.ZERO) throw IllegalStateException("Not needed to split coins: transfer amount may be covered by exact coins.")
 
         val coinToSplit = notSelectedCoins
-            .filter { it.canBeSpent(coinMaxRecyclingAge) && it.valueExponent.toAmount() > restAmount }
+            .filter { it.isAgeValidToSpend(coinMaxRecyclingAge) && it.valueExponent.toAmount() > restAmount }
             .minByOrNull { it.valueExponent }
             ?: return null
 
@@ -84,7 +86,7 @@ class TransferPlanner(
 
         if (remainingAmount <= BigDecimal.ZERO) throw IllegalStateException("Not needed to unload vouchers: transfer amount may be covered by exact coins.")
 
-        val readyVouchers = vouchers.filter { it.isReadyToUse() }
+        val readyVouchers = vouchers.filter { it.isInRecycler() }
 
         val (selectedVouchers, _) = findMinimalVoucherCover(readyVouchers, remainingAmount) ?: return null
 
@@ -100,7 +102,7 @@ class TransferPlanner(
         if (target < BigDecimal.ZERO) return null
 
         val sortedCoins = coins
-            .filter { it.canBeSpent(coinMaxRecyclingAge) }
+            .filter { it.isAgeValidToSpend(coinMaxRecyclingAge) }
             .sortedWith(
                 compareByDescending<Coin> { it.valueExponent }.thenByDescending { it.ageOrDefault() }
             )
@@ -121,9 +123,15 @@ class TransferPlanner(
     }
 
     private fun findMaxCoinCoverage(coins: List<Coin>, targetAmount: BigDecimal): Pair<List<Coin>, BigDecimal> {
-        val sortedCoins = coins.sortedWith(
-            compareByDescending<Coin> { it.valueExponent }.thenByDescending { it.ageOrDefault() }
-        )
+        // Must apply the same spendability filter as findSubsetSum (exact match). Otherwise a
+        // A past-recycling-age coin is excluded from exact match
+        // gets included here, can cover the amount exactly, and trips the "restAmount == 0"
+        // invariant in tryGetSingleSplitPlan/tryGetCoinsAndUnloadPlan.
+        val sortedCoins = coins
+            .filter { it.isAgeValidToSpend(coinMaxRecyclingAge) }
+            .sortedWith(
+                compareByDescending<Coin> { it.valueExponent }.thenByDescending { it.ageOrDefault() }
+            )
         val selected = mutableListOf<Coin>()
         var covered = BigDecimal.ZERO
 

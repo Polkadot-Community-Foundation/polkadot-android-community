@@ -1,6 +1,7 @@
 plugins {
-    alias(libs.plugins.kotlin.compose)
-    alias(libs.plugins.dagger.hilt)
+    id("polkadotapp.android.library")
+    id("polkadotapp.android.compose")
+    id("polkadotapp.android.hilt")
 }
 
 android {
@@ -10,13 +11,10 @@ android {
 dependencies {
     api(project(":feature:upgrade-username:api"))
 
-    implementation(libs.hilt.android)
-    ksp(libs.hilt.android.compiler)
-
     implementation(libs.androidx.fragment.ktx)
 
     implementation(project(":feature:people:api"))
-    implementation(project(":feature:chain-resources:api"))
+    implementation(project(":feature:dotns-gateway:api"))
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)

@@ -14,6 +14,7 @@ import io.paritytech.polkadotapp.design.components.button.common.PolkadotButtonC
 import io.paritytech.polkadotapp.design.components.button.common.PolkadotButtonStyle
 import io.paritytech.polkadotapp.design.components.button.default.PolkadotTextButton
 import io.paritytech.polkadotapp.design.components.placeholder.DimSwitchPlaceholder
+import io.paritytech.polkadotapp.design.components.placeholder.NoScheduledGamesPlaceholder
 import io.paritytech.polkadotapp.design.components.spacer.VerticalSpacer
 import io.paritytech.polkadotapp.design.theme.PolkadotTheme
 import io.paritytech.polkadotapp.feature_upgrade_username_api.presentation.bot.UpgradeUsernameWidget
@@ -70,17 +71,25 @@ internal fun WeeklyGameBotFooter(
             WeeklyGameFooterState.Loading -> Unit
             WeeklyGameFooterState.Normal -> {
                 val upcoming = uiState.upcomingGameUiState?.takeUnless { it is UpcomingGameUiState.Starting }
-                upcoming?.let {
+                if (upcoming != null) {
                     VerticalSpacer { small }
 
                     UpcomingGameWidget(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = PolkadotTheme.spacings.mediumIncreased),
-                        upcomingGame = it,
+                        upcomingGame = upcoming,
                         onRegister = onRegister,
                         onStartPlaying = onStartPlaying,
                         onAddToCalendar = onAddToCalendar
+                    )
+                } else if (uiState.upcomingGameUiState == null && uiState.isScheduleKnown) {
+                    // Nothing scheduled at all — as opposed to a game that is already starting,
+                    // which is the other way `upcoming` ends up null and which the overlay covers.
+                    VerticalSpacer { small }
+
+                    NoScheduledGamesPlaceholder(
+                        text = stringResource(RCommon.string.weekly_game_no_scheduled_games)
                     )
                 }
             }

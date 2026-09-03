@@ -8,6 +8,7 @@ import io.paritytech.polkadotapp.app.root.navigation.LegalUrls
 import io.paritytech.polkadotapp.app.root.navigation.NavigationHolder
 import io.paritytech.polkadotapp.common.domain.model.AccountId
 import io.paritytech.polkadotapp.common.presentation.BrowserNavigator
+import io.paritytech.polkadotapp.common.utils.openAppLanguageSettings
 import io.paritytech.polkadotapp.common.utils.openAppNotificationSettings
 import io.paritytech.polkadotapp.common.utils.toPayloadBundle
 import io.paritytech.polkadotapp.feature_backup_api.presentation.BackupConflictPayload
@@ -69,11 +70,8 @@ class SettingsNavigator @Inject constructor(
         )
     }
 
-    override fun openForceReclaim() {
-        performNavigation(R.id.action_global_to_forceReclaimFragment)
-    }
-
     override fun openScanQr() {
+        if (isCurrentDestination(R.id.scanQrFragment)) return
         performNavigation(R.id.action_global_to_scan_graph)
     }
 
@@ -86,6 +84,10 @@ class SettingsNavigator @Inject constructor(
 
     override fun openNotificationSettings() {
         context.openAppNotificationSettings()
+    }
+
+    override fun openLanguageSettings() {
+        context.openAppLanguageSettings()
     }
 
     override fun openPrivacyPolicy() {
@@ -101,6 +103,10 @@ class SettingsNavigator @Inject constructor(
     }
 
     override fun openClaimUsername() {
-        performNavigation(R.id.action_global_to_claim_username_graph)
+        performNavigationToGraph(
+            actionId = R.id.action_global_to_claim_username_graph,
+            graphId = R.id.claim_username_graph,
+            startDestinationId = R.id.claimUsernameFragment
+        )
     }
 }

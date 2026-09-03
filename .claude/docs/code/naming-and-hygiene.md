@@ -4,36 +4,36 @@ How we name things, comment, structure files, and keep noise out.
 
 ## Rules at a glance
 
-1. **`major`** — `Service` suffix is reserved for Android `Service` subclasses. Use `Manager` / `Coordinator` / `Engine` / `Pipeline` otherwise (PR #513, #544).
-2. **`major`** — Don't create a `UseCase` that's a single-line passthrough. Inline at the caller (PR #479).
-3. **`major`** — No default values in data-carrying constructors (requests, payloads, metadata, domain models) (PR #474, #466).
-4. **`major`** — Don't expose mutable class fields for testability — constructor-inject the collaborator (PR #429).
-5. **`major`** — Timber-only logging. No `android.util.Log.x(...)`. Match log level to severity; don't log expected branches at `error` (PR #530).
+1. **`major`** — `Service` suffix is reserved for Android `Service` subclasses. Use `Manager` / `Coordinator` / `Engine` / `Pipeline` otherwise.
+2. **`major`** — Don't create a `UseCase` that's a single-line passthrough. Inline at the caller.
+3. **`major`** — No default values in data-carrying constructors (requests, payloads, metadata, domain models).
+4. **`major`** — Don't expose mutable class fields for testability — constructor-inject the collaborator.
+5. **`major`** — Timber-only logging. No `android.util.Log.x(...)`. Match log level to severity; don't log expected branches at `error`.
 6. **`major`** — No PII in logs (mnemonics, signatures, user-typed content). Account IDs / public keys / addresses are **not** PII for this project and may be logged.
-7. **`major`** — Magic numbers extracted to named constants in a companion (PR #494).
-8. **`major`** — `Duration` / `Instant` over raw `Long` for time (PR #530). See `code/project-types-and-units.md`.
-9. **`major`** — Imports always; never write fully-qualified types inline (PR #484, #544).
-10. **`major`** — JSON encoding / decoding goes through kotlinx-serialization (`@Serializable` + `Json.encodeToString` / `Json.decodeFromString`). No hand-rolled `buildJsonObject { … }` walks, no Gson, no manual `JSONObject` (PR #593). Custom wire shapes use a `KSerializer`. Same family as rule "Manual binary encoder where `BinaryScale` covers it" in `code/database-and-scale.md § Rules at a glance`.
-11. **`minor`** — Comments only when "why" is non-obvious. No redundant comments.
+7. **`major`** — Magic numbers extracted to named constants in a companion.
+8. **`major`** — `Duration` / `Instant` over raw `Long` for time. See `code/project-types-and-units.md`.
+9. **`major`** — Imports always; never write fully-qualified types inline.
+10. **`major`** — JSON encoding / decoding goes through kotlinx-serialization (`@Serializable` + `Json.encodeToString` / `Json.decodeFromString`). No hand-rolled `buildJsonObject { … }` walks, no Gson, no manual `JSONObject`. Custom wire shapes use a `KSerializer`. Same family as rule "Manual binary encoder where `BinaryScale` covers it" in `code/database-and-scale.md § Rules at a glance`.
+11. **`major`** — Minimal comments — mandatory. Default to none; write one ONLY where the code is genuinely specific and a competent reader could misread the logic without it (non-obvious invariant, workaround, platform quirk). Never restate what the code does.
 12. **`minor`** — KDoc only on public `api/` interfaces and their non-trivial methods; not on `impl/` classes.
-13. **`minor`** — Method/class name must reflect what it does now; rename when behavior changes (PR #499).
-14. **`minor`** — Trailing positional `Boolean` parameter — use named-call site or split into two methods (PR #480).
+13. **`minor`** — Method/class name must reflect what it does now; rename when behavior changes.
+14. **`minor`** — Trailing positional `Boolean` parameter — use named-call site or split into two methods.
 15. **`minor`** — Package leaves are `camelCase` (`pairRequest`), never lowercase-glued (`pairrequest`).
-16. **`minor`** — Privates at the bottom of the class (Kotlin convention, PR #499).
-17. **`minor`** — Don't class-level a variable used in one method (PR #494, #531, #457).
-18. **`minor`** — Group exploding parameter lists into nested data classes (PR #466).
+16. **`minor`** — Privates at the bottom of the class (Kotlin convention).
+17. **`minor`** — Don't class-level a variable used in one method.
+18. **`minor`** — Group exploding parameter lists into nested data classes.
 19. **`minor`** — Compose / Kotlin file > ~400-500 lines should split.
-20. **`minor`** (PR hygiene) — One task per PR (PR #475); attach demo video for visible features (PR #474, #543).
+20. **`minor`** (PR hygiene) — One task per PR; attach demo video for visible features.
 21. **`minor`** — Enums representing ordered / comparable categories must be backed by a numeric field, e.g. `enum class SlotPriority(val level: Int) { Normal(0), High(1) }`. **All comparisons, filters, sorts, and SQL orderings go through that numeric field — never through enum identity or name.** Adding a new tier is then a one-line enum entry; no `when` / `if` branch in filter or sort logic needs to change.
 
 ---
 
 ## Comments — only "why", never "what"
 
-Default to **no comments**. The code should explain itself through naming. A comment is justified only when:
+Minimal comments are **mandatory**, not a preference. Default to **no comments** — the code must explain itself through naming. Write a comment ONLY where the code is genuinely specific and a competent reader could misread the logic without it. A comment is justified only when:
 
 1. **A non-obvious invariant or workaround** — "this must run before X because the runtime expects the call wrapped" / "ignoring this branch because the backend always returns it but we don't need it".
-2. **A subtle algorithm** — geometric drawing math, custom encoding, multi-step state machine (PR #429/#494: "this contains intense drawing code: it needs a comment that explains the general idea").
+2. **A subtle algorithm** — geometric drawing math, custom encoding, multi-step state machine.
 3. **A documented interface contract** (see § KDoc below).
 4. **A TODO that names what's missing and a condition or owner** — "TODO: support reactions on attachments; needs RFC".
 
@@ -41,8 +41,6 @@ Never write:
 - "this is a confetti burst" (the function is `drawConfettiBurst`, the comment carries no information).
 - A summary header restating the class signature.
 - Commit-message-style explanation of "what I changed".
-
-PR #494 (blocking review summary): "Please avoid enormous amount of comments, they are mostly redundant".
 
 ## KDoc — where it's worth writing
 
@@ -81,7 +79,7 @@ fun getName(): String
 | Pattern | When |
 |---|---|
 | `Real<InterfaceName>` | Hilt-bound impl of a public interface (e.g. `RealAmountInputMixin`). |
-| `<Feature>...` prefix | Cross-feature shared things in `common`/`database`/`design` need the feature name to disambiguate (e.g. database entities — `VideoGameEntity`, not bare `GameEntity`, PR #465). |
+| `<Feature>...` prefix | Cross-feature shared things in `common`/`database`/`design` need the feature name to disambiguate (e.g. database entities — `VideoGameEntity`, not bare `GameEntity`). |
 | `<Action>UseCase` | Reusable cross-feature business logic. |
 | `<Screen>Interactor` | Per-screen orchestration. |
 | `<Screen>ViewModel` / `<Screen>Contract` | Presentation. |
@@ -91,13 +89,13 @@ fun getName(): String
 
 Names describe **what the function does in the present**. Renaming when behavior changes is mandatory.
 
-- ✓ `cancelGameAboutToStartNotification()` — describes what it cancels (PR #499).
+- ✓ `cancelGameAboutToStartNotification()` — describes what it cancels.
 - ✗ `handleEvent()`, `performAction()` — generic and uninformative.
 - ✗ Names that drift from behavior — `getNotUsedCounterIndices` that started returning a default — rename or restore.
 
 ### `Service` suffix
 
-Reserved for **Android `Service`** subclasses only. Don't suffix any other class `Service`. Plain classes use `Manager`, `Coordinator`, `Engine`, `Pipeline`, etc. as appropriate. (PR #513, #544.)
+Reserved for **Android `Service`** subclasses only. Don't suffix any other class `Service`. Plain classes use `Manager`, `Coordinator`, `Engine`, `Pipeline`, etc. as appropriate.
 
 ### Boolean parameters
 
@@ -114,8 +112,6 @@ FileOutputStream(file, append)
 // ✓✓ when policy varies
 allocator.allocate(slot, policy = OnExistingSlotPolicy.AllocateAdditional)
 ```
-
-PR #480 lesson.
 
 ### Package leaves: camelCase
 
@@ -143,15 +139,13 @@ Defaults are acceptable on:
 - UI state placeholders only in `@Preview` builders, not in the data class itself.
 - Configuration where genuinely-optional collaborators are nullable and the default is `null`.
 
-(Memory `feedback_no_defaults` and PR #474/#466 enforce this.)
-
 ---
 
 ## Visibility & scoping
 
 ### Privates at the bottom of the file
 
-Kotlin convention. Public/Contract methods on top of the class, private helpers at the bottom. (PR #499.)
+Kotlin convention. Public/Contract methods on top of the class, private helpers at the bottom.
 
 ### Don't class-level a local variable
 
@@ -169,11 +163,9 @@ private fun observeSugarLevelForSound() {
 }
 ```
 
-PR #494, #531, #457 reiterate.
-
 ### Don't expose mutable fields for testability
 
-Inject collaborators via constructor, don't expose `var audioPlayerFactory: AudioPlayerFactory` so a test can swap it (PR #429).
+Inject collaborators via constructor, don't expose `var audioPlayerFactory: AudioPlayerFactory` so a test can swap it.
 
 ---
 
@@ -191,7 +183,7 @@ val timeoutMillis: Long = 5_000
 val atUnix: Long = ...
 ```
 
-(`kotlinx.datetime` `Instant`; `kotlin.time.Duration`.) PR #530 lesson.
+(`kotlinx.datetime` `Instant`; `kotlin.time.Duration`.)
 
 ---
 
@@ -217,8 +209,6 @@ class UploadJob(
 )
 ```
 
-PR #466 lesson.
-
 ---
 
 ## Logging policy
@@ -243,7 +233,7 @@ Timber.d("Encoded payload bytes: %s", bytes.toHex())
 | `info` | Major lifecycle / state transitions worth seeing in normal logs (service started, login, game phase change). |
 | `debug` | Developer diagnostics. Stripped from release builds. |
 
-✗ Logging an **expected** branch at `error` level (PR #530: "Are those really 'error' cases or more like a part of expected flow?").
+✗ Logging an **expected** branch at `error` level.
 
 ### Don't log noise
 
@@ -251,8 +241,6 @@ Timber.d("Encoded payload bytes: %s", bytes.toHex())
 - ✗ "Entering method X" / "Exiting method X" trace logs.
 - ✗ Echoing data that's already visible in the next log line.
 - ✗ Stack traces at `info` / `debug`.
-
-PR #451, #494: "We have a lot of irrelevant logs in this PR".
 
 ### No PII
 
@@ -283,8 +271,6 @@ companion object {
 delay(HANDSHAKE_TIMEOUT)
 ```
 
-PR #494 review summary: "A whole bunch of magic constants. Please extract it and make it more understandable".
-
 ---
 
 ## File splitting threshold
@@ -311,7 +297,6 @@ UI tests and VM tests are not required by default.
 
 ## PR hygiene (reviewer enforces as minor)
 
-- **One task per PR.** Multiple unrelated changes → split (PR #475).
-- **Attach a demo video** for visible features / UI changes (PR #474, #543).
+- **One task per PR.** Multiple unrelated changes → split.
+- **Attach a demo video** for visible features / UI changes.
 - **No mixed refactors** in a feature PR unless explicitly called out in the description.
-

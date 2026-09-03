@@ -8,6 +8,7 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.core.net.toUri
 import io.paritytech.polkadotapp.common.utils.notFoundResponse
+import io.paritytech.polkadotapp.feature_dotns_api.domain.DotNsTldProvider
 import io.paritytech.polkadotapp.feature_products_api.model.ProductId
 import io.paritytech.polkadotapp.feature_products_impl.domain.hostApi.CallingProductIdProvider
 import io.paritytech.polkadotapp.feature_products_impl.domain.hostApi.getProductIdOrNull
@@ -19,16 +20,18 @@ import timber.log.Timber
 import javax.inject.Inject
 
 class WebViewPermissionClientFactory @Inject constructor(
-    private val permissionGuard: ProductPermissionGuard
+    private val permissionGuard: ProductPermissionGuard,
+    private val dotNsTldProvider: DotNsTldProvider
 ) {
     fun create(callingProductIdProvider: CallingProductIdProvider): WebViewPermissionClient {
-        return WebViewPermissionClient(callingProductIdProvider, permissionGuard)
+        return WebViewPermissionClient(callingProductIdProvider, permissionGuard, dotNsTldProvider)
     }
 }
 
 class WebViewPermissionClient(
     private val productIdProvider: CallingProductIdProvider,
-    private val permissionGuard: ProductPermissionGuard
+    private val permissionGuard: ProductPermissionGuard,
+    private val dotNsTldProvider: DotNsTldProvider
 ) : WebViewClient() {
     /**
      * Last two entries from back-forward history, captured on [onPageStarted].
@@ -51,7 +54,8 @@ class WebViewPermissionClient(
     private fun WebBackForwardList.productIdAt(index: Int): ProductId? {
         if (index < 0 || index >= size) return null
         val url = getItemAtIndex(index)?.url ?: return null
-        return ProductId.fromUrl(url.toUri()).getOrNull()
+        val tld = dotNsTldProvider.currentTldOrNull() ?: return null
+        return ProductId.fromUrl(url.toUri(), tld).getOrNull()
     }
 
     override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest?): WebResourceResponse? {
@@ -66,7 +70,9 @@ class WebViewPermissionClient(
             return notFoundResponse()
         }
 
-        val requestProductId = ProductId.fromUrl(url).getOrNull()
+        val requestProductId = dotNsTldProvider.currentTldOrNull()?.let { tld ->
+            ProductId.fromUrl(url, tld).getOrNull()
+        }
         if (requestProductId == callingProductId || requestProductId in recentProductIds) {
             return super.shouldInterceptRequest(view, request)
         }

@@ -1,5 +1,6 @@
 plugins {
-    alias(libs.plugins.kotlin.compose)
+    id("polkadotapp.android.library")
+    id("polkadotapp.android.compose")
 }
 
 android {
@@ -35,8 +36,10 @@ dependencies {
 
     debugApi(libs.androidx.compose.ui.tooling)
     nightlyApi(libs.androidx.compose.ui.tooling)
+    "safetynetApi"(libs.androidx.compose.ui.tooling)
 
     testApi(libs.androidx.compose.ui.test)
     debugImplementation(libs.androidx.compose.material.icons.extended)
     nightlyImplementation(libs.androidx.compose.material.icons.extended)
+    "safetynetImplementation"(libs.androidx.compose.material.icons.extended)
 }

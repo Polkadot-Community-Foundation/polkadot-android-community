@@ -6,6 +6,7 @@ import io.paritytech.polkadotapp.chains.multiNetwork.chain.model.Chain
 import io.paritytech.polkadotapp.chains.network.binding.Balance
 import io.paritytech.polkadotapp.chains.storage.source.query.AtBlock
 import io.paritytech.polkadotapp.common.data.memory.ComputationalScope
+import io.paritytech.polkadotapp.common.domain.model.AccountEcdhKey
 import io.paritytech.polkadotapp.common.domain.model.AccountId
 import io.paritytech.polkadotapp.common.domain.model.DataByteArray
 import io.paritytech.polkadotapp.common.domain.model.toDataByteArray
@@ -521,14 +522,11 @@ class RealGameResultsInteractorTest {
     }
 
     @Test
-    fun `availability maps ReservedByUs and ReclaimExpiredReservation to AVAILABLE`() = runBlocking<Unit> {
+    fun `availability maps ReservedByUs to AVAILABLE`() = runBlocking<Unit> {
         whenever(checkUsernameAvailabilityUseCase("a"))
             .thenReturn(Result.success(UpgradeUsernameAvailabilityState.ReservedByUs))
-        whenever(checkUsernameAvailabilityUseCase("b"))
-            .thenReturn(Result.success(UpgradeUsernameAvailabilityState.ReclaimExpiredReservation(emptyList())))
 
         assertEquals(UsernameAvailability.AVAILABLE, resolveAvailability("a"))
-        assertEquals(UsernameAvailability.AVAILABLE, resolveAvailability("b"))
     }
 
     @Test
@@ -664,7 +662,7 @@ class RealGameResultsInteractorTest {
             Result.success(
                 ConsumerInfo(
                     accountId = OUR_ACCOUNT_ID,
-                    identifierKey = byteArrayOf(7).toDataByteArray(),
+                    identifierKey = AccountEcdhKey.Unknown(byteArrayOf(7).toDataByteArray()),
                     fullUsername = fullUsername,
                     liteUsername = liteUsername,
                 )
@@ -708,7 +706,7 @@ class RealGameResultsInteractorTest {
         maxGroupSize = 4,
         rounds = rounds,
         state = state,
-        airdropScheduled = false,
+        airdropsScheduled = 0,
     )
 
     private fun gameInfoFlow(gameInfo: OnChainVideoGameInfo?): Flow<AtBlock<OnChainVideoGameInfo?>> =

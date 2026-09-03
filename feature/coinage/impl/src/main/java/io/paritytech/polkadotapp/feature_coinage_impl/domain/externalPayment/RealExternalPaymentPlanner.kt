@@ -11,14 +11,14 @@ import io.paritytech.polkadotapp.feature_coinage_api.domain.externalPayment.Vouc
 import io.paritytech.polkadotapp.feature_coinage_api.domain.model.Coin
 import io.paritytech.polkadotapp.feature_coinage_api.domain.model.RecyclerVoucher
 import io.paritytech.polkadotapp.feature_coinage_api.domain.model.filterSpendable
-import io.paritytech.polkadotapp.feature_coinage_api.domain.model.isReadyToUse
+import io.paritytech.polkadotapp.feature_coinage_api.domain.model.isInRecycler
+import io.paritytech.polkadotapp.feature_coinage_api.domain.usecase.CoinageAssetsUseCase
 import io.paritytech.polkadotapp.feature_coinage_api.domain.usecase.CoinageBalanceConverterUseCase
 import io.paritytech.polkadotapp.feature_coinage_impl.data.repository.CoinRepository
-import io.paritytech.polkadotapp.feature_coinage_impl.data.repository.VoucherRepository
 import javax.inject.Inject
 
 class RealExternalPaymentPlanner @Inject constructor(
-    private val voucherRepository: VoucherRepository,
+    private val coinageAssetsUseCase: CoinageAssetsUseCase,
     private val coinRepository: CoinRepository,
     private val coinageBalanceConverterUseCase: CoinageBalanceConverterUseCase,
 ) : ExternalPaymentPlanner {
@@ -35,10 +35,10 @@ class RealExternalPaymentPlanner @Inject constructor(
         with(converter) { pickVoucherForOffboardingOrThrow(availableVouchers, target) }
     }
 
-    context(CoinageBalanceConversionContext)
+    context(coinageContext: CoinageBalanceConversionContext)
     private suspend fun determinePlan(amount: Balance): ExternalPaymentPlan {
-        val activeVouchers = voucherRepository.getActiveVouchers()
-        val availableVouchers = activeVouchers.filter { it.isReadyToUse() }
+        val activeVouchers = coinageAssetsUseCase.getSelectableVouchers()
+        val availableVouchers = activeVouchers.filter { it.isInRecycler() }
 
         if (availableVouchers.totalBalance() >= amount) {
             val offboarding = pickVoucherForOffboardingOrThrow(availableVouchers, target = amount)
@@ -51,7 +51,7 @@ class RealExternalPaymentPlanner @Inject constructor(
         }
 
         val deficit = amount - activeVouchers.totalBalance()
-        val activeCoins = coinRepository.getActiveCoins()
+        val activeCoins = coinageAssetsUseCase.getSelectableCoins()
         val availableCoins = activeCoins.filterSpendable(coinRepository.getCoinRecyclingAge())
 
         if (availableCoins.totalBalance() >= deficit) {
@@ -70,7 +70,7 @@ class RealExternalPaymentPlanner @Inject constructor(
         )
     }
 
-    context(CoinageBalanceConversionContext)
+    context(coinageContext: CoinageBalanceConversionContext)
     private fun pickVoucherForOffboardingOrThrow(
         vouchers: List<RecyclerVoucher>,
         target: Balance,
@@ -79,7 +79,7 @@ class RealExternalPaymentPlanner @Inject constructor(
             "Insufficient vouchers balance ${vouchers.totalBalance()} to cover target $target"
         }
 
-        val sorted = vouchers.sortedByDescending { formatExponentToBalance(it.recyclerValue) }
+        val sorted = vouchers.sortedByDescending { coinageContext.formatExponentToBalance(it.recyclerValue) }
 
         val selected = mutableListOf<RecyclerVoucher>()
         var accumulated = Balance.ZERO
@@ -87,7 +87,7 @@ class RealExternalPaymentPlanner @Inject constructor(
         for (voucher in sorted) {
             if (accumulated >= target) break
             selected.add(voucher)
-            accumulated += formatExponentToBalance(voucher.recyclerValue)
+            accumulated += coinageContext.formatExponentToBalance(voucher.recyclerValue)
         }
 
         val surplus = (accumulated - target)
@@ -95,12 +95,12 @@ class RealExternalPaymentPlanner @Inject constructor(
         return VoucherOffboarding(selected, surplus)
     }
 
-    context(CoinageBalanceConversionContext)
+    context(coinageContext: CoinageBalanceConversionContext)
     private fun pickCoinsForDeficit(
         coins: List<Coin>,
         deficitPlanks: Balance,
     ): List<Coin> {
-        val sorted = coins.sortedByDescending { formatExponentToBalance(it.valueExponent) }
+        val sorted = coins.sortedByDescending { coinageContext.formatExponentToBalance(it.valueExponent) }
 
         val selected = mutableListOf<Coin>()
         var accumulated = Balance.ZERO
@@ -108,7 +108,7 @@ class RealExternalPaymentPlanner @Inject constructor(
         for (coin in sorted) {
             if (accumulated >= deficitPlanks) break
             selected.add(coin)
-            accumulated += formatExponentToBalance(coin.valueExponent)
+            accumulated += coinageContext.formatExponentToBalance(coin.valueExponent)
         }
 
         return selected

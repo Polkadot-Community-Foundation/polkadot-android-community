@@ -24,6 +24,13 @@ import io.paritytech.polkadotapp.feature_coinage_api.domain.model.RecyclerVouche
 import io.paritytech.polkadotapp.feature_coinage_api.domain.model.ValueExponent
 import io.paritytech.polkadotapp.feature_coinage_api.domain.model.isInRecycler
 import io.paritytech.polkadotapp.feature_coinage_api.domain.model.recyclerLocationOrThrow
+import io.paritytech.polkadotapp.feature_coinage_api.domain.transaction.CoinageTransactionService
+import io.paritytech.polkadotapp.feature_coinage_api.domain.transaction.model.CoinageInput
+import io.paritytech.polkadotapp.feature_coinage_api.domain.transaction.model.CoinageOperationGroupId
+import io.paritytech.polkadotapp.feature_coinage_api.domain.transaction.model.CoinageTransactionRequest
+import io.paritytech.polkadotapp.feature_coinage_api.domain.transaction.model.CoinageTransactionState
+import io.paritytech.polkadotapp.feature_coinage_api.domain.transaction.model.CoinageTransactionStatus
+import io.paritytech.polkadotapp.feature_coinage_api.domain.transaction.model.OwnAsset
 import io.paritytech.polkadotapp.feature_coinage_api.domain.usecase.CoinAmountBreakdownUseCase
 import io.paritytech.polkadotapp.feature_coinage_api.domain.usecase.CoinageBalanceConverterUseCase
 import io.paritytech.polkadotapp.feature_coinage_impl.data.derivation.VoucherRingDerivation
@@ -34,17 +41,21 @@ import io.paritytech.polkadotapp.feature_coinage_impl.data.repository.RecyclerPr
 import io.paritytech.polkadotapp.feature_coinage_impl.data.repository.VoucherRepository
 import io.paritytech.polkadotapp.feature_coinage_impl.data.signer.context.CoinageSigningContextProvider
 import io.paritytech.polkadotapp.feature_coinage_impl.data.signer.origins.CoinageTransactionOrigins
+import io.paritytech.polkadotapp.feature_coinage_impl.domain.coinageLogD
+import io.paritytech.polkadotapp.feature_coinage_impl.domain.coinageLogE
+import io.paritytech.polkadotapp.feature_coinage_impl.domain.coinageLogI
+import io.paritytech.polkadotapp.feature_coinage_impl.domain.coinageLogW
 import io.paritytech.polkadotapp.feature_members_api.data.model.RingRevision
 import io.paritytech.polkadotapp.feature_people_api.domain.PeopleCollection
+import io.paritytech.polkadotapp.feature_people_api.domain.PeopleMembershipProver
+import io.paritytech.polkadotapp.feature_people_api.domain.PrecomputedPersonMembershipProver
 import io.paritytech.polkadotapp.feature_people_api.domain.useCase.ActivePeopleCollectionUseCase
 import io.paritytech.polkadotapp.feature_tokens_api.di.DigitalDollarChainAssetProvider
 import io.paritytech.polkadotapp.feature_tokens_api.domain.ChainAssetProvider
-import io.paritytech.polkadotapp.feature_transactions.api.data.ExtrinsicDispatch
+import io.paritytech.polkadotapp.feature_transactions.api.data.EnrichedSendableExtrinsic
 import io.paritytech.polkadotapp.feature_transactions.api.data.ExtrinsicService
-import io.paritytech.polkadotapp.feature_transactions.api.data.flattenExecutionFailure
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.transformWhile
 import kotlinx.serialization.Serializable
 import javax.inject.Inject
 
@@ -52,15 +63,43 @@ import javax.inject.Inject
  * Unloads a set of recycler vouchers into an external-asset balance on the given destination
  * account. When [surplus] is zero, dispatches Coinage.unload_recycler_into_external_asset per
  * (exponent, recyclerIndex) group. When non-zero, picks a single group that can carry the
- * surplus and dispatches Coinage.unload_recycler_into_external_asset_and_vouchers for it,
+ * surplus and dispatches Coinage.unload_recycler_into_external_asset_and_loaded_coins for it,
  * folding the surplus back into freshly-minted vouchers in the same call.
  */
 interface UnloadRecyclerIntoExternalAssetUseCase {
-    suspend fun unload(
+    /**
+     * Registers one transaction per recycler group under [groupId] and submits them. Returns once they are
+     * all registered, not once they have executed: what became of each is the ledger's answer, and the caller
+     * reads it from [groupId] rather than from here — a group is never one verdict.
+     *
+     * A group that already holds entries was submitted by an earlier attempt and is left alone, so a crash
+     * between registration and the caller learning of it costs nothing.
+     */
+    suspend fun initiateUnload(
         vouchers: List<RecyclerVoucher>,
         destination: AccountId,
         surplus: Balance,
+        groupId: CoinageOperationGroupId,
     ): Result<Unit>
+
+    /**
+     * What became of the unload registered under [groupId], as one answer.
+     *
+     * Emits until every transaction is decided. The caller does not have to know that an unload is several
+     * transactions — only whether the destination got what it was promised.
+     */
+    fun subscribeUnloadStatus(groupId: CoinageOperationGroupId): Flow<ExternalUnloadStatus>
+}
+
+/** [PartialSuccess] is not a failure: money did move, just not all of it. */
+sealed interface ExternalUnloadStatus {
+    data object Submitted : ExternalUnloadStatus
+
+    data object Success : ExternalUnloadStatus
+
+    data class PartialSuccess(val executed: Int, val total: Int) : ExternalUnloadStatus
+
+    data object Failed : ExternalUnloadStatus
 }
 
 class RealUnloadRecyclerIntoExternalAssetUseCase @Inject constructor(
@@ -74,26 +113,40 @@ class RealUnloadRecyclerIntoExternalAssetUseCase @Inject constructor(
     private val unloadTokenResolverFactory: UnloadTokenResolverFactory,
     private val chainRegistry: ChainRegistry,
     private val voucherRepository: VoucherRepository,
+    private val transactionService: CoinageTransactionService,
     private val voucherAllocator: VoucherAllocator,
     private val coinAmountBreakdownUseCase: CoinAmountBreakdownUseCase,
     private val coinageBalanceConverterUseCase: CoinageBalanceConverterUseCase,
+    private val peopleMembershipProver: PeopleMembershipProver,
     @param:DigitalDollarChainAssetProvider private val chainAssetProvider: ChainAssetProvider,
 ) : UnloadRecyclerIntoExternalAssetUseCase {
-    override suspend fun unload(
+    override suspend fun initiateUnload(
         vouchers: List<RecyclerVoucher>,
         destination: AccountId,
         surplus: Balance,
+        groupId: CoinageOperationGroupId,
     ): Result<Unit> {
-        validateInputs(vouchers)?.let { return Result.failure(it) }
+        coinageLogI("Unload starting group=${groupId.value} vouchers=${vouchers.size} surplus=$surplus")
+
+        validateInputs(vouchers)?.let {
+            coinageLogE("Unload rejected group=${groupId.value}: ${it.message}")
+            return Result.failure(it)
+        }
+
+        val alreadySubmitted = transactionService.getOperationGroupStatuses(groupId)
+            .getOrElse { return Result.failure(it) }
+
+        if (alreadySubmitted.isNotEmpty()) {
+            coinageLogD("Unload already submitted group=${groupId.value} transactions=${alreadySubmitted.size}")
+            return Result.success(Unit)
+        }
 
         val chain = chainRegistry.getChain(chainAssetProvider.chainId())
 
         return coinageBalanceConverterUseCase.create()
             .flatMap { balanceContext -> prepareGroups(chain, vouchers, surplus, balanceContext) }
-            .flatMap { groups ->
-                markVouchersUsedLocally(vouchers)
-                submitAndHandle(chain, groups, destination)
-            }
+            .onSuccess { prepared -> coinageLogD("Unload prepared group=${groupId.value} recyclerGroups=${prepared.groups.size}") }
+            .flatMap { prepared -> submitGroups(chain, prepared, destination, groupId) }
     }
 
     private fun validateInputs(vouchers: List<RecyclerVoucher>): Throwable? = when {
@@ -107,44 +160,46 @@ class RealUnloadRecyclerIntoExternalAssetUseCase @Inject constructor(
         vouchers: List<RecyclerVoucher>,
         surplus: Balance,
         context: CoinageBalanceConversionContext
-    ): Result<List<UnloadGroup>> {
+    ): Result<UnloadGroups> {
         return with(context) {
             prepareGroups(chain, vouchers, surplus)
         }
     }
 
-    context(CoinageBalanceConversionContext)
+    context(coinageContext: CoinageBalanceConversionContext)
     private suspend fun prepareGroups(
         chain: Chain,
         vouchers: List<RecyclerVoucher>,
         surplus: Balance,
-    ): Result<List<UnloadGroup>> {
+    ): Result<UnloadGroups> {
         val grouped = vouchers.groupByRecycler()
         val peopleCollection = activePeopleCollectionUseCase.getActivePeopleCollection()
         val resolvedTokens = unloadTokenResolverFactory
             .createForCollection(peopleCollection)
             .resolve(chain.id, grouped.size)
-        val revisionBlockHash = rpcCalls.getBlockHash(chain.id)
+        val pinnedBlockHash = rpcCalls.getBlockHash(chain.id)
 
         return recyclerProofDataProvider
-            .getRecyclerRevisions(chain.id, grouped.keys, revisionBlockHash)
+            .getRecyclerRevisions(chain.id, grouped.keys, pinnedBlockHash)
             .logFailure("Failed to get recycler revisions")
             .flatMap { revisions ->
                 resolveMixedSetup(grouped, surplus).map { mintedSetup ->
-                    buildGroups(
-                        grouped = grouped,
-                        resolvedTokens = resolvedTokens,
-                        revisions = revisions,
-                        revisionBlockHash = revisionBlockHash,
+                    UnloadGroups(
+                        pinnedBlockHash = pinnedBlockHash,
                         peopleCollection = peopleCollection,
-                        mintedSetup = mintedSetup,
-                        surplus = surplus,
+                        groups = buildGroups(
+                            grouped = grouped,
+                            resolvedTokens = resolvedTokens,
+                            revisions = revisions,
+                            mintedSetup = mintedSetup,
+                            surplus = surplus,
+                        ),
                     )
                 }
             }
     }
 
-    context(CoinageBalanceConversionContext)
+    context(coinageContext: CoinageBalanceConversionContext)
     private suspend fun resolveMixedSetup(
         grouped: Map<RecyclerKey, List<RecyclerVoucher>>,
         surplus: Balance,
@@ -166,13 +221,11 @@ class RealUnloadRecyclerIntoExternalAssetUseCase @Inject constructor(
             .flatMap { voucherAllocator.allocateAll(it) }
     }
 
-    context(CoinageBalanceConversionContext)
+    context(coinageContext: CoinageBalanceConversionContext)
     private fun buildGroups(
         grouped: Map<RecyclerKey, List<RecyclerVoucher>>,
         resolvedTokens: List<FreeUnloadTokenResolver.ResolvedUnloadToken>,
         revisions: Map<RecyclerKey, RingRevision>,
-        revisionBlockHash: BlockHash,
-        peopleCollection: PeopleCollection,
         mintedSetup: MintedSetup?,
         surplus: Balance,
     ): List<UnloadGroup> = grouped.entries.mapIndexed { index, (key, voucherList) ->
@@ -191,74 +244,107 @@ class RealUnloadRecyclerIntoExternalAssetUseCase @Inject constructor(
             vouchers = voucherList,
             resolvedUnloadToken = resolvedTokens[index],
             revision = revisions.getValue(key),
-            revisionBlockHash = revisionBlockHash,
-            peopleCollection = peopleCollection,
             mixedOutput = mixedOutput,
         )
     }
 
-    private suspend fun submitAndHandle(
+    /**
+     * Every extrinsic is built before any is registered, so their nonces stay sequenced, and the whole set is
+     * then registered as one unit. All or nothing matters here: a caller reading the group back as a single
+     * outcome cannot tell half a registration from half an execution, and they mean opposite things.
+     */
+    private suspend fun submitGroups(
         chain: Chain,
-        groups: List<UnloadGroup>,
+        prepared: UnloadGroups,
         destination: AccountId,
-    ): Result<Unit> {
-        val results = coroutineScope {
-            groups.map { group -> async { submitGroup(chain, group, destination) } }.awaitAll()
+        groupId: CoinageOperationGroupId,
+    ): Result<Unit> = runCatching {
+        val personProver = peopleMembershipProver.precomputeForMember(
+            chainId = chain.id,
+            peopleCollection = prepared.peopleCollection,
+            at = prepared.pinnedBlockHash,
+        ).getOrThrow()
+
+        val transactions = prepared.groups.map { group ->
+            CoinageTransactionRequest(
+                extrinsic = buildGroupExtrinsic(chain, prepared, group, destination, personProver).getOrThrow(),
+                inputs = group.vouchers.map { CoinageInput.Voucher(it.ringVrfKeyIndex) },
+                outputs = group.mixedOutput?.newVouchers.orEmpty().map { OwnAsset.Voucher(it.ringVrfKeyIndex) },
+            )
         }
-        return handleResults(groups, results)
+
+        coinageLogI("Unload registering group=${groupId.value} transactions=${transactions.size}")
+
+        transactionService.submitTransactions(transactions, groupId).getOrThrow()
     }
 
-    private suspend fun submitGroup(
+    override fun subscribeUnloadStatus(groupId: CoinageOperationGroupId): Flow<ExternalUnloadStatus> =
+        transactionService.subscribeOperationGroupStatuses(groupId).transformWhile { states ->
+            val status = states.toUnloadStatus()
+            logUnloadStatus(groupId, status)
+
+            emit(status)
+            states.isEmpty() || states.any { it.status.isLive }
+        }
+
+    private fun logUnloadStatus(groupId: CoinageOperationGroupId, status: ExternalUnloadStatus) {
+        val group = groupId.value
+
+        when (status) {
+            is ExternalUnloadStatus.Submitted -> coinageLogD("Unload submitted group=$group")
+            is ExternalUnloadStatus.Success -> coinageLogI("Unload succeeded group=$group")
+            is ExternalUnloadStatus.PartialSuccess ->
+                coinageLogW("Unload partially succeeded group=$group executed=${status.executed} total=${status.total}")
+
+            is ExternalUnloadStatus.Failed -> coinageLogE("Unload failed group=$group")
+        }
+    }
+
+    private fun List<CoinageTransactionState>.toUnloadStatus(): ExternalUnloadStatus {
+        val executed = count { it.status == CoinageTransactionStatus.FINALIZED_SUCCESS }
+
+        return when {
+            any { it.status.isLive } || isEmpty() -> ExternalUnloadStatus.Submitted
+
+            executed == size -> ExternalUnloadStatus.Success
+
+            executed > 0 -> ExternalUnloadStatus.PartialSuccess(executed = executed, total = size)
+
+            else -> ExternalUnloadStatus.Failed
+        }
+    }
+
+    private suspend fun buildGroupExtrinsic(
         chain: Chain,
+        prepared: UnloadGroups,
         group: UnloadGroup,
         destination: AccountId,
-    ): Result<ExtrinsicDispatch.Ok> {
+        personProver: PrecomputedPersonMembershipProver,
+    ): Result<EnrichedSendableExtrinsic> {
         val origin = originFactory.createAsUnloadTokenPeopleOrigin(
+            recyclerRevisionBlockHash = prepared.pinnedBlockHash,
             vouchers = group.vouchers,
             resolvedUnloadToken = group.resolvedUnloadToken,
-            recyclerRevisionBlockHash = group.revisionBlockHash,
-            peopleCollection = group.peopleCollection,
+            personProver = personProver,
+            peopleCollection = prepared.peopleCollection,
         )
         val aliases = buildAliases(group.vouchers)
 
-        return extrinsicService.submitExtrinsicAndAwaitExecution(chain = chain, origin = origin) {
-            if (group.mixedOutput != null) {
-                unloadRecyclerIntoExternalAssetAndVouchers(group, aliases, destination)
-            } else {
-                unloadRecyclerIntoExternalAsset(group, aliases, destination)
-            }
-        }.flattenExecutionFailure()
-    }
-
-    private suspend fun handleResults(
-        groups: List<UnloadGroup>,
-        results: List<Result<*>>,
-    ): Result<Unit> {
-        val failures = groups.zip(results).filter { (_, r) -> r.isFailure }
-        if (failures.isEmpty()) return Result.success(Unit)
-
-        // Roll back usage state for vouchers in failed groups only; succeeded vouchers are consumed on-chain.
-        val vouchersToRollback = failures.flatMap { (group, _) -> group.vouchers }
-        rollbackUsageState(vouchersToRollback)
-
-        // Freshly-minted vouchers were never registered on-chain when the mixed call fails — give the indices back.
-        val mintedToRollback = failures.flatMap { (group, _) -> group.mixedOutput?.newVouchers.orEmpty() }
-        if (mintedToRollback.isNotEmpty()) {
-            voucherAllocator.deallocate(mintedToRollback.map { it.ringVrfKeyIndex })
-        }
-
-        return Result.failure(failures.first().second.exceptionOrNull()!!)
+        return extrinsicService.buildExtrinsic(
+            chain = chain,
+            origin = origin,
+            options = ExtrinsicService.SubmissionOptions(),
+            formExtrinsic = {
+                if (group.mixedOutput != null) {
+                    unloadRecyclerIntoExternalAssetAndLoadedCoins(group, aliases, destination)
+                } else {
+                    unloadRecyclerIntoExternalAsset(group, aliases, destination)
+                }
+            },
+        )
     }
 
     // --- Supporting helpers ---
-
-    private suspend fun markVouchersUsedLocally(vouchers: List<RecyclerVoucher>) {
-        voucherRepository.saveAll(vouchers.map { it.copy(usageState = RecyclerVoucher.UsageState.USED_LOCALLY) })
-    }
-
-    private suspend fun rollbackUsageState(vouchers: List<RecyclerVoucher>) {
-        voucherRepository.saveAll(vouchers.map { it.copy(usageState = RecyclerVoucher.UsageState.NOT_USED) })
-    }
 
     private suspend fun buildAliases(vouchers: List<RecyclerVoucher>): List<BandersnatchAlias> {
         val aliasContext = coinageSigningContextProvider.recyclerVouchersContext()
@@ -287,16 +373,16 @@ private fun ExtrinsicBuilder.unloadRecyclerIntoExternalAsset(
     )
 )
 
-private fun ExtrinsicBuilder.unloadRecyclerIntoExternalAssetAndVouchers(
+private fun ExtrinsicBuilder.unloadRecyclerIntoExternalAssetAndLoadedCoins(
     group: UnloadGroup,
     aliases: List<BandersnatchAlias>,
     destination: AccountId,
 ): ExtrinsicBuilder {
-    val mixedOutput = requireNotNull(group.mixedOutput) { "mixedOutput required for and_vouchers call" }
+    val mixedOutput = requireNotNull(group.mixedOutput) { "mixedOutput required for and_loaded_coins call" }
 
     return call(
         moduleName = "Coinage",
-        callName = "unload_recycler_into_external_asset_and_vouchers",
+        callName = "unload_recycler_into_external_asset_and_loaded_coins",
         arguments = autoEncodedArgs(
             "aliases" to aliases,
             "value" to group.recyclerKey.exponent,
@@ -304,20 +390,28 @@ private fun ExtrinsicBuilder.unloadRecyclerIntoExternalAssetAndVouchers(
             "revision" to group.revision,
             "to" to destination,
             "external_asset_amount" to mixedOutput.externalAssetAmount,
-            "new_vouchers" to mixedOutput.newVouchers.map {
+            "loaded_coins" to mixedOutput.newVouchers.map {
                 NewVoucherEntry(value = it.recyclerValue, memberKey = it.ringVrfPublicKey)
             },
         )
     )
 }
 
+/**
+ * The groups of one unload plus what they all share: every group's revision was read at
+ * [pinnedBlockHash], so the person proof they are signed with must be pinned there too.
+ */
+private data class UnloadGroups(
+    val pinnedBlockHash: BlockHash,
+    val peopleCollection: PeopleCollection,
+    val groups: List<UnloadGroup>,
+)
+
 private data class UnloadGroup(
     val recyclerKey: RecyclerKey,
     val vouchers: List<RecyclerVoucher>,
     val resolvedUnloadToken: FreeUnloadTokenResolver.ResolvedUnloadToken,
     val revision: RingRevision,
-    val revisionBlockHash: BlockHash,
-    val peopleCollection: PeopleCollection,
     val mixedOutput: MixedOutput?,
 )
 

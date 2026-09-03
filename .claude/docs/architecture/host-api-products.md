@@ -5,13 +5,13 @@ Three distinct concepts. Don't conflate.
 ## Rules at a glance
 
 1. **`blocking`** — A new host call added without a referenced RFC stating its permission model. If no RFC or RFC silent on permissions, escalate to the user; don't invent a policy.
-2. **`blocking`** — `ProductId` constructed from arbitrary strings. Always `ProductId.fromUrl(uri)` / `fromLocalId(...)` (PR #442).
-3. **`blocking`** — WebView ownership ambiguity: two classes both call `destroy()` on the same WebView. Single owner (PR #442).
-4. **`major`** — Container script loading split inconsistently across environments. Use `ContainerInjectionStrategy` uniformly (PR #442).
+2. **`blocking`** — `ProductId` constructed from arbitrary strings. Always `ProductId.fromUrl(uri)` / `fromLocalId(...)`.
+3. **`blocking`** — WebView ownership ambiguity: two classes both call `destroy()` on the same WebView. Single owner.
+4. **`major`** — Container script loading split inconsistently across environments. Use `ContainerInjectionStrategy` uniformly.
 5. **`major`** — Handler group reaching for a global "current product" instead of an injected `CallingProductIdProvider`.
 6. **`major`** — `NavigationPolicy` branching on URL string inside the policy. Classification is external (`DotNsUtils.classifyNavigation`).
 7. **`major`** — Multi-room product implemented as multiple `ChatExtension`s instead of a single `ProductChatExtension` (see `chat-extension.md`).
-8. **`major`** — Factory-of-factory-of-factory chain — collapse to single `Factory.create(scope, config)` (PR #452).
+8. **`major`** — Factory-of-factory-of-factory chain — collapse to single `Factory.create(scope, config)`.
 9. **`minor`** — Inlining "derive product id from URL" at a call site when the `CallingProductIdProvider` abstraction is already in scope.
 
 
@@ -43,7 +43,7 @@ data class Product(
 ) : Identifiable
 ```
 
-`ProductId` is a value class derived from the `.dot` domain (`feature/products/api/.../model/ProductId.kt`). Construction is restricted: `ProductId.fromUrl(uri)` or `ProductId.fromLocalId(id)`. Anything that wants to "use the current URL as a ProductId" is wrong (PR #442 lesson).
+`ProductId` is a value class derived from the `.dot` domain (`feature/products/api/.../model/ProductId.kt`). Construction is restricted: `ProductId.fromUrl(uri)` or `ProductId.fromLocalId(id)`. Anything that wants to "use the current URL as a ProductId" is wrong.
 
 ### Product environments
 
@@ -60,6 +60,8 @@ Each environment composes a different `HostApiEnvironment`.
 ### ProductRepository / installation
 
 Products are stored in the Room DB and resolved via `ProductRepository`. Scripts are seeded through DotNs and cached with their content hash.
+
+> **Workers load by URL, never as an inlined string.** A worker's entry module can use relative imports against sibling files in the same archive, which only resolve when the script has an origin. Loading it as a blob/`evaluate`-style string silently breaks multi-file workers. The injection must be a `<script type="module" src="…">` pointing at a real served URL.
 
 ---
 
@@ -113,7 +115,7 @@ Handler groups in code (today):
 
 ### Adding a new host call — **always RFC-first**
 
-A new host call is a public protocol surface. New host calls **require an RFC** in the host-API RFC repository that states:
+A new host call is a public protocol surface. New host calls **require an RFC** in `paritytech/host-rust-core` that states:
 - Method name, params, response.
 - **Permission model** — what permission this call requires (if any), how the user grants it, scoping per product.
 - Caching / subscription semantics.
@@ -180,7 +182,7 @@ Two strategies based on environment:
 
 ### WebView ownership
 
-**One owner per WebView.** The engine that holds the runtime owns the WebView's lifecycle. UI may *display* the WebView, but it must not also call `destroy()` — PR #442 flagged this exact ambiguity in `SpaWebViewProvider`. Hold WebView ownership in `WebViewRuntime`; UI subscribes to a read-only `StateFlow<WebView?>` if it needs to render.
+**One owner per WebView.** The engine that holds the runtime owns the WebView's lifecycle. UI may *display* the WebView, but it must not also call `destroy()`. Hold WebView ownership in `WebViewRuntime`; UI subscribes to a read-only `StateFlow<WebView?>` if it needs to render.
 
 ---
 
@@ -224,7 +226,7 @@ Classification is external (`DotNsUtils.classifyNavigation`); the policy only di
 - **RFC-0020 `host_create_transaction`** — the canonical extrinsic-creation host call. New transaction-shaped host calls compose with it rather than duplicating signing/origin logic.
 - **RFC-first host calls** — every new host call carries a referenced RFC stating its permission model before implementation. The `host-api-products.md § Adding a new host call` rule is the gate (already `blocking` in the Rules at a glance).
 - **Composable `HostApiEnvironment`** — the three axes (`navigationPolicy`, `injectionStrategy`, `handlerGroups`) are orthogonal and remain so. New product modes pick a triple; don't introduce a fourth axis without a design discussion.
-- **One owner per WebView** (PR #442) — `WebViewRuntime` owns the lifecycle. Treat any drift back toward UI-managed WebView destruction as a regression.
+- **One owner per WebView** — `WebViewRuntime` owns the lifecycle. Treat any drift back toward UI-managed WebView destruction as a regression.
 - **Per-product storage isolation** — never bypass `StorageHostCalls` namespacing. Products cannot read each other's storage by design.
 
 Probe questions on every host-API PR (named-but-not-blocking):
@@ -236,9 +238,9 @@ A "yes" on the first or "no" on the second/third must be named in the architect 
 
 ## Anti-patterns flagged by past PRs
 
-- Factory soup (PR #452) — `SpaProductWebViewProvider` had a factory-of-factory-of-factory chain. Default to single `Factory.create(scope, config)` returning the working instance.
-- WebView ownership ambiguity (PR #442) — engine *and* UI both reaching `destroy()`. Single owner.
-- `ProductId` constructed from arbitrary strings (PR #442) — restrict construction via `ProductId.fromUrl(uri)` / `ProductId.fromLocalId(...)`.
-- Container script loading inconsistent across environments (PR #442) — unify via `ContainerInjectionStrategy`; don't have different layers in different envs.
-- Reaching into product-specific knowledge from `SessionManager` / generic services (PR #494) — generic services expose generic subscription APIs; specific knowledge lives at the calling site.
+- Factory soup — `SpaProductWebViewProvider` had a factory-of-factory-of-factory chain. Default to single `Factory.create(scope, config)` returning the working instance.
+- WebView ownership ambiguity — engine *and* UI both reaching `destroy()`. Single owner.
+- `ProductId` constructed from arbitrary strings — restrict construction via `ProductId.fromUrl(uri)` / `ProductId.fromLocalId(...)`.
+- Container script loading inconsistent across environments — unify via `ContainerInjectionStrategy`; don't have different layers in different envs.
+- Reaching into product-specific knowledge from `SessionManager` / generic services — generic services expose generic subscription APIs; specific knowledge lives at the calling site.
 - Adding new host calls without an RFC (per user direction) — **always require an RFC** that defines the permission model.

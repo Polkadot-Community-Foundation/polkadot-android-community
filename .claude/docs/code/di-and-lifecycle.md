@@ -4,17 +4,17 @@ Hilt-based DI with strong conventions around startup work, singletons, scope dis
 
 ## Rules at a glance
 
-1. **`blocking`** — Injecting a class into `App.kt` only to trigger its `init {}` block is forbidden. Use `AppInitializer @IntoSet` (PR #499).
-2. **`blocking`** — Submitting extrinsics in background work without `ChainConnectionRefCounter.withConnectionEnabled(...)` is forbidden. The default chain connection isn't active off-screen (PR #433).
-3. **`blocking`** — Reusing a keypair across roles (identity ≠ device key ≠ wallet) is forbidden. Each role derives from its own path (PR #505).
-4. **`blocking`** — State holder without a `clear()` / reset method, causing leaks across sessions (PR #494).
+1. **`blocking`** — Injecting a class into `App.kt` only to trigger its `init {}` block is forbidden. Use `AppInitializer @IntoSet`.
+2. **`blocking`** — Submitting extrinsics in background work without `ChainConnectionRefCounter.withConnectionEnabled(...)` is forbidden. The default chain connection isn't active off-screen.
+3. **`blocking`** — Reusing a keypair across roles (identity ≠ device key ≠ wallet) is forbidden. Each role derives from its own path.
+4. **`blocking`** — State holder without a `clear()` / reset method, causing leaks across sessions.
 5. **`major`** — `@AssistedInject` parameters typed as `@JvmInline value class` break KSP. Pass the underlying type and wrap internally.
-6. **`major`** — Don't `@Singleton`-annotate stateless / cheap-to-construct classes (PR #557, #430).
-7. **`major`** — Don't inject a service's `CoroutineScope` into a VM to launch a flow. Expose `Flow<X>` from the service and subscribe (PR #489).
-8. **`major`** — Long-lived chain connections use `requestConnectionEnabled()` + `release()` (ref counting). Don't abuse `withSessionEnabled { awaitCancellation() }` (PR #531).
-9. **`major`** — Notification cancellation logic lives in the owning feature, not in `App.kt` (PR #499).
-10. **`major`** — Expedited `Worker`s must override `getForegroundInfo()`. Otherwise WorkManager demotes them silently (PR #513). See `code/workers-and-background-sync.md`.
-11. **`major`** — One terminal cleanup entry point per state holder; not two cleanup verbs with subtle semantic differences (PR #494).
+6. **`major`** — Don't `@Singleton`-annotate stateless / cheap-to-construct classes.
+7. **`major`** — Don't inject a service's `CoroutineScope` into a VM to launch a flow. Expose `Flow<X>` from the service and subscribe.
+8. **`major`** — Long-lived chain connections use `requestConnectionEnabled()` + `release()` (ref counting). Don't abuse `withSessionEnabled { awaitCancellation() }`.
+9. **`major`** — Notification cancellation logic lives in the owning feature, not in `App.kt`.
+10. **`major`** — Expedited `Worker`s must override `getForegroundInfo()`. Otherwise WorkManager demotes them silently. See `code/workers-and-background-sync.md`.
+11. **`major`** — One terminal cleanup entry point per state holder; not two cleanup verbs with subtle semantic differences.
 12. **`major`** — `ComputationalScope` is a specialization tied to `ComputationalCache` consumer counting; pass a VM (which implements it) or wrap `ProcessLifecycleOwner.lifecycleScope` deliberately. Don't hand-roll `SupervisorJob() + Dispatchers.Default` inside a singleton.
 13. **`minor`** — `try { ... } finally { dispose() }` at every caller — prefer one explicit `dispose()` owned by the lifecycle owner.
 
@@ -75,8 +75,6 @@ fun create(@Assisted gameId: GameId): GameStateMachine
 
 Don't reflexively annotate everything `@Singleton`. Stateless and cheap-to-construct classes should be created on demand.
 
-✗ "These classes are stateless and pretty light to create on demand. I'd avoid singletons everywhere if they are not required." — foxwoosh, PR #557.
-
 **Singleton ⇒ Hilt manages one instance for the SingletonComponent's lifetime.** Reserve for:
 - Classes holding cached state (registries, state holders, caches).
 - Classes that establish connections (sockets, services).
@@ -115,11 +113,11 @@ fun bindFooInitializer(impl: FooAppInitializer): AppInitializer
 ### What does NOT go here
 
 - Feature work that should be triggered by user navigation.
-- Anything that blocks app startup waiting on network/storage (PR #451: "do this async in RootViewModel, not blocking startup").
+- Anything that blocks app startup waiting on network/storage; perform it asynchronously in `RootViewModel`.
 
 ### Why this pattern exists
 
-The temptation is to inject a class into `App.kt` just to get Dagger to construct it, so its `init {}` block runs. This is an anti-pattern — it creates implicit dependencies and is easy to break by removing the injection (PR #499 blocking). The `AppInitializer` interface makes the contract explicit.
+The temptation is to inject a class into `App.kt` just to get Dagger to construct it, so its `init {}` block runs. This is an anti-pattern — it creates implicit dependencies and is easy to break by removing the injection. The `AppInitializer` interface makes the contract explicit.
 
 ---
 
@@ -195,7 +193,7 @@ class VideoGameVotingViewModel @Inject constructor(
 }
 ```
 
-PR #489 lesson: "if the only reason we need a scope is to launch the flow, expose `Flow<X>` to the view model and subscribe there".
+If the only reason a dependency needs a scope is to launch the flow, expose `Flow<X>` to the ViewModel and subscribe there.
 
 ---
 
@@ -230,8 +228,6 @@ class GameService : Service() {
 }
 ```
 
-PR #531 (blocking).
-
 ### When to use `withSessionEnabled { ... }`
 
 When the work is genuinely scoped to a lambda body — submit an extrinsic and then release:
@@ -256,8 +252,6 @@ backgroundChainConnection.withSession {
 }
 ```
 
-PR #433 (blocking): "default extrinsicService uses default chain connection which is not active in background".
-
 ---
 
 ## Background work conventions
@@ -270,15 +264,15 @@ PR #433 (blocking): "default extrinsicService uses default chain connection whic
 
 ### WorkManager details
 
-- Workers that are **expedited** must override `getForegroundInfo()` — otherwise the worker is silently demoted to non-expedited and may not run promptly (PR #513).
+- Workers that are **expedited** must override `getForegroundInfo()` — otherwise the worker is silently demoted to non-expedited and may not run promptly.
 - Worker scoped to a feature lives in `feature/<X>/impl/.../work/`.
 - One-shot vs periodic: pick based on the OS scheduling needs, not on convenience.
 
 ### Foreground Service
 
 - Notification with appropriate `foregroundType` (`mediaPlayback` for calls, `dataSync` for sync, etc.).
-- Notification cancellation logic lives **in the owning feature**, not in `App.kt` (PR #499).
-- Single source of truth for service state — a `@Singleton` `*StateHolder` rather than the Service class itself (PR #538 lesson: state should live in a holder that's accessible regardless of whether the service is running).
+- Notification cancellation logic lives **in the owning feature**, not in `App.kt`.
+- Single source of truth for service state — a `@Singleton` `*StateHolder` rather than the Service class itself, so state remains accessible regardless of whether the service is running.
 
 ### Long-running flows
 
@@ -295,7 +289,7 @@ Never share a keypair across roles. Each role (wallet, chat device, identity, al
 - Identity: `//identity` (or whatever the people module defines)
 - Aliases: `//alias/<n>`
 
-Sharing keypairs (PR #505 blocking):
+Sharing keypairs:
 - Compromises one role compromises all.
 - Identity keypair shared to multiple devices means every device can decode every device's PAPP messages — leaks the threat model.
 
@@ -319,7 +313,7 @@ class FooStateHolder @Inject constructor() {
 }
 ```
 
-Forgetting to clear creates leaks across sessions (PR #494 blocking on `RealVideoGameStateHolder.clear()`).
+Forgetting to clear creates leaks across sessions.
 
 ---
 
@@ -342,4 +336,3 @@ try { ... } finally { session.dispose() }
 ```
 
 Internally the session might still use `try/finally`, but the API surface is `dispose()`.
-

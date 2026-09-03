@@ -14,8 +14,6 @@ import io.paritytech.polkadotapp.tools_jwt_auth_impl.data.api.AuthTokenApi
 import io.paritytech.polkadotapp.tools_jwt_auth_impl.data.interceptor.BearerTokenAuthenticator
 import io.paritytech.polkadotapp.tools_jwt_auth_impl.data.interceptor.BearerTokenInterceptor
 import io.paritytech.polkadotapp.tools_jwt_auth_impl.data.manager.JWTTokenProvider
-import io.paritytech.polkadotapp.tools_jwt_auth_impl.data.manager.RealTimeProvider
-import io.paritytech.polkadotapp.tools_jwt_auth_impl.data.manager.TimeProvider
 import io.paritytech.polkadotapp.tools_jwt_auth_impl.domain.warmUp.JwtAuthWarmUpService
 import io.paritytech.polkadotapp.tools_jwt_auth_impl.domain.warmUp.RealJwtAuthWarmUpService
 import okhttp3.Dispatcher
@@ -31,9 +29,6 @@ private annotation class JWTAuthRetrofit
 @Module
 @InstallIn(SingletonComponent::class)
 interface JWTAuthModule {
-    @Binds
-    fun bindTimeProvider(impl: RealTimeProvider): TimeProvider
-
     @Binds
     fun bindJwtAuthWarmUpService(impl: RealJwtAuthWarmUpService): JwtAuthWarmUpService
 

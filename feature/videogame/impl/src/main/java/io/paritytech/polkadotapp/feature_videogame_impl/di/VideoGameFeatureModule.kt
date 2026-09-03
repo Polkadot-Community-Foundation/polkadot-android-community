@@ -18,11 +18,15 @@ import io.paritytech.polkadotapp.common.data.network.TestnetEnvironment
 import io.paritytech.polkadotapp.common.data.network.addDebugLoggingInterceptor
 import io.paritytech.polkadotapp.common.presentation.AppInitializer
 import io.paritytech.polkadotapp.common.utils.CoroutineDispatchers
+import io.paritytech.polkadotapp.feature_account_api.domain.model.AliasAccountDerivationOverride
 import io.paritytech.polkadotapp.feature_chats_api.domain.extension.ChatExtension
 import io.paritytech.polkadotapp.feature_chats_api.domain.middleware.bot.CustomChatHeaderRenderer
 import io.paritytech.polkadotapp.feature_chats_api.domain.model.ChatOriginCustomConfiguration
+import io.paritytech.polkadotapp.feature_dotns_api.domain.DotNsTldProvider
+import io.paritytech.polkadotapp.feature_dotns_api.domain.getTldRetrying
 import io.paritytech.polkadotapp.feature_people_api.data.SetAliasContext
 import io.paritytech.polkadotapp.feature_people_api.domain.dim.DimCommitmentHandler
+import io.paritytech.polkadotapp.feature_products_api.domain.accountsProtocol.aliasAccountDerivationPath
 import io.paritytech.polkadotapp.feature_videogame_api.data.repositories.VideoGameRepository
 import io.paritytech.polkadotapp.feature_videogame_api.data.voucher.ScoreVouchersSyncManager
 import io.paritytech.polkadotapp.feature_videogame_api.domain.collectibles.CollectiblesUrlResolver
@@ -58,6 +62,7 @@ import io.paritytech.polkadotapp.feature_videogame_impl.data.repositories.VideoG
 import io.paritytech.polkadotapp.feature_videogame_impl.data.repositories.VideoGameKeepPlayingWarningRepository
 import io.paritytech.polkadotapp.feature_videogame_impl.data.repositories.VideoGameRepositoryInternal
 import io.paritytech.polkadotapp.feature_videogame_impl.data.repositories.VideoGameTooltipsRepository
+import io.paritytech.polkadotapp.feature_videogame_impl.data.scorePersonhoodContext
 import io.paritytech.polkadotapp.feature_videogame_impl.data.storages.RealVideoGameHistoryRestoringStorage
 import io.paritytech.polkadotapp.feature_videogame_impl.data.storages.VideoGameHistoryRestoringStorage
 import io.paritytech.polkadotapp.feature_videogame_impl.data.telemetry.GameDashboardApi
@@ -291,6 +296,20 @@ internal interface VideoGameFeatureModule {
         @ElementsIntoSet
         @SetAliasContext
         fun provideScoreContext(): Set<BandersnatchContext> = setOf(BandersnatchContext.SCORE)
+
+        // RFC-0024 resolves RFC-0022's deferral: the score context is owned by the personhood
+        // product, so its alias account follows the owner's subtree rather than the game's. Existing
+        // installs are not migrated - their alias account stays at the old dim2.dot path.
+        @Provides
+        @IntoSet
+        fun provideScoreDerivationOverride(dotNsTldProvider: DotNsTldProvider): AliasAccountDerivationOverride {
+            return AliasAccountDerivationOverride(
+                context = BandersnatchContext.SCORE,
+                derivationPath = {
+                    scorePersonhoodContext(dotNsTldProvider.getTldRetrying()).aliasAccountDerivationPath()
+                }
+            )
+        }
 
         // Own client so the game-dashboard base URL is rewritten per-request from remote config,
         // independent of the shared (identity-backend) client.

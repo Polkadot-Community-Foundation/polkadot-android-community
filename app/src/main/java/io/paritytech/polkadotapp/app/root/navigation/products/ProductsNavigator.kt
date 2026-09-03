@@ -9,10 +9,9 @@ import io.paritytech.polkadotapp.feature_chats_api.domain.model.ChatId
 import io.paritytech.polkadotapp.feature_chats_api.presentation.model.ChatFeedPayload
 import io.paritytech.polkadotapp.feature_products_api.model.ProductId
 import io.paritytech.polkadotapp.feature_products_api.model.toChatExtensionId
-import io.paritytech.polkadotapp.feature_products_api.model.toUrl
 import io.paritytech.polkadotapp.feature_products_api.presentation.ProductSettingsPayload
+import io.paritytech.polkadotapp.feature_products_api.presentation.SpaBrowserPayload
 import io.paritytech.polkadotapp.feature_products_impl.presentation.productBotManagement.ProductsRouter
-import io.paritytech.polkadotapp.feature_products_impl.presentation.spaBrowser.SpaBrowserPayload
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
@@ -24,18 +23,13 @@ class ProductsNavigator @Inject constructor(
         performNavigation(R.id.action_global_to_transactionSignBottomSheet)
     }
 
-    override fun openSpaBrowser(productId: ProductId) {
-        performNavigation(
-            R.id.action_global_to_spaBrowserFragment,
-            SpaBrowserPayload(url = productId.toUrl()).toPayloadBundle(),
-        )
-    }
+    override fun openSpaBrowser(payload: SpaBrowserPayload) = performNavigation(
+        actionId = R.id.action_global_to_spaBrowserFragment,
+        args = payload.toPayloadBundle(SpaBrowserPayload::class.java.name),
+    )
 
-    override fun openSpaBrowser(url: String) {
-        performNavigation(
-            R.id.action_global_to_spaBrowserFragment,
-            SpaBrowserPayload(url = url).toPayloadBundle(),
-        )
+    override fun leaveBrowser() {
+        back()
     }
 
     override fun openProductChat(productId: ProductId) {
@@ -80,5 +74,9 @@ class ProductsNavigator @Inject constructor(
 
     override suspend fun openResourceAllocationRequestPrompt() = withContext(dispatchers.main) {
         performNavigation(R.id.action_global_to_resourceAllocationRequestBottomSheet)
+    }
+
+    override suspend fun openCrossProductProofPrompt() = withContext(dispatchers.main) {
+        performNavigation(R.id.action_global_to_crossProductProofBottomSheet)
     }
 }

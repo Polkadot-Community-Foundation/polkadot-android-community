@@ -2,6 +2,7 @@ package io.paritytech.polkadotapp.feature_chats_impl.domain.models.scale
 
 import androidx.core.net.toUri
 import io.paritytech.polkadotapp.common.data.os.OperatingSystem
+import io.paritytech.polkadotapp.common.domain.model.requireX25519PublicKey
 import io.paritytech.polkadotapp.common.domain.model.toDataByteArray
 import io.paritytech.polkadotapp.common.utils.InformationSize.Companion.bytes
 import io.paritytech.polkadotapp.feature_chats_api.domain.model.Attachment
@@ -37,8 +38,14 @@ fun ChatMessageContentLocal.toDomain(
         is ChatMessageContentLocal.DataChannelIceCandidate -> ChatMessage.Content.DataChannelIceCandidate(offerMessageId, sdp)
         is ChatMessageContentLocal.DataChannelOffer -> ChatMessage.Content.DataChannelOffer(sdp, purpose.toDomain())
         is ChatMessageContentLocal.DataChannelClosed -> ChatMessage.Content.DataChannelClosed(offerMessageId)
-        is ChatMessageContentLocal.DeviceAdded -> ChatMessage.Content.DeviceAdded(statementAccountId, encryptionPublicKey)
+        is ChatMessageContentLocal.DeviceAdded -> ChatMessage.Content.DeviceAdded(statementAccountId, encryptionPublicKey.requireX25519PublicKey())
         is ChatMessageContentLocal.DeviceRemoved -> ChatMessage.Content.DeviceRemoved(statementAccountId)
+        is ChatMessageContentLocal.CompactionCommit -> ChatMessage.Content.CompactionCommit(
+            claimIdentifier = claimIdentifier.toDataByteArray(),
+            claimTicket = HopTicket.fromRaw(claimTicket),
+            nodeUrl = nodeUrl
+        )
+        is ChatMessageContentLocal.CompactionUnavailable -> ChatMessage.Content.CompactionUnavailable
 
         is ChatMessageContentLocal.Custom -> {
             val decoded = rawContent?.let { customContentDecoder.decode(rendererId, rawContent) }
@@ -80,8 +87,14 @@ fun ChatMessage.Content.toData(
         is ChatMessage.Content.DataChannelIceCandidate -> ChatMessageContentLocal.DataChannelIceCandidate(offerMessageId, sdp)
         is ChatMessage.Content.DataChannelOffer -> ChatMessageContentLocal.DataChannelOffer(sdp, purpose.toDataChannelPurposeLocal())
         is ChatMessage.Content.DataChannelClosed -> ChatMessageContentLocal.DataChannelClosed(offerMessageId)
-        is ChatMessage.Content.DeviceAdded -> ChatMessageContentLocal.DeviceAdded(statementAccountId, encryptionPublicKey)
+        is ChatMessage.Content.DeviceAdded -> ChatMessageContentLocal.DeviceAdded(statementAccountId, encryptionPublicKey.bytes)
         is ChatMessage.Content.DeviceRemoved -> ChatMessageContentLocal.DeviceRemoved(statementAccountId)
+        is ChatMessage.Content.CompactionCommit -> ChatMessageContentLocal.CompactionCommit(
+            claimIdentifier = claimIdentifier.value,
+            claimTicket = claimTicket.bytes,
+            nodeUrl = nodeUrl
+        )
+        ChatMessage.Content.CompactionUnavailable -> ChatMessageContentLocal.CompactionUnavailable
     }
 }
 
@@ -195,6 +208,7 @@ private fun OfferPurpose.toDomain(): ChatMessage.Content.DataChannelOffer.Purpos
 private fun CoinagePaymentStatusLocal.toDomain(): ChatMessage.Content.CoinagePayment.Status = when (this) {
     is CoinagePaymentStatusLocal.Detecting -> ChatMessage.Content.CoinagePayment.Status.Detecting
     is CoinagePaymentStatusLocal.Detected -> ChatMessage.Content.CoinagePayment.Status.Detected(detected)
+    is CoinagePaymentStatusLocal.PartiallyClaimed -> ChatMessage.Content.CoinagePayment.Status.PartiallyClaimed(claimed)
     is CoinagePaymentStatusLocal.Transferred -> ChatMessage.Content.CoinagePayment.Status.Transferred(transferred)
     is CoinagePaymentStatusLocal.FailedDetection -> ChatMessage.Content.CoinagePayment.Status.FailedDetection
     is CoinagePaymentStatusLocal.FailedTransfer -> ChatMessage.Content.CoinagePayment.Status.FailedTransfer
@@ -203,20 +217,21 @@ private fun CoinagePaymentStatusLocal.toDomain(): ChatMessage.Content.CoinagePay
 private fun DeviceInfo.toLocal(): DeviceInfoLocal {
     return DeviceInfoLocal(
         statementAccountId = statementAccountId,
-        encryptionPublicKey = encryptionPublicKey,
+        encryptionPublicKey = encryptionPublicKey.bytes,
     )
 }
 
 private fun DeviceInfoLocal.toDomain(): DeviceInfo {
     return DeviceInfo(
         statementAccountId = statementAccountId,
-        encryptionPublicKey = encryptionPublicKey,
+        encryptionPublicKey = encryptionPublicKey.requireX25519PublicKey(),
     )
 }
 
 private fun ChatMessage.Content.CoinagePayment.Status.toLocal(): CoinagePaymentStatusLocal = when (this) {
     is ChatMessage.Content.CoinagePayment.Status.Detecting -> CoinagePaymentStatusLocal.Detecting
     is ChatMessage.Content.CoinagePayment.Status.Detected -> CoinagePaymentStatusLocal.Detected(amount)
+    is ChatMessage.Content.CoinagePayment.Status.PartiallyClaimed -> CoinagePaymentStatusLocal.PartiallyClaimed(claimed)
     is ChatMessage.Content.CoinagePayment.Status.Transferred -> CoinagePaymentStatusLocal.Transferred(amount)
     is ChatMessage.Content.CoinagePayment.Status.FailedDetection -> CoinagePaymentStatusLocal.FailedDetection
     is ChatMessage.Content.CoinagePayment.Status.FailedTransfer -> CoinagePaymentStatusLocal.FailedTransfer

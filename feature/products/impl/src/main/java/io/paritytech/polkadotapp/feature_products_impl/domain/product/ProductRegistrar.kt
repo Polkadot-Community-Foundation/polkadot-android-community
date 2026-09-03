@@ -12,35 +12,20 @@ import javax.inject.Singleton
  * Idempotent — no-op if the product already exists.
  */
 interface ProductRegistrar {
-    suspend fun ensureRegistered(productId: ProductId, contentHash: String?)
+    suspend fun ensureRegistered(productId: ProductId)
 }
 
-context(CoroutineScope)
-fun ProductRegistrar.launchEnsureRegistered(productId: ProductId, contentHash: String?) = launchUnit {
-    ensureRegistered(productId, contentHash)
+context(scope: CoroutineScope)
+fun ProductRegistrar.launchEnsureRegistered(productId: ProductId) = scope.launchUnit {
+    ensureRegistered(productId)
 }
 
 @Singleton
 class RealProductRegistrar @Inject constructor(
     private val productRepository: ProductRepository,
 ) : ProductRegistrar {
-    override suspend fun ensureRegistered(productId: ProductId, contentHash: String?) {
-        val existing = productRepository.getProductById(productId)
-        if (existing != null) {
-            if (contentHash != null) {
-                productRepository.updateContentHash(productId, contentHash)
-            }
-            return
-        }
-
-        productRepository.addProduct(
-            id = productId,
-            name = productId.value,
-            scriptUrl = ""
-        )
-
-        if (contentHash != null) {
-            productRepository.updateContentHash(productId, contentHash)
-        }
+    override suspend fun ensureRegistered(productId: ProductId) {
+        if (productRepository.getProductById(productId) != null) return
+        productRepository.addProduct(id = productId, name = productId.value)
     }
 }

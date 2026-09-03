@@ -28,7 +28,7 @@ Walk this checklist for any file path that touches an architectural seam. Cite t
 - **major** — Domain model carrying presentation fields (`@StringRes Int`, `isLoading`, `isPressed`).
 - **major** — DTO → domain mapping missing or located outside `feature/X/impl/data/mappers/`.
 - **minor** — Mapper as a class when a pure extension function would suffice (or vice versa).
-- **major** — Single-line passthrough `UseCase` that just wraps a repo call — propose inlining (PR #479).
+- **major** — Single-line passthrough `UseCase` that just wraps a repo call — propose inlining.
 
 ## Maintainability (`architecture/maintainability.md`)
 
@@ -42,9 +42,9 @@ Walk this checklist for any file path that touches an architectural seam. Cite t
 
 ## Coinage (`architecture/coinage.md`)
 
-- **blocking** — Submitting a coinage transfer extrinsic without first marking selected coins as `SPENT_LOCALLY` (optimistic-spent pattern, PR #433).
+- **blocking** — Submitting a coinage transfer extrinsic without first marking selected coins as `SPENT_LOCALLY` (optimistic-spent pattern).
 - **blocking** — Hand-rolled keypair derivation outside `CoinKeypairDerivation`. Path is `//pps//coin//<n>`.
-- **blocking** — Truncating a voucher batch to stay under a cap when proof count must match exactly (PR #486).
+- **blocking** — Truncating a voucher batch to stay under a cap when proof count must match exactly.
 - **major** — New coinage origin built outside `CoinageTransactionOriginFactory`. Add a new `AsCoinageInfo` sealed branch instead.
 - **major** — New transfer strategy implemented outside `TransferPlanner`; should be a new `tryGet*Plan()` method.
 - **major** — `ExternalPaymentService` wiring that doesn't route through coinage's transfer planner and submission use case.

@@ -11,6 +11,8 @@ import android.webkit.WebSettings
 import android.webkit.WebView
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.paritytech.polkadotapp.feature_dotns_api.domain.DotNsResolver
+import io.paritytech.polkadotapp.feature_dotns_api.domain.DotNsTldProvider
+import io.paritytech.polkadotapp.feature_dotns_api.presentation.DotNsServingHostResolver
 import io.paritytech.polkadotapp.feature_dotns_api.presentation.DotNsWebViewClient
 import io.paritytech.polkadotapp.feature_videogame_impl.BuildConfig
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -27,9 +29,11 @@ import javax.inject.Inject
  * [Bundle.destroy].
  */
 class GameResultsWebViewProvider @Inject constructor(
-    @ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: Context,
     private val urlProvider: GameResultsUrlProvider,
     private val dotNsResolver: DotNsResolver,
+    private val dotNsTldProvider: DotNsTldProvider,
+    private val servingHostResolver: DotNsServingHostResolver,
 ) {
     /**
      * @param pageFinished Flips to true on `WebViewClient.onPageFinished`.
@@ -73,7 +77,13 @@ class GameResultsWebViewProvider @Inject constructor(
                 mediaPlaybackRequiresUserGesture = false
                 mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
             }
-            webViewClient = LoadStateClient(pageFinished, mainFrameError, dotNsResolver)
+            webViewClient = LoadStateClient(
+                pageFinished,
+                mainFrameError,
+                dotNsResolver,
+                dotNsTldProvider,
+                servingHostResolver,
+            )
             webChromeClient = ConsoleLoggingChromeClient()
             addJavascriptInterface(bridge, JS_INTERFACE_NAME)
         }
@@ -96,7 +106,9 @@ class GameResultsWebViewProvider @Inject constructor(
         private val pageFinished: MutableStateFlow<Boolean>,
         private val mainFrameError: MutableStateFlow<Boolean>,
         dotNsResolver: DotNsResolver,
-    ) : DotNsWebViewClient(dotNsResolver) {
+        dotNsTldProvider: DotNsTldProvider,
+        servingHostResolver: DotNsServingHostResolver,
+    ) : DotNsWebViewClient(dotNsResolver, dotNsTldProvider, servingHostResolver) {
         override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
             super.onPageStarted(view, url, favicon)
             pageFinished.value = false

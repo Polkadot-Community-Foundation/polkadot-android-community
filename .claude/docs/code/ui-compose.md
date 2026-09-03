@@ -10,20 +10,24 @@ Built on Nova-prefixed wrappers over Material3. Every screen follows the public-
 4. **`major`** — `VerticalSpacer { spacingN }` / `HorizontalSpacer { spacingN }`. Never `Spacer(Modifier.height(...))`.
 5. **`major`** — `NovaTheme.spacings` is for paddings and margins **only**. Never for radii, sizes, or stroke widths.
 6. **`major`** — `NovaSurface` for any widget needing background / shape / border / elevation / ripple. Don't reach for raw `Box(.background.clip.border)`.
-7. **`major`** — Strings always via `stringResource(RCommon.string.…)`. No hardcoded UI strings; no `@StringRes Int` resolved in the ViewModel (PR #503).
-8. **`major`** — Colors via `NovaTheme.colors.*`. No `Color(0xFF…)` / `Color.Black` at the feature layer (PR #574).
-9. **`major`** — `BottomSheets` / `AlertDialogs` live in the **public** screen, not the internal screen (PR #451).
-10. **`major`** — `BackHandler` lives in the screen, not the Fragment (PR #442).
-11. **`major`** — `clickable(enabled = ...)`, not `if (enabled) Modifier.clickable {} else this` (PR #442).
-12. **`major`** — `reverseLayout = true` always in chat feeds (PR #574).
-13. **`major`** — Use `LazyListScope.animateItem()`; no custom item-entry animations (PR #574).
-14. **`major`** — Custom `Canvas` only when an `ImageVector` / SVG genuinely cannot express the shape, or per-frame draw is required (PR #429/#494).
+7. **`major`** — Strings always via `stringResource(RCommon.string.…)`. No hardcoded UI strings; no `@StringRes Int` resolved in the ViewModel.
+8. **`major`** — Colors via `NovaTheme.colors.*`. No `Color(0xFF…)` / `Color.Black` at the feature layer.
+9. **`major`** — `BottomSheets` / `AlertDialogs` live in the **public** screen, not the internal screen.
+10. **`major`** — `BackHandler` lives in the screen, not the Fragment.
+11. **`major`** — `clickable(enabled = ...)`, not `if (enabled) Modifier.clickable {} else this`.
+12. **`major`** — `reverseLayout = true` always in chat feeds.
+13. **`major`** — Use `LazyListScope.animateItem()`; no custom item-entry animations.
+14. **`major`** — Custom `Canvas` only when an `ImageVector` / SVG genuinely cannot express the shape, or per-frame draw is required.
 15. **`major`** — `Modifier.blur` is API 31+; guard or polyfill.
 16. **`major`** — Use `BaseComposeBottomSheet` when **any** of these is true: the sheet is its own navigation destination; the sheet has its own `BaseViewModel`; the sheet must survive Activity recreation; the sheet is launched from outside any screen. Otherwise use `NovaModalBottomSheet` in the public screen.
-17. **`major`** — VM Contract / state does **not** expose raw Android framework widgets (`View`, `Bitmap`, `Drawable`, `Window`). Expose a domain-shaped state or a stable holder; the screen does the framework interop. **Exception (downgrade to `minor`)**: `WebView` handed to Compose via `AndroidView`, where preloading / off-tree warm-up forces a VM-owned instance. Prefer a thin `WebViewSlot`/`WebViewHolder` wrapper even there; flag the bare `StateFlow<WebView?>` as minor (PR #593).
+17. **`major`** — VM Contract / state does **not** expose raw Android framework widgets (`View`, `Bitmap`, `Drawable`, `Window`). Expose a domain-shaped state or a stable holder; the screen does the framework interop. **Exception (downgrade to `minor`)**: `WebView` handed to Compose via `AndroidView`, where preloading / off-tree warm-up forces a VM-owned instance. Prefer a thin `WebViewSlot`/`WebViewHolder` wrapper even there; flag the bare `StateFlow<WebView?>` as minor.
 18. **`minor`** — Symmetric padding by default (top/bottom both `spacingN`); aids component reuse.
 19. **`minor`** — Compose file > ~400 lines should split into `components/`.
 20. **`minor`** — Odd pixel sizes (3.dp, 5.dp) will subpixel-jump on different DPIs.
+21. **`major`** — UI-state collections are `ImmutableList` / `ImmutableSet` / `ImmutableMap`, **and** the element type is stable. `ImmutableList<T>` is unstable when `T` is unstable.
+22. **`major`** — Presentation models held in Compose state are `data class` (value `equals`), never a plain `class` without `equals`.
+23. **`major`** — Read frequently-changing `State` (scroll offset, animation/drag progress) at the lowest composable that uses it, and put raw derived reads behind `derivedStateOf` — never let a high-frequency read recompose a parent subtree. (Scroll example: `code/ui-compose.md § Recomposition and stability`.)
+24. **`major`** — An effect's callback must not mutate state that re-feeds the same composable's inputs (recomposition loop) — e.g. a per-item `LaunchedEffect` updating the VM-backed list it iterates.
 
 ---
 
@@ -147,7 +151,7 @@ private fun FooScreenPreview() {
 
 **Public screen** hosts dialogs, bottom sheets, toasts, permission requests. The internal screen never knows about overlays.
 
-✗ Putting `NovaAlertDialog` / `NovaModalBottomSheet` inside the internal screen (PR #451 lesson).
+✗ Putting `NovaAlertDialog` / `NovaModalBottomSheet` inside the internal screen.
 
 ---
 
@@ -236,7 +240,7 @@ Either:
   }
   ```
 
-PR #484, #465 both reject the mutation pattern (`Blocking: Passed modifiers should never be modified inside of composables`).
+Passed modifiers must never be modified inside composables.
 
 ### Rule 3: when a Composable wouldn't be reused externally, it can **omit `modifier`** entirely
 
@@ -270,8 +274,6 @@ fun Foo(state: State?) {
     }
 }
 ```
-
-PR #513 specifically flagged this.
 
 ---
 
@@ -354,7 +356,7 @@ tint = Color(0xFF000000)
 color = Color.White
 ```
 
-Hardcoded colors are not theme-aware (retro / dark / future palettes). PR #574 (`UpcomingGameWidget.kt:90`): "if we introduce another color theme — and we will — the hardcoded colors cannot be changed".
+Hardcoded colors are not theme-aware across retro, dark, and future palettes.
 
 ---
 
@@ -381,17 +383,17 @@ Hardcoded colors are not theme-aware (retro / dark / future palettes). PR #574 (
 
 When you must use `Canvas`:
 - Make the data **allocation-free per frame** — backing float arrays, not `List<DataClass>`.
-- Capture stable lambdas; don't take a `FloatArray` by value every frame (PR #494 anti-pattern: `burst.advance` copying every particle in a `mapNotNull` per frame).
-- Comment the drawing algorithm — `Canvas` math is non-obvious; explain the geometry (PR #429 / #494).
+- Capture stable lambdas; don't take a `FloatArray` by value or copy every particle in a `mapNotNull` on every frame.
+- Comment the drawing algorithm — `Canvas` math is non-obvious; explain the geometry.
 
-✗ Re-drawing static graphics that should be SVG (PR #429 example of two paths switched via state).
+✗ Re-drawing static graphics that should be SVG (review example of two paths switched via state).
 
 ---
 
 ## API-level guards
 
-- **Blur modifier** is API 31+. Check before using; provide a fallback for older devices (PR #574 flagged unconditional `Modifier.blur`).
-- Heavy effects (real-time blur, complex shaders, large bitmaps): consider battery and DPI. Avoid odd numbers for pixel sizes (PR #574: "impossible to paint half a pixel; will jump on different DPIs").
+- **Blur modifier** is API 31+. Check before using; provide a fallback for older devices.
+- Heavy effects (real-time blur, complex shaders, large bitmaps): consider battery and DPI. Avoid odd numbers for pixel sizes because half-pixel boundaries jump across DPIs.
 
 ---
 
@@ -413,7 +415,24 @@ foo/compose/
     └── FooEmptyState.kt
 ```
 
-PR #503 / #504 specifically flagged oversized single-file Composables.
+---
+
+## Recomposition and stability
+
+Keep composables skippable; read scroll state at the lowest scope. Measure with the Compose compiler report (`stable`/`unstable` per param) + Layout Inspector — don't reason statically.
+
+- **Collections** — `ImmutableList`/`Set`/`Map`, never plain `List`, in any UI-state field. Element type must be stable too: `ImmutableList<T>` is unstable if `T` is. One plain `List` field in a sealed subtype taints the parent → the whole screen `StateFlow`. Convert at the boundary (`.toImmutableList()`, `persistentListOf()`).
+- **Value equals (transitive)** — Compose-state models are `data class`, **and so are their field types**. A `data class` whose field is an interface backed by a plain `class` (no `equals`) still won't compare equal — `data class` on the variant alone does nothing if a leaf field's impl is a plain class.
+- **State at lowest scope** — pass `State` (or `LazyListState`) down and read it in the small consumer, not at a parent that wraps a big subtree. Reading a scroll/animation `State` high up recomposes everything below it on every tick.
+- **`derivedStateOf` for derived reads** — wrap a frequently-changing derived read so it notifies only when the result changes. (Scroll: `firstVisibleItemIndex`/`layoutInfo` change every frame; direct reads recompose every frame.)
+- **No effect that feeds its own input** — an effect whose callback writes back into the state driving it loops. Common case: a per-item `LaunchedEffect` that mutates the VM-backed list it iterates (also fires on prefetch, not real visibility). Drive it from one `snapshotFlow { … }` instead.
+
+```kotlin
+// ✗ val items: List<Item>            ✓ val items: ImmutableList<Item>
+// ✗ class FooUiModel(...)            ✓ data class FooUiModel(...)
+// ✗ Overlay(info = state.value, isScrolling = list.isScrollInProgress)
+// ✓ Overlay(info = state, lazyListState = list)   // read inside the consumer
+```
 
 ---
 
@@ -421,17 +440,16 @@ PR #503 / #504 specifically flagged oversized single-file Composables.
 
 ### Item entry animation in lists
 
-Use the built-in `LazyListScope.animateItem()` (or `animateItemPlacement()` on older Compose). Do not write a custom `MessageEntryAnimation` (PR #574).
+Use the built-in `LazyListScope.animateItem()` (or `animateItemPlacement()` on older Compose). Do not write a custom `MessageEntryAnimation`.
 
 ### `reverseLayout = true` for chat
 
-Always `true` in chat feeds. Paging works in one direction only; flipping breaks the paging logic (PR #574 blocking).
+Always `true` in chat feeds. Paging works in one direction only; flipping breaks the paging logic.
 
 ---
 
 ## Small details (covered in `Rules at a glance`)
 
-- **`clickable(enabled = …)`** — built-in `enabled` param, not `if (enabled) Modifier.clickable {} else this` (PR #442 — the latter breaks ripple transitions).
+- **`clickable(enabled = …)`** — built-in `enabled` param, not `if (enabled) Modifier.clickable {} else this`; the latter breaks ripple transitions.
 - **`BackHandler`** — placed inside the screen, not the hosting Fragment. `BackHandler(enabled = state.isModalOpen) { contract.onBackPressed() }`.
-- **Imports** — always import; never write `androidx.compose.ui.graphics.Color` inline (PR #484, #544).
-
+- **Imports** — always import; never write `androidx.compose.ui.graphics.Color` inline.

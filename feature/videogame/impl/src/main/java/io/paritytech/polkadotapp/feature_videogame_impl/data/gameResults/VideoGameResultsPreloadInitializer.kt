@@ -2,6 +2,8 @@ package io.paritytech.polkadotapp.feature_videogame_impl.data.gameResults
 
 import io.paritytech.polkadotapp.common.data.memory.ComputationalScope
 import io.paritytech.polkadotapp.common.presentation.AppInitializer
+import io.paritytech.polkadotapp.common.utils.FeatureOption
+import io.paritytech.polkadotapp.common.utils.isDisabled
 import io.paritytech.polkadotapp.common.utils.runCancellableCatching
 import io.paritytech.polkadotapp.feature_videogame_impl.domain.models.VideoGameProcessState
 import io.paritytech.polkadotapp.feature_videogame_impl.service.VideoGameStateReader
@@ -23,15 +25,17 @@ class VideoGameResultsPreloadInitializer @Inject constructor(
     private val stateReader: VideoGameStateReader,
     private val preloader: GameResultsWebViewPreloader,
 ) : AppInitializer {
-    context(ComputationalScope)
+    context(scope: ComputationalScope)
     override fun initialize(): Result<Unit> = runCancellableCatching {
+        if (FeatureOption.PERSONHOOD.isDisabled) return@runCancellableCatching
+
         stateReader.gameSnapshot
             .map { it?.processState.shouldPreload() }
             .distinctUntilChanged()
             .onEach { shouldPreload ->
                 if (shouldPreload) preloader.startWithRetry() else preloader.stopRetrying()
             }
-            .launchIn(this@ComputationalScope)
+            .launchIn(scope)
     }
 
     private fun VideoGameProcessState?.shouldPreload(): Boolean = when (this) {

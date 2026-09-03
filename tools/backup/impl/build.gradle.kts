@@ -1,25 +1,40 @@
+import com.android.build.gradle.internal.cxx.configure.gradleLocalProperties
+
 plugins {
-    alias(libs.plugins.dagger.hilt)
+    id("polkadotapp.android.library")
+    id("polkadotapp.android.hilt")
 }
 
 android {
     namespace = "io.paritytech.polkadotapp.tools_backup_impl"
+    val localProperties = gradleLocalProperties(rootDir, providers)
+
+    defaultConfig {
+        buildConfigString(
+            "FIRESTORE_DATABASE_ID",
+            localProperties.readSecretOrDefault("FIRESTORE_DATABASE_ID", "(default)")
+        )
+    }
 
     buildTypes {
-
         getByName("release") {
-            buildConfigField("String", "BACKUP_FILE_SUFFIX", "\"production\"")
-            buildConfigField("String", "BACKUP_KEY_SUFFIX", "\"-production\"")
+            buildConfigString("BACKUP_FILE_SUFFIX", "production")
+            buildConfigString("BACKUP_KEY_SUFFIX", "-production")
         }
 
         getByName("debug") {
-            buildConfigField("String", "BACKUP_FILE_SUFFIX", "\"debug\"")
-            buildConfigField("String", "BACKUP_KEY_SUFFIX", "\"-debug\"")
+            buildConfigString("BACKUP_FILE_SUFFIX", "debug")
+            buildConfigString("BACKUP_KEY_SUFFIX", "-debug")
         }
 
         getByName("nightly") {
-            buildConfigField("String", "BACKUP_FILE_SUFFIX", "\"nightly\"")
-            buildConfigField("String", "BACKUP_KEY_SUFFIX", "\"-nightly\"")
+            buildConfigString("BACKUP_FILE_SUFFIX", "nightly")
+            buildConfigString("BACKUP_KEY_SUFFIX", "-nightly")
+        }
+
+        getByName("safetynet") {
+            buildConfigString("BACKUP_FILE_SUFFIX", "safetynet")
+            buildConfigString("BACKUP_KEY_SUFFIX", "-safetynet")
         }
 
         // Public DEV build: keep its own backup namespace so it never collides
@@ -45,17 +60,16 @@ dependencies {
     implementation(project(":tools:common"))
     implementation(project(":tools:auth:api"))
 
-    implementation(libs.hilt.android)
-    ksp(libs.hilt.android.compiler)
-
     implementation(libs.google.play.services.auth)
     implementation(libs.google.api.client)
     implementation(libs.google.drive)
-    implementation(libs.bouncycastle.jdk15)
+    implementation(libs.bouncycastle.jdk18)
     implementation(libs.androidx.credentials.core)
     implementation(libs.androidx.credentials.play)
 
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.firestore)
 
+    testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
 }
