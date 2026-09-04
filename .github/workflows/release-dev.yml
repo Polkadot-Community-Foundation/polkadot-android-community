@@ -55,17 +55,30 @@ on:
         type: choice
         default: gp vanilla
         options: [gp vanilla, gp, vanilla]
+      distribute:
+        # Opt-OUT only. This can SUPPRESS distribution, never force it: the gate below
+        # ANDs it with "this run publishes a release", so clearing it on a dispatch is
+        # meaningless (a dispatch never distributes anyway) and setting it on a dispatch
+        # does not override the release gate. It exists so a tag can be re-run for the
+        # artifacts alone without re-notifying testers.
+        description: 'Allow App Distribution (only takes effect on a release-publishing run)'
+        type: boolean
+        default: true
   push:
     tags: ['dev-v*']
 
 permissions:
   contents: write
+  id-token: write   # Workload Identity Federation → Firebase App Distribution
 
 env:
   NDK_VERSION: "29.0.14206865"
   # space-separated list; the workflow_dispatch input can narrow it to one flavor
   FLAVORS: ${{ github.event.inputs.flavor || 'gp vanilla' }}
   HAS_R2: ${{ secrets.R2_UPLOAD_TOKEN != '' }}
+  # Keyless (Workload Identity Federation) — no service-account JSON key in the repo.
+  HAS_FIREBASE: ${{ secrets.GCP_WIP_GITHUB != '' && secrets.GCP_SA_GITHUB != '' }}
+  IS_TAG: ${{ startsWith(github.ref, 'refs/tags/dev-v') }}
 
 jobs:
   release:
@@ -199,3 +212,88 @@ jobs:
             echo "- https://get.polkadotcommunity.foundation/android/dev/$NAME"
             echo "- https://get.polkadotcommunity.foundation/android/dev/latest.apk"
           } >> "$GITHUB_STEP_SUMMARY"
+
+  # ---- Firebase App Distribution — MANUAL APPROVAL GATE ------------------------------
+  # Separate job so it can sit behind a protected GitHub Environment. The environment
+  # `tester-distribution` carries a REQUIRED REVIEWER, so every push to the 20 testers in
+  # `android-devnet-testers` waits for a human to approve it in the Actions UI — the same
+  # shape as an npm publish approval. Nothing reaches testers unattended, including any
+  # future weekly cron.
+  #
+  # ⚠️ The gate lives in the ENVIRONMENT, not in this file. If `tester-distribution` does
+  # not exist, GitHub auto-creates it UNPROTECTED on first use and this job runs straight
+  # through. Configure it (Settings → Environments → required reviewers) or the approval
+  # step silently does not exist.
+  #
+  # POLICY, unchanged: testers are served ONLY by a run that publishes a release. The tag
+  # gate is ANDed with the `distribute` opt-out, never ORed — a dispatch on a branch cannot
+  # notify testers whatever inputs it is given, which is what makes branch builds safe.
+  #
+  # gp only: both flavors share applicationId io.pcf.polkadotapp.dev, so they map to ONE
+  # Firebase app and would overwrite each other. Devices without Google Play services take
+  # the -nogms APK from the GitHub Release instead.
+  distribute:
+    needs: release
+    if: ${{ startsWith(github.ref, 'refs/tags/dev-v') && vars.FIREBASE_APP_ID_ANDROID_DEV != '' && (github.event_name != 'workflow_dispatch' || inputs.distribute) }}
+    runs-on: ubuntu-latest
+    environment:
+      name: tester-distribution
+      url: ${{ vars.FIREBASE_INVITE_LINK || 'https://appdistribution.firebase.dev/i/f3b79521380b40b9' }}
+    permissions:
+      contents: read
+      id-token: write   # Workload Identity Federation → Firebase App Distribution
+    steps:
+      # Only the distribution script is needed; skip the full history.
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts/ci
+          sparse-checkout-cone-mode: false
+
+      - name: Download the gp APK built by the release job
+        uses: actions/download-artifact@v4
+        with:
+          name: app-polkadot-devnet
+          path: apk
+
+      - name: Compose App Distribution release notes
+        id: notes
+        run: |
+          APK=$(find apk -name '*.apk' | head -1)
+          [ -n "$APK" ] || { echo "::error::no APK in the release artifact"; exit 1; }
+          echo "apk=$APK" >> "$GITHUB_OUTPUT"
+
+          NOTES="$RUNNER_TEMP/release-notes.txt"
+          {
+            echo "Polkadot app devnet build \`$GITHUB_REF_NAME\` (Android)."
+            echo
+            echo "Commit ${GITHUB_SHA:0:8} · build ${GITHUB_RUN_NUMBER}"
+            echo
+            echo "This build points at the public products devnet. It is a development"
+            echo "build for testing only — state may be wiped."
+            echo
+            echo "Running a device without Google Play services? App Distribution only"
+            echo "carries the Google-services build — take the -nogms APK from the"
+            echo "GitHub Release instead:"
+            echo "https://github.com/${GITHUB_REPOSITORY}/releases/tag/${GITHUB_REF_NAME}"
+            echo
+            echo "Something broken? Report it:"
+            echo "https://github.com/Polkadot-Community-Foundation/products-devnet-issues/issues/new/choose"
+          } > "$NOTES"
+          echo "notes=$NOTES" >> "$GITHUB_OUTPUT"
+
+      - name: Authenticate to Google Cloud (keyless)
+        uses: google-github-actions/auth@v3
+        with:
+          service_account: ${{ secrets.GCP_SA_GITHUB }}
+          workload_identity_provider: ${{ secrets.GCP_WIP_GITHUB }}
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v3
+
+      - name: Distribute gp APK to Firebase App Distribution
+        run: |
+          scripts/ci/firebase-app-distribution.sh \
+            "${{ steps.notes.outputs.apk }}" \
+            "${{ vars.FIREBASE_APP_ID_ANDROID_DEV }}" \
+            "${{ vars.FIREBASE_TESTER_GROUPS }}" \
+            "${{ steps.notes.outputs.notes }}"
