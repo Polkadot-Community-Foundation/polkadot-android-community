@@ -143,7 +143,8 @@ private fun DigitalDollarCardDetailsContent(
                         BalanceRestoreUiState.SendCash -> SendCashActions(
                             modifier = Modifier.fillMaxWidth(),
                             onSendClick = onSendClick,
-                            onGetCashClick = onGetCashClick
+                            onGetCashClick = onGetCashClick,
+                            getCashEnabled = state.getCashEnabled
                         )
 
                         is BalanceRestoreUiState.Restore -> {
@@ -236,7 +237,8 @@ private fun ColumnScope.Coinage(
 private fun SendCashActions(
     modifier: Modifier = Modifier,
     onSendClick: () -> Unit,
-    onGetCashClick: () -> Unit
+    onGetCashClick: () -> Unit,
+    getCashEnabled: Boolean
 ) {
     Row(
         modifier = modifier.height(IntrinsicSize.Min),
@@ -248,15 +250,19 @@ private fun SendCashActions(
             onClick = onSendClick
         )
 
-        PolkadotIconButton(
-            modifier = Modifier
-                .fillMaxHeight()
-                .aspectRatio(1f),
-            icon = NovaIcons.Add,
-            onClick = onGetCashClick,
-            shape = PolkadotButtonShape.pill,
-            size = PolkadotIconButtonSize.medium()
-        )
+        // Get CASH — the "+" that opens the getcash.<tld> SPA. Distinct from the coinage
+        // faucet "+" in CoinageCardContent, which is unaffected. See FeatureOption.GET_CASH_PRODUCT.
+        if (getCashEnabled) {
+            PolkadotIconButton(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .aspectRatio(1f),
+                icon = NovaIcons.Add,
+                onClick = onGetCashClick,
+                shape = PolkadotButtonShape.pill,
+                size = PolkadotIconButtonSize.medium()
+            )
+        }
     }
 }
 
@@ -313,7 +319,10 @@ private fun DigitalDollarCardDetailsPreview() {
                         testnetFundEnabled = true
                     )
                 ),
-                state = DigitalDollarCardDetailsUiState(BalanceRestoreUiState.SendCash),
+                state = DigitalDollarCardDetailsUiState(
+                    balanceRestore = BalanceRestoreUiState.SendCash,
+                    getCashEnabled = false
+                ),
                 onSendClick = {},
                 onGetCashClick = {},
                 onAutoFundClick = {},

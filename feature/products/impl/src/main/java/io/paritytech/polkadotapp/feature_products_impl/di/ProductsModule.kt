@@ -271,8 +271,10 @@ internal interface ProductsModule {
             )
         }
 
+        // Get CASH is the only auto-allowed product; while it is gated off
+        // (FeatureOption.GET_CASH_PRODUCT) nothing should be pre-granted on its behalf.
         private fun autoAllowedLabels(): Set<String> {
-            return if (FeatureOption.PRODUCT_SETTINGS.isDisabled) {
+            return if (FeatureOption.PRODUCT_SETTINGS.isDisabled && FeatureOption.GET_CASH_PRODUCT.isEnabled) {
                 setOf(KnownProductIds.GET_CASH_LABEL)
             } else {
                 emptySet()
