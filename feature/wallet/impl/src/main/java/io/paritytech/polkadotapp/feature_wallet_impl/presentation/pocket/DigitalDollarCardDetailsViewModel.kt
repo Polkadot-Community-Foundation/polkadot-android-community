@@ -5,8 +5,10 @@ import io.paritytech.polkadotapp.chains.multiNetwork.chain.model.withAmount
 import io.paritytech.polkadotapp.common.BuildConfig
 import io.paritytech.polkadotapp.common.presentation.loading.LoadingState
 import io.paritytech.polkadotapp.common.presentation.screens.BaseViewModel
+import io.paritytech.polkadotapp.common.utils.FeatureOption
 import io.paritytech.polkadotapp.common.utils.disable
 import io.paritytech.polkadotapp.common.utils.enable
+import io.paritytech.polkadotapp.common.utils.isEnabled
 import io.paritytech.polkadotapp.common.utils.launchUnit
 import io.paritytech.polkadotapp.common.utils.logFailure
 import io.paritytech.polkadotapp.feature_coinage_api.domain.model.BackupProgress
@@ -69,13 +71,17 @@ class DigitalDollarCardDetailsViewModel @Inject constructor(
     val state: StateFlow<DigitalDollarCardDetailsUiState> = interactor.observeBackupProgress()
         .map {
             DigitalDollarCardDetailsUiState(
-                it.toBalanceRestoreUiState()
+                balanceRestore = it.toBalanceRestoreUiState(),
+                getCashEnabled = FeatureOption.GET_CASH_PRODUCT.isEnabled
             )
         }
         .stateIn(
             scope = this,
             started = SharingStarted.Eagerly,
-            initialValue = DigitalDollarCardDetailsUiState(BalanceRestoreUiState.NotDetermined)
+            initialValue = DigitalDollarCardDetailsUiState(
+                balanceRestore = BalanceRestoreUiState.NotDetermined,
+                getCashEnabled = FeatureOption.GET_CASH_PRODUCT.isEnabled
+            )
         )
 
     fun onGetCashClick() = launchUnit {

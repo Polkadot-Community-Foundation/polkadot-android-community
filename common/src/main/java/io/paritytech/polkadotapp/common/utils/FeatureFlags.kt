@@ -21,6 +21,13 @@ object FeatureFlags {
             FeatureOption.PERSONHOOD,
             FeatureOption.COLLECTIBLES -> fullFeatured
 
+            // Get CASH is a dotNS product SPA served from getcash.<tld>. That name is not
+            // registered on any chain set we ship against, so every entry point into it lands
+            // on a 404. Hidden — not removed — until the SPA is actually deployed: flip this
+            // back to `fullFeatured` and the button, the deeplink and the auto-allowed
+            // permission all come back together.
+            FeatureOption.GET_CASH_PRODUCT -> false
+
             FeatureOption.ALLOW_SHORT_EVIDENCE_VIDEO -> BuildConfig.ALLOW_SHORT_EVIDENCE_VIDEO
             FeatureOption.SAMPLE_BOT -> BuildConfig.SAMPLE_BOT
             FeatureOption.DIM1_BOT_BY_DEFAULT -> BuildConfig.DIM1_BOT_BY_DEFAULT
@@ -47,7 +54,8 @@ enum class FeatureOption {
     PRODUCT_SETTINGS,
     PERSONHOOD,
     COLLECTIBLES,
-    ARBITRARY_PRODUCTS
+    ARBITRARY_PRODUCTS,
+    GET_CASH_PRODUCT
 }
 
 val FeatureOption.isEnabled

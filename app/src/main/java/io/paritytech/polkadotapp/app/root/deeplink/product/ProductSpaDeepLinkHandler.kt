@@ -8,6 +8,7 @@ import io.paritytech.polkadotapp.common.presentation.deeplink.DeepLinkHandler.Co
 import io.paritytech.polkadotapp.common.presentation.deeplink.DeeplinkProcessingOutcome
 import io.paritytech.polkadotapp.common.utils.CoroutineDispatchers
 import io.paritytech.polkadotapp.common.utils.FeatureOption
+import io.paritytech.polkadotapp.common.utils.isDisabled
 import io.paritytech.polkadotapp.common.utils.isEnabled
 import io.paritytech.polkadotapp.feature_account_api.data.repository.AccountRepository
 import io.paritytech.polkadotapp.feature_account_api.data.repository.awaitAccountsInitialized
@@ -33,8 +34,12 @@ internal class ProductSpaDeepLinkHandler @Inject constructor(
         return FeatureOption.ARBITRARY_PRODUCTS.isEnabled || data.isBuiltInProduct(tld)
     }
 
-    // The app still owns its own dotNS destinations when arbitrary ones are off, so Get CASH links keep working.
+    // The app still owns its own dotNS destinations when arbitrary ones are off. Get CASH is the
+    // only one, and it is gated off while getcash.<tld> is undeployed — see
+    // FeatureOption.GET_CASH_PRODUCT — so an inbound getcash link is not claimed into a 404.
     private fun Uri.isBuiltInProduct(tld: DotNsTld): Boolean {
+        if (FeatureOption.GET_CASH_PRODUCT.isDisabled) return false
+
         return ProductId.fromUrl(asWebUri(), tld).getOrNull() == KnownProductIds.getCash(tld)
     }
 
