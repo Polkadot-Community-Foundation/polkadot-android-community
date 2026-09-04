@@ -46,7 +46,12 @@ class ChatWebViewProvider @AssistedInject constructor(
     private val permissionClient = webViewPermissionClientFactory.create(callingProductIdProvider)
 
     // Serves the worker's archive by host, so the entry module's relative imports resolve too.
-    private val dotNsContentClient = DotNsWebViewClient(dotNsResolver, dotNsTldProvider, servingHostResolver)
+    private val dotNsContentClient = DotNsWebViewClient(
+        dotNsResolver,
+        dotNsTldProvider,
+        servingHostResolver,
+        frameEmbeddingResponseHeaders(allowIframes = false),
+    )
     private val chromeClient = productWebChromeClientFactory.create(
         logPrefix = "Script $productId",
         callingProductIdProvider = callingProductIdProvider,
