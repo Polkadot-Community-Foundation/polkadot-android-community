@@ -8,7 +8,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.dp
 import io.paritytech.polkadotapp.design.components.spacer.VerticalSpacer
@@ -23,6 +22,8 @@ fun PolkadotMenuList(
     headerText: String? = null,
     content: @Composable PolkadotMenuListScope.() -> Unit
 ) {
+    val scope = PolkadotMenuListScope().apply { content() }
+
     Column(modifier = modifier) {
         headerText?.let {
             PolkadotMenuListHeader(
@@ -32,19 +33,17 @@ fun PolkadotMenuList(
             VerticalSpacer { extraMedium }
         }
 
-        // Entries round themselves off with the inner radius and the group clip supplies the outer corners.
-        // Rounding per index instead would mean collecting every entry into a list before emitting any of
-        // them, and an entry whose visibility flips after the first composition would then never be emitted.
-        Column(
-            modifier = Modifier.clip(RoundedCornerShape(PolkadotTheme.radii.medium)),
-            verticalArrangement = Arrangement.spacedBy(PolkadotTheme.spacings.extraTiny)
-        ) {
-            PolkadotMenuListScope.content()
+        scope.items.forEachIndexed { index, itemContent ->
+            if (index > 0) VerticalSpacer { extraTiny }
+
+            itemContent(menuItemShape(index = index, total = scope.items.size))
         }
     }
 }
 
-object PolkadotMenuListScope
+class PolkadotMenuListScope internal constructor() {
+    internal val items = mutableListOf<@Composable (Shape) -> Unit>()
+}
 
 @Composable
 fun PolkadotMenuListItem(
@@ -74,24 +73,17 @@ fun PolkadotMenuListScope.PolkadotMenuListItem(
     description: (@Composable () -> Unit)? = null,
     onClick: () -> Unit,
 ) {
-    PolkadotMenuListItemInternal(
-        modifier = Modifier,
-        shape = menuItemShape(),
-        leading = leading,
-        trailing = trailing,
-        title = title,
-        description = description,
-        onClick = onClick
-    )
-}
-
-/**
- * Emits arbitrary content as a list entry. The [Shape] handed to [content] is the one a row would use, so a
- * custom widget rounds off against its neighbours the same way.
- */
-@Composable
-fun PolkadotMenuListScope.PolkadotMenuListCustomItem(content: @Composable (Shape) -> Unit) {
-    content(menuItemShape())
+    items += { shape ->
+        PolkadotMenuListItemInternal(
+            modifier = Modifier,
+            shape = shape,
+            leading = leading,
+            trailing = trailing,
+            title = title,
+            description = description,
+            onClick = onClick
+        )
+    }
 }
 
 @Composable
@@ -151,4 +143,16 @@ private fun PolkadotMenuListItemInternal(
 }
 
 @Composable
-private fun menuItemShape(): Shape = RoundedCornerShape(PolkadotTheme.radii.extraSmall)
+private fun menuItemShape(index: Int, total: Int): Shape {
+    val medium = PolkadotTheme.radii.medium
+    val extraSmall = PolkadotTheme.radii.extraSmall
+    val isFirst = index == 0
+    val isLast = index == total - 1
+
+    return RoundedCornerShape(
+        topStart = if (isFirst) medium else extraSmall,
+        topEnd = if (isFirst) medium else extraSmall,
+        bottomStart = if (isLast) medium else extraSmall,
+        bottomEnd = if (isLast) medium else extraSmall
+    )
+}

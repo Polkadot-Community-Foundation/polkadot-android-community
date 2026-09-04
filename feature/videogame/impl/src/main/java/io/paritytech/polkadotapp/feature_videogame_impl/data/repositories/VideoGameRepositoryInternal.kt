@@ -2,6 +2,7 @@ package io.paritytech.polkadotapp.feature_videogame_impl.data.repositories
 
 import io.novasama.substrate_sdk_android.hash.Hasher.blake2b256
 import io.novasama.substrate_sdk_android.runtime.definitions.types.generics.MultiSignature
+import io.paritytech.polkadotapp.bandersnatch_crypto.BandersnatchContext
 import io.paritytech.polkadotapp.chains.call.MultiChainRuntimeCallsApi
 import io.paritytech.polkadotapp.chains.call.RuntimeCallsApi
 import io.paritytech.polkadotapp.chains.di.LocalSourceQualifier
@@ -47,7 +48,7 @@ import io.paritytech.polkadotapp.feature_transactions.api.domain.model.Transacti
 import io.paritytech.polkadotapp.feature_videogame_api.data.repositories.VideoGameRepository
 import io.paritytech.polkadotapp.feature_videogame_api.domain.state.model.GameIndex
 import io.paritytech.polkadotapp.feature_videogame_impl.data.AttestationNftHash
-import io.paritytech.polkadotapp.feature_videogame_impl.data.ScoreContextProvider
+import io.paritytech.polkadotapp.feature_videogame_impl.data.SCORE
 import io.paritytech.polkadotapp.feature_videogame_impl.data.airdrop.toAirdropVrf
 import io.paritytech.polkadotapp.feature_videogame_impl.data.aliasToStmtAccount
 import io.paritytech.polkadotapp.feature_videogame_impl.data.archivedPlayers
@@ -256,7 +257,6 @@ class RealVideoGameRepository @Inject constructor(
     private val peopleOrigins: PeopleOrigins,
     private val computationalCache: ComputationalCache,
     private val signedOrigins: SignedOrigins,
-    private val scoreContextProvider: ScoreContextProvider,
 ) : VideoGameRepositoryInternal, VideoGameRepository {
     context(scope: ComputationalScope)
     override fun subscribeGameInfoAtBlock(chainId: ChainId): Flow<AtBlock<OnChainVideoGameInfo?>> {
@@ -432,7 +432,7 @@ class RealVideoGameRepository @Inject constructor(
         airdrop: AirdropProof?,
     ): Result<Unit> {
         return peopleOrigins.asPersonalAliasWithAccountEnsuringRevision(
-            scoreContextProvider.context()
+            BandersnatchContext.SCORE
         ).flatMap { origin ->
             submitTracked(chain, origin, submission) {
                 videoGame.signUpWithAlias(statementAccountId, statementAccountSignature, airdrop = airdrop?.toAirdropVrf())
@@ -452,7 +452,7 @@ class RealVideoGameRepository @Inject constructor(
         recognized: Boolean,
     ): Result<Unit> {
         val origin = if (recognized) {
-            peopleOrigins.asPersonalAliasWithAccountEnsuringRevision(scoreContextProvider.context())
+            peopleOrigins.asPersonalAliasWithAccountEnsuringRevision(BandersnatchContext.SCORE)
         } else {
             Result.success(scoreOrigins.asAccountParticipant())
         }
@@ -511,7 +511,7 @@ class RealVideoGameRepository @Inject constructor(
         report: FullVideoGameReport,
         submission: VideoGameTrackedSubmission,
     ): Result<Unit> {
-        return peopleOrigins.asPersonalAliasWithAccountEnsuringRevision(scoreContextProvider.context()).flatMap { origin ->
+        return peopleOrigins.asPersonalAliasWithAccountEnsuringRevision(BandersnatchContext.SCORE).flatMap { origin ->
             submitTracked(chain, origin, submission) {
                 videoGame.report(report)
             }

@@ -265,8 +265,6 @@ fun RuntimeMetadata.pgas() = module(Modules.PGAS)
 
 fun RuntimeMetadata.dotNsGateway() = module(Modules.DOTNS_GATEWAY)
 
-fun RuntimeMetadata.networkSuffix() = module(Modules.NETWORK_SUFFIX)
-
 fun RuntimeMetadata.stableSwapOrNull() = moduleOrNull(Modules.STABLE_SWAP)
 
 fun RuntimeMetadata.xykOrNull() = moduleOrNull(Modules.XYK)
@@ -429,8 +427,6 @@ object Modules {
     const val COINAGE = "Coinage"
 
     const val PGAS = "Pgas"
-
-    const val NETWORK_SUFFIX = "NetworkSuffix"
 
     const val REVIVE = "Revive"
 

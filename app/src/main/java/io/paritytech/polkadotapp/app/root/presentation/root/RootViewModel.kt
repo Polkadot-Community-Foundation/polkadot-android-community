@@ -90,7 +90,9 @@ class RootViewModel @Inject constructor(
 
         watchSsoEvents()
         launch { chatRequestServiceCoordinator.runChatRequestServices() }
-        launch { chatBotStateController.activateDefaultBots() }
+        if (FeatureOption.CHAT_EXTENSIONS.isEnabled) {
+            launch { chatBotStateController.activateDefaultBots() }
+        }
 
         launch { rootInteractor.printAccountAddresses() }
 

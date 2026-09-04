@@ -2,7 +2,7 @@ package io.paritytech.polkadotapp.feature_scan_api.domain
 import io.paritytech.polkadotapp.common.data.memory.ComputationalScope
 
 interface ScanContentParser {
-    suspend fun canHandle(content: String): Boolean
+    fun canHandle(content: String): Boolean
 
     context(scope: ComputationalScope)
     suspend fun handle(content: String): Result<PostParseAction>

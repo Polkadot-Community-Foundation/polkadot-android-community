@@ -2,8 +2,6 @@ package io.paritytech.polkadotapp.feature_transaction_storage_impl.data.signer.o
 
 import io.paritytech.polkadotapp.bandersnatch_crypto.BandersnatchContext
 import io.paritytech.polkadotapp.chains.multiNetwork.ChainRegistry
-import io.paritytech.polkadotapp.feature_dotns_api.domain.DotNsTldProvider
-import io.paritytech.polkadotapp.feature_dotns_api.domain.getTldRetrying
 import io.paritytech.polkadotapp.feature_people_api.domain.PeopleCollection
 import io.paritytech.polkadotapp.feature_people_api.domain.PeopleMembershipProver
 import io.paritytech.polkadotapp.feature_transaction_storage_impl.data.extension.ClaimLongTermStorage
@@ -16,21 +14,19 @@ import javax.inject.Inject
 class RealTransactionStorageOrigins @Inject constructor(
     private val peopleMembershipProver: PeopleMembershipProver,
     private val chainRegistry: ChainRegistry,
-    private val dotNsTldProvider: DotNsTldProvider,
 ) : TransactionStorageOrigins {
     override suspend fun asResourcesLongTermStorage(
         period: UInt,
         counter: UByte,
         collection: PeopleCollection,
-    ): Result<TransactionOrigin> {
-        return runCatching {
-            val extension = ClaimLongTermStorage(
-                context = BandersnatchContext.longTermStorageClaim(dotNsTldProvider.getTldRetrying(), period, counter),
-                collection = collection,
-                peopleMembershipProver = peopleMembershipProver,
-                chainRegistry = chainRegistry,
-            )
-            SetTransactionExtensionOrigin(TransactionSignerSource.None, extension)
-        }
+    ): TransactionOrigin {
+        val context = BandersnatchContext.longTermStorageClaim(period, counter)
+        val extension = ClaimLongTermStorage(
+            context = context,
+            collection = collection,
+            peopleMembershipProver = peopleMembershipProver,
+            chainRegistry = chainRegistry,
+        )
+        return SetTransactionExtensionOrigin(TransactionSignerSource.None, extension)
     }
 }

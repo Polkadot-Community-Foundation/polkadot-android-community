@@ -34,4 +34,9 @@ class DotNsTldTest {
         assertNull(DotNsTld.parse("pa seo"))
         assertNull(DotNsTld.parse("-paseo"))
     }
+
+    @Test
+    fun `fallback is the dot suffix`() {
+        assertEquals("dot", DotNsTld.FALLBACK.value)
+    }
 }

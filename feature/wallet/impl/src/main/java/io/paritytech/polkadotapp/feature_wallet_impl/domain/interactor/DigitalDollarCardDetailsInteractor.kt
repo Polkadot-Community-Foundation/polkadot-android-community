@@ -12,10 +12,12 @@ import io.paritytech.polkadotapp.feature_coinage_api.domain.model.Coin
 import io.paritytech.polkadotapp.feature_coinage_api.domain.model.RecyclerVoucher
 import io.paritytech.polkadotapp.feature_coinage_api.domain.service.CoinageBackupService
 import io.paritytech.polkadotapp.feature_coinage_api.domain.usecase.CoinageRecyclingUseCase
+import io.paritytech.polkadotapp.feature_coinage_api.domain.usecase.CoinageTestHelperUseCase
 import io.paritytech.polkadotapp.feature_coinage_api.domain.usecase.CoinageTestnetFundUseCase
 import io.paritytech.polkadotapp.feature_coinage_api.domain.usecase.ShareCoinageLogsUseCase
 import io.paritytech.polkadotapp.feature_coinage_api.domain.usecase.TotalBalanceUseCase
-import io.paritytech.polkadotapp.feature_products_api.domain.FundingDomainProvider
+import io.paritytech.polkadotapp.feature_dotns_api.domain.DotNsTldProvider
+import io.paritytech.polkadotapp.feature_products_api.model.KnownProductIds
 import io.paritytech.polkadotapp.feature_products_api.model.ProductId
 import io.paritytech.polkadotapp.feature_tokens_api.di.DigitalDollarChainAssetProvider
 import io.paritytech.polkadotapp.feature_tokens_api.domain.ChainAssetProvider
@@ -33,18 +35,19 @@ class DigitalDollarCardDetailsInteractor @Inject constructor(
     private val environment: TestnetEnvironment,
     private val coinsInteractor: CoinsInteractor,
     private val recyclerVouchersInteractor: RecyclerVouchersInteractor,
+    private val coinageTestHelperUseCase: CoinageTestHelperUseCase,
     private val coinageTestnetFundUseCase: CoinageTestnetFundUseCase,
     private val shareCoinageLogsUseCase: ShareCoinageLogsUseCase,
     private val coinageRecyclingUseCase: CoinageRecyclingUseCase,
     private val coinageBackupService: CoinageBackupService,
-    private val fundingDomainProvider: FundingDomainProvider
+    private val dotNsTldProvider: DotNsTldProvider
 ) {
     companion object {
         private val TOP_UP_AMOUNT = 150.toBigDecimal()
         private val NIGHTLY_TOP_UP_AMOUNT = 10.toBigDecimal()
     }
 
-    suspend fun getCashProductId(): Result<ProductId> = fundingDomainProvider.getFundingProductId()
+    suspend fun getCashProductId(): Result<ProductId> = dotNsTldProvider.getTld().map(KnownProductIds::getCash)
 
     fun observeAssetInfo(): Flow<AssetInfo> = flow {
         val asset = chainAssetProvider.asset()
@@ -77,6 +80,8 @@ class DigitalDollarCardDetailsInteractor @Inject constructor(
         return coinageTestnetFundUseCase(amount)
     }
 
+    suspend fun makeAllVouchersReady() = coinageTestHelperUseCase.makeAllVouchersReady()
+
     suspend fun shareCoinageLogs(): Result<Unit> = shareCoinageLogsUseCase().map { }
 
     suspend fun forceRecycle(coin: Coin): Result<Unit> = coinageRecyclingUseCase.recycle(listOf(coin)).map { }
@@ -88,10 +93,10 @@ class DigitalDollarCardDetailsInteractor @Inject constructor(
         .map { balance ->
             AssetInfo(
                 asset = asset,
-                totalBalance = balance.total,
-                spendableBalance = balance.availablePrivate,
-                gainingPrivacyBalance = balance.gainingPrivacy.amount,
-                pendingBalance = balance.pending,
+                totalBalance = balance.totalBalance,
+                spendableSecuredBalance = balance.spendableBalance.secured,
+                spendableDegradedBalance = balance.spendableBalance.degraded,
+                pendingBalance = balance.pendingBalance,
             )
         }
 

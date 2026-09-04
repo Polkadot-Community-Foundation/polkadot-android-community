@@ -26,7 +26,7 @@ internal class ChatDeepLinkHandler @Inject constructor(
     private val chatDeeplinkMapper: ChatDeeplinkMapper,
     private val waitForChatExistsUseCase: WaitForChatExistsUseCase,
 ) : DeepLinkHandler {
-    override suspend fun canHandle(data: Uri) =
+    override fun canHandle(data: Uri) =
         data.scheme == DeepLinkHandler.APP_SCHEME && data.host == CHAT_HOST
 
     context(scope: ComputationalScope)

@@ -1,6 +1,5 @@
 package io.paritytech.polkadotapp.feature_coinage_api.domain.model
 
-import io.paritytech.polkadotapp.common.utils.toLittleEndianBytes
 import io.paritytech.polkadotapp.feature_members_api.data.model.RingCollectionId
 import kotlinx.serialization.Serializable
 import java.math.BigDecimal
@@ -20,7 +19,7 @@ fun ValueExponent.tokenAmount(): BigDecimal {
 
 private val RECYCLER_PREFIX = "coinage/recycler".toByteArray()
 
-fun ValueExponent.toRingCollectionId(instanceId: CoinageInstanceId): RingCollectionId {
-    val prefix = RECYCLER_PREFIX + instanceId.toLittleEndianBytes() + value.toByte()
+fun ValueExponent.toRingCollectionId(): RingCollectionId {
+    val prefix = RECYCLER_PREFIX + value.toByte()
     return RingCollectionId.paddedBytes(prefix)
 }

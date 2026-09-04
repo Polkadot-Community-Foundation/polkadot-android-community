@@ -34,7 +34,6 @@ import io.paritytech.polkadotapp.feature_coinage_api.domain.transaction.model.Co
 import io.paritytech.polkadotapp.feature_coinage_api.domain.transaction.model.CoinageTransactionStatus.PENDING_SUCCESS
 import io.paritytech.polkadotapp.feature_coinage_api.domain.transaction.model.OwnAsset
 import io.paritytech.polkadotapp.feature_coinage_api.domain.usecase.CoinageBalanceConverterUseCase
-import io.paritytech.polkadotapp.feature_coinage_impl.data.config.CoinageInstanceIdProvider
 import io.paritytech.polkadotapp.feature_coinage_impl.data.derivation.VoucherRingDerivation
 import io.paritytech.polkadotapp.feature_coinage_impl.data.helpers.FreeUnloadTokenResolver
 import io.paritytech.polkadotapp.feature_coinage_impl.data.helpers.UnloadTokenResolverFactory
@@ -85,10 +84,6 @@ class RealUnloadRecyclerIntoExternalAssetUseCaseTest {
     private val coinageBalanceConverterUseCase: CoinageBalanceConverterUseCase = mockk()
     private val peopleMembershipProver: PeopleMembershipProver = mockk()
 
-    private val coinageInstanceIdProvider: CoinageInstanceIdProvider = mockk {
-        coEvery { instanceId() } returns Result.success(0u)
-    }
-
     private val useCase = RealUnloadRecyclerIntoExternalAssetUseCase(
         rpcCalls = rpcCalls,
         extrinsicService = extrinsicService,
@@ -105,9 +100,7 @@ class RealUnloadRecyclerIntoExternalAssetUseCaseTest {
         coinAmountBreakdownUseCase = mockk(relaxed = true),
         coinageBalanceConverterUseCase = coinageBalanceConverterUseCase,
         peopleMembershipProver = peopleMembershipProver,
-        quotaTracker = mockk(relaxed = true),
         chainAssetProvider = chainAssetProvider,
-        coinageInstanceIdProvider = coinageInstanceIdProvider,
     )
 
     /** The alias each voucher signs with is a native bandersnatch call; only the seam matters here. */
@@ -359,13 +352,16 @@ class RealUnloadRecyclerIntoExternalAssetUseCaseTest {
     )
 
     private fun voucherInRecycler(index: Int, recycler: Int = index) =
-        voucherOf(index, Location.InRecycler(RecyclerIndex(BigInteger.valueOf(recycler.toLong())), recyclerMembers = 767))
+        voucherOf(index, Location.InRecycler(RecyclerIndex(BigInteger.valueOf(recycler.toLong()))))
 
     private fun voucherOf(index: Int, location: Location) = RecyclerVoucher(
         ringVrfKeyIndex = index,
         ringVrfPublicKey = byteArrayOf(index.toByte()).toDataByteArray(),
         recyclerValue = ValueExponent(1),
         location = location,
+        allocatedAt = 0L,
+        delayUnloadUntil = 0L,
+        ringHasEnoughRingMembersToWithdraw = true,
     )
 
     private companion object {

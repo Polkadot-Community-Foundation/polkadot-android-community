@@ -41,7 +41,6 @@ import io.paritytech.polkadotapp.feature_usernames_impl.domain.usecase.RealSearc
 import io.paritytech.polkadotapp.feature_usernames_impl.domain.usecase.RealUsernamesOfAccountUseCase
 import io.paritytech.polkadotapp.feature_usernames_impl.presentation.address.RealParseAddressUsernameConverterFactory
 import io.paritytech.polkadotapp.feature_usernames_impl.presentation.address.RealUsernameAddressConverterFactory
-import io.paritytech.polkadotapp.tools_integrity_api.interceptors.WidevineIntegrityInterceptor
 import io.paritytech.polkadotapp.tools_jwt_auth_api.BearerAuth
 import okhttp3.ConnectionPool
 import okhttp3.OkHttpClient
@@ -69,15 +68,9 @@ interface UsernamesFeatureApiModule {
         fun provideUsernamesApi(
             networkApiCreator: NetworkApiCreator,
             @BearerAuth bearerOkHttpClient: OkHttpClient,
-            widevineIntegrityInterceptor: WidevineIntegrityInterceptor,
-        ): UsernameApi {
-            val clientBuilder = bearerOkHttpClient.newBuilder()
-            clientBuilder.interceptors().add(0, widevineIntegrityInterceptor)
-
-            return networkApiCreator
-                .createRetrofit(customOkHttpClient = clientBuilder.build())
-                .create(UsernameApi::class.java)
-        }
+        ): UsernameApi = networkApiCreator
+            .createRetrofit(customOkHttpClient = bearerOkHttpClient)
+            .create(UsernameApi::class.java)
 
         @Provides
         fun provideUsernameOnChainUpdater(

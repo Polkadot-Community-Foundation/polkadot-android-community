@@ -80,6 +80,7 @@ fun DigitalDollarCardDetails(
         onSendClick = viewModel::onSendClick,
         onGetCashClick = viewModel::onGetCashClick,
         onAutoFundClick = viewModel::onAutoFundClick,
+        makeAllVouchersReady = viewModel::makeAllVouchersReady,
         onShareLogsClick = viewModel::onShareLogsClick,
         onForceRecycleClick = viewModel::onForceRecycleClick,
         onBackupUpdateClick = viewModel::onBackupUpdateClick,
@@ -97,6 +98,7 @@ private fun DigitalDollarCardDetailsContent(
     onSendClick: () -> Unit,
     onGetCashClick: () -> Unit,
     onAutoFundClick: () -> Unit,
+    makeAllVouchersReady: () -> Unit,
     onShareLogsClick: () -> Unit,
     onForceRecycleClick: (Coin) -> Unit,
     onBackupUpdateClick: () -> Unit,
@@ -173,6 +175,7 @@ private fun DigitalDollarCardDetailsContent(
                 Coinage(
                     loadingState = coinageLoadingState,
                     onAutoFundClick = onAutoFundClick,
+                    makeAllVouchersReady = makeAllVouchersReady,
                     onShareLogsClick = onShareLogsClick,
                     onForceRecycleClick = onForceRecycleClick
                 )
@@ -185,6 +188,7 @@ private fun DigitalDollarCardDetailsContent(
 private fun ColumnScope.Coinage(
     loadingState: LoadingState<CoinageUiState>,
     onAutoFundClick: () -> Unit,
+    makeAllVouchersReady: () -> Unit,
     onShareLogsClick: () -> Unit,
     onForceRecycleClick: (Coin) -> Unit
 ) {
@@ -219,6 +223,7 @@ private fun ColumnScope.Coinage(
                     CoinageCardContent(
                         state = state,
                         onAutoFundClick = onAutoFundClick,
+                        makeAllVouchersReady = makeAllVouchersReady,
                         onShareLogsClick = onShareLogsClick,
                         onForceRecycleClick = onForceRecycleClick
                     )
@@ -295,8 +300,8 @@ private fun DigitalDollarCardDetailsPreview() {
                     CoinageUiState(
                         tokensState = CoinageUiState.TokensState(
                             totalBalance = TokenAmountModel.mock,
-                            spendableBalance = TokenAmountModel.mock,
-                            gainingPrivacyBalance = TokenAmountModel.mock,
+                            spendableSecuredBalance = TokenAmountModel.mock,
+                            spendableDegradedBalance = TokenAmountModel.mock,
                             pendingBalance = TokenAmountModel.mock,
                             coinList = persistentListOf(),
                             voucherList = persistentListOf()
@@ -308,12 +313,11 @@ private fun DigitalDollarCardDetailsPreview() {
                         testnetFundEnabled = true
                     )
                 ),
-                state = DigitalDollarCardDetailsUiState(
-                    balanceRestore = BalanceRestoreUiState.SendCash
-                ),
+                state = DigitalDollarCardDetailsUiState(BalanceRestoreUiState.SendCash),
                 onSendClick = {},
                 onGetCashClick = {},
                 onAutoFundClick = {},
+                makeAllVouchersReady = {},
                 onShareLogsClick = {},
                 onForceRecycleClick = {},
                 onBackupUpdateClick = {},

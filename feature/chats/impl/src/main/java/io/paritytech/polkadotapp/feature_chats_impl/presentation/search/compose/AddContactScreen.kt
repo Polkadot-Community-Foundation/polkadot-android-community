@@ -23,9 +23,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.paritytech.polkadotapp.common.domain.model.AccountId
 import io.paritytech.polkadotapp.common.domain.model.intoAccountId
 import io.paritytech.polkadotapp.common.presentation.search.SearchState
-import io.paritytech.polkadotapp.common.utils.SizedList
 import io.paritytech.polkadotapp.common.utils.randomBytes
-import io.paritytech.polkadotapp.common.utils.toSizedList
 import io.paritytech.polkadotapp.design.components.avatar.AvatarUiModel
 import io.paritytech.polkadotapp.design.components.avatar.Mock
 import io.paritytech.polkadotapp.design.components.avatar.NovaContactItem
@@ -62,7 +60,7 @@ fun AddContactScreen(contract: AddContactContract) {
 @Composable
 private fun AddContactScreenInternal(
     searchQuery: String,
-    searchResult: SearchState<SizedList<UserSearchResultUiModel>>,
+    searchResult: SearchState<UserSearchResultUiModel>,
     loadingContactId: AccountId?,
     onSearchChange: (String) -> Unit,
     onSearchResultClick: (UserSearchResultUiModel) -> Unit,
@@ -289,7 +287,7 @@ private fun AddContactScreenWithResultsPreview() {
                         username = "Juliette.73",
                         avatarModel = AvatarUiModel.Mock.fromName("Juliette.73")
                     )
-                ).toSizedList()
+                )
             ),
             loadingContactId = loadingAccountId,
             onSearchChange = {},

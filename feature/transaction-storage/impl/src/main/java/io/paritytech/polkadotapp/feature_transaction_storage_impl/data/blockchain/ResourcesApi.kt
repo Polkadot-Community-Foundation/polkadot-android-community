@@ -22,5 +22,9 @@ val LtsResourcesApi.longTermStoragePeriodDuration: UInt
     get() = constant("LongTermStoragePeriodDuration")
 
 context(withRuntime: WithRuntime)
+val LtsResourcesApi.longTermStorageClaimsPerPeriod: UByte
+    get() = constant("LongTermStorageClaimsPerPeriod")
+
+context(withRuntime: WithRuntime)
 val LtsResourcesApi.spentLongTermStorageAliases: QueryableStorageEntry2<BigEndianU32Scale, BandersnatchAlias, Unit>
     get() = storage2("SpentLongTermStorageAliases")

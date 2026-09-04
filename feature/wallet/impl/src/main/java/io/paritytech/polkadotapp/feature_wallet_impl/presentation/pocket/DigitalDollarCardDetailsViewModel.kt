@@ -47,10 +47,8 @@ class DigitalDollarCardDetailsViewModel @Inject constructor(
             CoinageUiState(
                 tokensState = CoinageUiState.TokensState(
                     totalBalance = tokenAmountMapper.mapFrom(asset.withAmount(assetInfo.totalBalance)),
-                    spendableBalance = tokenAmountMapper.mapFrom(asset.withAmount(assetInfo.spendableBalance)),
-                    gainingPrivacyBalance = tokenAmountMapper.mapFrom(
-                        asset.withAmount(assetInfo.gainingPrivacyBalance)
-                    ),
+                    spendableSecuredBalance = tokenAmountMapper.mapFrom(asset.withAmount(assetInfo.spendableSecuredBalance)),
+                    spendableDegradedBalance = tokenAmountMapper.mapFrom(asset.withAmount(assetInfo.spendableDegradedBalance)),
                     pendingBalance = tokenAmountMapper.mapFrom(asset.withAmount(assetInfo.pendingBalance)),
                     coinList = coins.toImmutableList(),
                     voucherList = vouchers.toImmutableList()
@@ -69,13 +67,15 @@ class DigitalDollarCardDetailsViewModel @Inject constructor(
     )
 
     val state: StateFlow<DigitalDollarCardDetailsUiState> = interactor.observeBackupProgress()
-        .map { DigitalDollarCardDetailsUiState(balanceRestore = it.toBalanceRestoreUiState()) }
+        .map {
+            DigitalDollarCardDetailsUiState(
+                it.toBalanceRestoreUiState()
+            )
+        }
         .stateIn(
             scope = this,
             started = SharingStarted.Eagerly,
-            initialValue = DigitalDollarCardDetailsUiState(
-                balanceRestore = BalanceRestoreUiState.NotDetermined
-            )
+            initialValue = DigitalDollarCardDetailsUiState(BalanceRestoreUiState.NotDetermined)
         )
 
     fun onGetCashClick() = launchUnit {
@@ -96,6 +96,10 @@ class DigitalDollarCardDetailsViewModel @Inject constructor(
             .logFailure("Failed to perform testnet fund")
             .onFailure { showMessage("Failed to fund account") }
         fundInProgress.disable()
+    }
+
+    fun makeAllVouchersReady() = launchUnit {
+        interactor.makeAllVouchersReady()
     }
 
     fun onShareLogsClick() = launchUnit {

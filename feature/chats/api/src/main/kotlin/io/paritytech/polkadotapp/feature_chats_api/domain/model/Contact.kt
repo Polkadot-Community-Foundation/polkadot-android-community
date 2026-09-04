@@ -40,5 +40,3 @@ fun Contact.pendingChatRequestIdOrThrow(): ChatRequestId {
 }
 
 fun Contact.hasPendingChatRequest(): Boolean = pendingChatRequestId != null
-
-fun Contact.hasEstablishedChat(): Boolean = pendingChatRequestId == null

@@ -10,6 +10,7 @@ import dagger.multibindings.ElementsIntoSet
 import dagger.multibindings.IntoMap
 import dagger.multibindings.IntoSet
 import dagger.multibindings.StringKey
+import io.paritytech.polkadotapp.bandersnatch_crypto.BandersnatchContext
 import io.paritytech.polkadotapp.chains.storage.source.query.intercept.StorageQueryInterceptor
 import io.paritytech.polkadotapp.common.data.network.NetworkApiCreator
 import io.paritytech.polkadotapp.common.data.network.OverrideBaseUrlInterceptor
@@ -23,7 +24,6 @@ import io.paritytech.polkadotapp.feature_chats_api.domain.middleware.bot.CustomC
 import io.paritytech.polkadotapp.feature_chats_api.domain.model.ChatOriginCustomConfiguration
 import io.paritytech.polkadotapp.feature_dotns_api.domain.DotNsTldProvider
 import io.paritytech.polkadotapp.feature_dotns_api.domain.getTldRetrying
-import io.paritytech.polkadotapp.feature_people_api.data.AliasContextProvider
 import io.paritytech.polkadotapp.feature_people_api.data.SetAliasContext
 import io.paritytech.polkadotapp.feature_people_api.domain.dim.DimCommitmentHandler
 import io.paritytech.polkadotapp.feature_products_api.domain.accountsProtocol.aliasAccountDerivationPath
@@ -35,7 +35,7 @@ import io.paritytech.polkadotapp.feature_videogame_api.domain.state.VideoGamesPr
 import io.paritytech.polkadotapp.feature_videogame_api.domain.usecase.UpcomingGameStartUseCase
 import io.paritytech.polkadotapp.feature_videogame_impl.VideoGameNotificationPublisher
 import io.paritytech.polkadotapp.feature_videogame_impl.data.RealVideoGameInfoSyncService
-import io.paritytech.polkadotapp.feature_videogame_impl.data.ScoreContextProvider
+import io.paritytech.polkadotapp.feature_videogame_impl.data.SCORE
 import io.paritytech.polkadotapp.feature_videogame_impl.data.VideoGameInfoSyncService
 import io.paritytech.polkadotapp.feature_videogame_impl.data.collectibles.CollectiblesRepository
 import io.paritytech.polkadotapp.feature_videogame_impl.data.collectibles.RealCollectiblesRepository
@@ -295,21 +295,16 @@ internal interface VideoGameFeatureModule {
         @Provides
         @ElementsIntoSet
         @SetAliasContext
-        fun provideScoreContext(scoreContextProvider: ScoreContextProvider): Set<AliasContextProvider> {
-            return setOf(AliasContextProvider { scoreContextProvider.context() })
-        }
+        fun provideScoreContext(): Set<BandersnatchContext> = setOf(BandersnatchContext.SCORE)
 
         // RFC-0024 resolves RFC-0022's deferral: the score context is owned by the personhood
         // product, so its alias account follows the owner's subtree rather than the game's. Existing
         // installs are not migrated - their alias account stays at the old dim2.dot path.
         @Provides
         @IntoSet
-        fun provideScoreDerivationOverride(
-            scoreContextProvider: ScoreContextProvider,
-            dotNsTldProvider: DotNsTldProvider,
-        ): AliasAccountDerivationOverride {
+        fun provideScoreDerivationOverride(dotNsTldProvider: DotNsTldProvider): AliasAccountDerivationOverride {
             return AliasAccountDerivationOverride(
-                context = { scoreContextProvider.context() },
+                context = BandersnatchContext.SCORE,
                 derivationPath = {
                     scorePersonhoodContext(dotNsTldProvider.getTldRetrying()).aliasAccountDerivationPath()
                 }
