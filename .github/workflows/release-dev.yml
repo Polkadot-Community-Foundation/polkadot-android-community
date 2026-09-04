@@ -304,19 +304,34 @@ jobs:
           prerelease: true
 
       # ----------------------------------------------- Firebase App Distribution (gp)
+      # Non-blocking by design: distribution is a convenience on top of an already-published
+      # release, and it sits BEFORE the downloads-host step, so a failure here must not take
+      # the R2 publish (or the run) down with it. A red step is the signal; retry it by
+      # re-dispatching ON THE TAG — `gh workflow run release-dev.yml --ref dev-vX.Y.Z
+      # -f flavor=gp` — which is what makes IS_TAG true. Dispatching on a BRANCH cannot
+      # distribute, by design; `-f distribute=true` does not override that.
+      # `continue-on-error` keeps a failure off the job's critical path, and gating the
+      # dependent steps on `.outcome` makes them SKIP rather than fail after it — one red
+      # step naming the real cause, not three. (`conclusion` is rewritten to success by
+      # continue-on-error; `outcome` keeps the true result, which is why it is used here.)
       - name: Authenticate to Google Cloud (keyless)
+        id: gcp_auth
         if: ${{ steps.channel.outputs.distribute == 'true' && env.HAS_FIREBASE == 'true' }}
+        continue-on-error: true
         uses: google-github-actions/auth@v3
         with:
           service_account: ${{ secrets.GCP_SA_GITHUB }}
           workload_identity_provider: ${{ secrets.GCP_WIP_GITHUB }}
 
       - name: Set up gcloud
-        if: ${{ steps.channel.outputs.distribute == 'true' && env.HAS_FIREBASE == 'true' }}
+        id: gcp_sdk
+        if: ${{ steps.gcp_auth.outcome == 'success' }}
+        continue-on-error: true
         uses: google-github-actions/setup-gcloud@v3
 
       - name: Distribute gp APK to Firebase App Distribution
-        if: ${{ steps.channel.outputs.distribute == 'true' && env.HAS_FIREBASE == 'true' }}
+        if: ${{ steps.gcp_sdk.outcome == 'success' }}
+        continue-on-error: true
         run: |
           scripts/ci/firebase-app-distribution.sh \
             "${{ steps.apk.outputs.gp }}" \
