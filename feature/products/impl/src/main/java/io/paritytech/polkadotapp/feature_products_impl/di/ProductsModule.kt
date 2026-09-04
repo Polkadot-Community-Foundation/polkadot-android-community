@@ -6,12 +6,13 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import dagger.multibindings.IntoSet
+import io.paritytech.polkadotapp.common.presentation.AppInitializer
 import io.paritytech.polkadotapp.common.utils.FeatureOption
-import io.paritytech.polkadotapp.common.utils.isDisabled
 import io.paritytech.polkadotapp.common.utils.isEnabled
 import io.paritytech.polkadotapp.feature_chats_api.domain.extension.ExternalExtensionProvider
 import io.paritytech.polkadotapp.feature_chats_api.domain.search.ChatSearchResultProvider
 import io.paritytech.polkadotapp.feature_dotns_api.presentation.DotNsServingHostResolver
+import io.paritytech.polkadotapp.feature_products_api.domain.FundingDomainProvider
 import io.paritytech.polkadotapp.feature_products_api.domain.ProductAccountIdProvider
 import io.paritytech.polkadotapp.feature_products_api.domain.ProductRequestAccountResolver
 import io.paritytech.polkadotapp.feature_products_api.domain.accountsProtocol.AccountsProtocol
@@ -21,8 +22,8 @@ import io.paritytech.polkadotapp.feature_products_api.domain.deriveEntropy.Deriv
 import io.paritytech.polkadotapp.feature_products_api.domain.sponsoring.PreimageSubmitSponsoring
 import io.paritytech.polkadotapp.feature_products_api.domain.sponsoring.StatementStoreSubmissionSponsoring
 import io.paritytech.polkadotapp.feature_products_api.domain.sponsoring.TransactionSponsoring
-import io.paritytech.polkadotapp.feature_products_api.model.KnownProductIds
 import io.paritytech.polkadotapp.feature_products_api.presentation.spaHost.SpaHost
+import io.paritytech.polkadotapp.feature_products_impl.data.config.RemoteConfigFundingDomainProvider
 import io.paritytech.polkadotapp.feature_products_impl.data.repository.BrowserTabRepository
 import io.paritytech.polkadotapp.feature_products_impl.data.repository.ProductIntegrationRepository
 import io.paritytech.polkadotapp.feature_products_impl.data.repository.ProductRepository
@@ -35,8 +36,17 @@ import io.paritytech.polkadotapp.feature_products_impl.data.scheduledNotificatio
 import io.paritytech.polkadotapp.feature_products_impl.data.scheduledNotification.ScheduledProductNotificationRepository
 import io.paritytech.polkadotapp.feature_products_impl.data.storage.AssetContainerScriptProvider
 import io.paritytech.polkadotapp.feature_products_impl.data.storage.ContainerScriptProvider
+import io.paritytech.polkadotapp.feature_products_impl.data.repository.ProductFundingOperationRepository
+import io.paritytech.polkadotapp.feature_products_impl.data.repository.RealProductFundingOperationRepository
 import io.paritytech.polkadotapp.feature_products_impl.data.storage.ProductLocalStorage
 import io.paritytech.polkadotapp.feature_products_impl.data.storage.RealProductLocalStorage
+import io.paritytech.polkadotapp.feature_products_impl.domain.operation.ProductOperationService
+import io.paritytech.polkadotapp.feature_products_impl.domain.operation.RealProductOperationService
+import io.paritytech.polkadotapp.feature_products_impl.domain.worker.ProductWorkerRefCounter
+import io.paritytech.polkadotapp.feature_products_impl.domain.worker.RealProductWorkerRefCounter
+import io.paritytech.polkadotapp.feature_products_impl.domain.worker.RealWorkerBootFactory
+import io.paritytech.polkadotapp.feature_products_impl.domain.worker.WorkerBootFactory
+import io.paritytech.polkadotapp.feature_products_impl.presentation.initialization.ProductWorkerInitializer
 import io.paritytech.polkadotapp.feature_products_impl.domain.ProductAccountDerivationUseCase
 import io.paritytech.polkadotapp.feature_products_impl.domain.RealProductRequestAccountResolver
 import io.paritytech.polkadotapp.feature_products_impl.domain.accountsProtocol.RealAccountsProtocol
@@ -68,6 +78,8 @@ import io.paritytech.polkadotapp.feature_products_impl.domain.permissions.Produc
 import io.paritytech.polkadotapp.feature_products_impl.domain.permissions.RealProductPermissionGuard
 import io.paritytech.polkadotapp.feature_products_impl.domain.permissions.RealProductPermissionRepository
 import io.paritytech.polkadotapp.feature_products_impl.domain.permissions.RealProductPermissionRequester
+import io.paritytech.polkadotapp.feature_products_impl.domain.permissions.RealWhitelistedProductsProvider
+import io.paritytech.polkadotapp.feature_products_impl.domain.permissions.WhitelistedProductsProvider
 import io.paritytech.polkadotapp.feature_products_impl.domain.permissions.handlers.AccountAccessPermissionHandler
 import io.paritytech.polkadotapp.feature_products_impl.domain.permissions.handlers.BalanceAccessPermissionHandler
 import io.paritytech.polkadotapp.feature_products_impl.domain.permissions.handlers.DeviceCapabilityPermissionHandler
@@ -144,6 +156,24 @@ internal interface ProductsModule {
 
     @Binds
     fun bindProductLocalStorage(impl: RealProductLocalStorage): ProductLocalStorage
+
+    @Binds
+    @Singleton
+    fun bindProductWorkerRefCounter(impl: RealProductWorkerRefCounter): ProductWorkerRefCounter
+
+    @Binds
+    fun bindWorkerBootFactory(impl: RealWorkerBootFactory): WorkerBootFactory
+
+    @Binds
+    @Singleton
+    fun bindProductOperationService(impl: RealProductOperationService): ProductOperationService
+
+    @Binds
+    fun bindProductFundingOperationRepository(impl: RealProductFundingOperationRepository): ProductFundingOperationRepository
+
+    @Binds
+    @IntoSet
+    fun bindProductWorkerInitializer(impl: ProductWorkerInitializer): AppInitializer
 
     @Binds
     fun bindProductAccountOrigins(impl: RealProductAccountOrigins): ProductAccountOrigins
@@ -246,6 +276,13 @@ internal interface ProductsModule {
     fun bindProductRequestAccountResolver(impl: RealProductRequestAccountResolver): ProductRequestAccountResolver
 
     @Binds
+    @Singleton
+    fun bindFundingDomainProvider(impl: RemoteConfigFundingDomainProvider): FundingDomainProvider
+
+    @Binds
+    fun bindWhitelistedProductsProvider(impl: RealWhitelistedProductsProvider): WhitelistedProductsProvider
+
+    @Binds
     fun bindDeriveEntropyUseCase(impl: RealDeriveEntropyUseCase): DeriveEntropyUseCase
 
     @Binds
@@ -254,8 +291,11 @@ internal interface ProductsModule {
     companion object {
         @Provides
         @Singleton
-        fun providePermissionRequester(real: RealProductPermissionRequester): ProductPermissionRequester {
-            return AutoAllowProductPermissionRequester(autoAllowedLabels(), real)
+        fun providePermissionRequester(
+            real: RealProductPermissionRequester,
+            whitelistedProductsProvider: WhitelistedProductsProvider,
+        ): ProductPermissionRequester {
+            return AutoAllowProductPermissionRequester(whitelistedProductsProvider, real)
         }
 
         @Provides
@@ -269,14 +309,6 @@ internal interface ProductsModule {
                 productRepository = productRepository,
                 productsRouter = productsRouter,
             )
-        }
-
-        private fun autoAllowedLabels(): Set<String> {
-            return if (FeatureOption.PRODUCT_SETTINGS.isDisabled) {
-                setOf(KnownProductIds.GET_CASH_LABEL)
-            } else {
-                emptySet()
-            }
         }
     }
 }
