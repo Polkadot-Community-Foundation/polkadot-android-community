@@ -15,7 +15,7 @@ object FeatureFlags {
 
             FeatureOption.ARBITRARY_PRODUCTS,
             FeatureOption.BROWSE_TAB,
-            FeatureOption.ALL_CHAT_EXTENSIONS,
+            FeatureOption.CHAT_EXTENSIONS,
             FeatureOption.LINKED_DEVICES,
             FeatureOption.PRODUCT_SETTINGS,
             FeatureOption.PERSONHOOD,
@@ -42,7 +42,7 @@ enum class FeatureOption {
     PEER_BOT_BY_DEFAULT,
     DEBUG_MENU,
     BROWSE_TAB,
-    ALL_CHAT_EXTENSIONS,
+    CHAT_EXTENSIONS,
     LINKED_DEVICES,
     PRODUCT_SETTINGS,
     PERSONHOOD,

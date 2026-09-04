@@ -21,7 +21,6 @@ import io.paritytech.polkadotapp.feature_identity_impl.domain.interactor.Credent
 import io.paritytech.polkadotapp.feature_identity_impl.domain.interactor.CredentialsListInteractor
 import io.paritytech.polkadotapp.feature_identity_impl.domain.interactor.RealCredentialsAddInteractor
 import io.paritytech.polkadotapp.feature_identity_impl.domain.interactor.RealCredentialsListInteractor
-import io.paritytech.polkadotapp.feature_people_api.data.AliasContextProvider
 import io.paritytech.polkadotapp.feature_people_api.data.SetAliasContext
 
 @Module
@@ -49,7 +48,7 @@ interface IdentityFeatureModule {
         @Provides
         @ElementsIntoSet
         @SetAliasContext
-        fun provideIdentityContext(): Set<AliasContextProvider> = setOf(AliasContextProvider { BandersnatchContext.IDENTITY })
+        fun provideIdentityContext(): Set<BandersnatchContext> = setOf(BandersnatchContext.IDENTITY)
 
         @Provides
         fun provideCredentialsUpdaters(

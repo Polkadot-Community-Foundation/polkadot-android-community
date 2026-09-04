@@ -38,7 +38,6 @@ import io.paritytech.polkadotapp.database.dao.MetaAccountDao
 import io.paritytech.polkadotapp.database.dao.ProcessedChatMessageDao
 import io.paritytech.polkadotapp.database.dao.ProductDao
 import io.paritytech.polkadotapp.database.dao.ProductIntegrationDao
-import io.paritytech.polkadotapp.database.dao.ProductFundingOperationDao
 import io.paritytech.polkadotapp.database.dao.ProductPermissionGrantDao
 import io.paritytech.polkadotapp.database.dao.RecyclerVoucherDao
 import io.paritytech.polkadotapp.database.dao.RemovedChatDao
@@ -84,7 +83,6 @@ import io.paritytech.polkadotapp.database.migrations.Migration42To43Spec
 import io.paritytech.polkadotapp.database.migrations.Migration48To49
 import io.paritytech.polkadotapp.database.migrations.Migration54To55Spec
 import io.paritytech.polkadotapp.database.migrations.Migration55To56
-import io.paritytech.polkadotapp.database.migrations.Migration57To58
 import io.paritytech.polkadotapp.database.model.BrowserTabLocal
 import io.paritytech.polkadotapp.database.model.ChatBotStateLocal
 import io.paritytech.polkadotapp.database.model.ChatDraftLocal
@@ -114,7 +112,6 @@ import io.paritytech.polkadotapp.database.model.MetaAccountLocal
 import io.paritytech.polkadotapp.database.model.ProcessedChatMessageLocal
 import io.paritytech.polkadotapp.database.model.ProductIntegrationLocal
 import io.paritytech.polkadotapp.database.model.ProductLocal
-import io.paritytech.polkadotapp.database.model.ProductFundingOperationLocal
 import io.paritytech.polkadotapp.database.model.ProductPermissionGrantLocal
 import io.paritytech.polkadotapp.database.model.RecyclerVoucherLocal
 import io.paritytech.polkadotapp.database.model.RemovedChatLocal
@@ -141,9 +138,8 @@ import io.paritytech.polkadotapp.database.model.chain.ChainNodeLocal
 import io.paritytech.polkadotapp.database.model.chain.ChainRuntimeInfoLocal
 
 @Database(
-    version = 59,
+    version = 57,
     entities = [
-        ProductFundingOperationLocal::class,
         ChainLocal::class,
         ChainNodeLocal::class,
         ChainAssetLocal::class,
@@ -267,8 +263,6 @@ import io.paritytech.polkadotapp.database.model.chain.ChainRuntimeInfoLocal
         AutoMigration(from = 54, to = 55, spec = Migration54To55Spec::class),
         // Add syncedTransactionVersion column to chain_runtimes
         AutoMigration(from = 56, to = 57),
-        // Add product_funding_operations table (open funding operations, resumed on app start)
-        AutoMigration(from = 58, to = 59),
     ]
 )
 @TypeConverters(
@@ -331,7 +325,6 @@ abstract class AppDatabase : RoomDatabase() {
                 Migration38To39(),
                 Migration48To49(),
                 Migration55To56(),
-                Migration57To58(),
                 *chatMessageContentMigrations.toTypedArray() // 25 -> 26, 31 -> 32, 37 -> 38, 44 -> 45
             )
         }
@@ -382,8 +375,6 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun productDao(): ProductDao
 
     abstract fun browserTabDao(): BrowserTabDao
-
-    abstract fun productFundingOperationDao(): ProductFundingOperationDao
 
     abstract fun chatRequestDao(): ChatRequestDao
 

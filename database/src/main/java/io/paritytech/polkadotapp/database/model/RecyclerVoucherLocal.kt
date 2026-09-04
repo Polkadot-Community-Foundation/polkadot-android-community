@@ -9,5 +9,7 @@ class RecyclerVoucherLocal(
     val ringVrfPublicKey: ByteArray,
     val recyclerValue: Int,
     val locationRecyclerIndex: Int?,
-    val recyclerMembers: Int?,
+    val allocatedAt: Long,
+    val delayUnloadUntil: Long,
+    val ringHasEnoughRingMembersToWithdraw: Boolean,
 )

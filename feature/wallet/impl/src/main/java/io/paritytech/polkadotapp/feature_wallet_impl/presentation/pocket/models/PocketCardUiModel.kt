@@ -8,13 +8,13 @@ sealed interface PocketCardUiModel {
 
     data class DigitalDollar(
         val balance: TokenAmountModel,
-        val available: TokenAmountModel,
+        val availableNow: TokenAmountModel,
         val syncInProgress: Boolean
     ) : PocketCardUiModel {
         override val id = "digital_dollar_card"
 
         val notFullyAvailable: Boolean
-            get() = balance.amount != available.amount
+            get() = balance.amount != availableNow.amount
     }
 
     data class IdCard(

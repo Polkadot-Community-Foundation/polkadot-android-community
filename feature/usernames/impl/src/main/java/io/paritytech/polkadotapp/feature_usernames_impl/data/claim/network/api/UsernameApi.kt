@@ -7,7 +7,6 @@ import io.paritytech.polkadotapp.feature_usernames_impl.data.claim.network.api.m
 import io.paritytech.polkadotapp.feature_usernames_impl.data.claim.network.api.model.UsernameAvailableResponse
 import io.paritytech.polkadotapp.feature_usernames_impl.data.claim.network.api.model.UsernameClaimRequest
 import io.paritytech.polkadotapp.feature_usernames_impl.data.claim.network.api.model.UsernameClaimResponse
-import io.paritytech.polkadotapp.tools_integrity_api.interceptors.CallWithWidevineIntegrity
 import io.paritytech.polkadotapp.tools_jwt_auth_api.CallWithBearerToken
 import retrofit2.http.Body
 import retrofit2.http.GET
@@ -17,7 +16,6 @@ import retrofit2.http.Query
 interface UsernameApi {
     @POST("api/v1/usernames")
     @CallWithBearerToken
-    @CallWithWidevineIntegrity
     suspend fun claimUsername(@Body body: UsernameClaimRequest): UsernameClaimResponse
 
     @POST("api/v1/usernames/available")

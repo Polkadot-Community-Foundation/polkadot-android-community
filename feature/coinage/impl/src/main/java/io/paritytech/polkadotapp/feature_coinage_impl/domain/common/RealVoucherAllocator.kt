@@ -1,5 +1,6 @@
 package io.paritytech.polkadotapp.feature_coinage_impl.domain.common
 
+import io.paritytech.polkadotapp.feature_coinage_api.domain.UnloadDelayStrategy
 import io.paritytech.polkadotapp.feature_coinage_api.domain.common.VoucherAllocator
 import io.paritytech.polkadotapp.feature_coinage_api.domain.model.RecyclerVoucher
 import io.paritytech.polkadotapp.feature_coinage_api.domain.model.ValueExponent
@@ -18,6 +19,7 @@ import javax.inject.Inject
 class RealVoucherAllocator @Inject constructor(
     private val voucherRepository: VoucherRepository,
     private val voucherRingDerivation: VoucherRingDerivation,
+    private val unloadDelayStrategy: UnloadDelayStrategy,
     private val boundsRepository: ExponentBoundsRepository,
     @param:DigitalDollarChainAssetProvider private val chainAssetProvider: ChainAssetProvider
 ) : VoucherAllocator {
@@ -56,6 +58,9 @@ class RealVoucherAllocator @Inject constructor(
             ringVrfPublicKey = publicKey,
             location = RecyclerVoucher.Location.Unknown,
             recyclerValue = valueExponent,
+            allocatedAt = System.currentTimeMillis(),
+            delayUnloadUntil = unloadDelayStrategy.calculateDelayUnloadUntil(),
+            ringHasEnoughRingMembersToWithdraw = false
         )
     }
 }

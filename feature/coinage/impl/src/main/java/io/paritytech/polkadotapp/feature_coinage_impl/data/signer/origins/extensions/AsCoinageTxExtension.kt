@@ -14,7 +14,6 @@ import io.paritytech.polkadotapp.chains.util.findNonceOrThrow
 import io.paritytech.polkadotapp.chains.util.scaleEncodeBinary
 import io.paritytech.polkadotapp.feature_coinage_api.domain.model.RecyclerVoucher
 import io.paritytech.polkadotapp.feature_coinage_api.domain.model.toRingCollectionId
-import io.paritytech.polkadotapp.feature_coinage_impl.data.config.CoinageInstanceIdProvider
 import io.paritytech.polkadotapp.feature_coinage_impl.data.derivation.VoucherRingDerivation
 import io.paritytech.polkadotapp.feature_coinage_impl.data.derivation.deriveBandersnatchForVouchers
 import io.paritytech.polkadotapp.feature_coinage_impl.data.signer.context.CoinageSigningContextProvider
@@ -30,7 +29,6 @@ class AsCoinageTxExtensionFactory @Inject constructor(
     private val membershipProver: MembershipProver,
     private val voucherRingDerivation: VoucherRingDerivation,
     private val chainRegistry: ChainRegistry,
-    private val coinageInstanceIdProvider: CoinageInstanceIdProvider,
 ) {
     fun create(info: AsCoinageInfo): AsCoinageTxExtension {
         return AsCoinageTxExtension(
@@ -39,7 +37,6 @@ class AsCoinageTxExtensionFactory @Inject constructor(
             membershipProver = membershipProver,
             voucherRingDerivation = voucherRingDerivation,
             chainRegistry = chainRegistry,
-            coinageInstanceIdProvider = coinageInstanceIdProvider,
         )
     }
 }
@@ -50,7 +47,6 @@ class AsCoinageTxExtension(
     private val membershipProver: MembershipProver,
     private val voucherRingDerivation: VoucherRingDerivation,
     private val chainRegistry: ChainRegistry,
-    private val coinageInstanceIdProvider: CoinageInstanceIdProvider,
 ) : TransactionExtension {
     override val name: String = "AsCoinage"
 
@@ -132,7 +128,7 @@ class AsCoinageTxExtension(
             message = message,
             context = coinageSigningContextProvider.recyclerVouchersContext(),
             chainId = chainId,
-            collectionId = recyclerKey.exponent.toRingCollectionId(coinageInstanceIdProvider.instanceId().getOrThrow()),
+            collectionId = recyclerKey.exponent.toRingCollectionId(),
             ringIndex = recyclerKey.recyclerIndex,
             blockHash = recyclerRevisionBlockHash,
         ).getOrThrow()

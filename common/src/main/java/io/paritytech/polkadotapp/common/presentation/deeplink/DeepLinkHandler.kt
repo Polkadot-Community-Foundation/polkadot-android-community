@@ -10,7 +10,7 @@ import kotlinx.coroutines.withContext
 import timber.log.Timber
 
 interface DeepLinkHandler {
-    suspend fun canHandle(data: Uri): Boolean
+    fun canHandle(data: Uri): Boolean
 
     context(scope: ComputationalScope)
     suspend fun handle(data: Uri): Result<DeeplinkProcessingOutcome>

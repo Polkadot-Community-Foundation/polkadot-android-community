@@ -33,6 +33,7 @@ internal class RemoteConfigDotNsConfigProvider @Inject constructor(
         return DotNsConfig(
             resolverContractAddress = resolverContractAddress.hexToDataByteArray(),
             registryContractAddress = registry?.hexToDataByteArray(),
+            protocolRegistryAddress = protocolRegistryAddress?.hexToDataByteArray(),
         )
     }
 }

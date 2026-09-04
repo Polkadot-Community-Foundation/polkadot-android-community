@@ -1,5 +1,6 @@
 package io.paritytech.polkadotapp.feature_videogame_impl.data.voucher
 
+import io.paritytech.polkadotapp.bandersnatch_crypto.BandersnatchContext
 import io.paritytech.polkadotapp.chains.di.RemoteSourceQualifier
 import io.paritytech.polkadotapp.chains.multiNetwork.ChainRegistry
 import io.paritytech.polkadotapp.chains.multiNetwork.KnownChains
@@ -21,7 +22,7 @@ import io.paritytech.polkadotapp.feature_people_api.data.signer.origins.PeopleOr
 import io.paritytech.polkadotapp.feature_transactions.api.data.ExtrinsicService
 import io.paritytech.polkadotapp.feature_transactions.api.data.flattenExecutionFailure
 import io.paritytech.polkadotapp.feature_transactions.api.domain.model.TransactionOrigin
-import io.paritytech.polkadotapp.feature_videogame_impl.data.ScoreContextProvider
+import io.paritytech.polkadotapp.feature_videogame_impl.data.SCORE
 import io.paritytech.polkadotapp.feature_videogame_impl.data.models.AccountOrPersonData
 import io.paritytech.polkadotapp.feature_videogame_impl.data.models.map
 import io.paritytech.polkadotapp.feature_videogame_impl.data.models.onchain.OnChainAccountOrPerson
@@ -49,7 +50,6 @@ class RegisterScoreVouchersExecutor @Inject constructor(
     private val peopleOrigins: PeopleOrigins,
     private val knownChains: KnownChains,
     private val chainRegistry: ChainRegistry,
-    private val scoreContextProvider: ScoreContextProvider,
 ) : RegisterScoreVouchersWorker.SyncExecutor {
     override suspend fun executeSync(): Result<Unit> {
         return getVouchersToIssue()
@@ -95,7 +95,7 @@ class RegisterScoreVouchersExecutor @Inject constructor(
     context(storage: StorageQueryContext)
     private suspend fun getPersonParticipantCredit(): AccountOrPersonData<Balance>? {
         val candidateAccount = accountRepository.getCandidateAccount()
-        val scoreAlias = bandersnatchSecretsStorage.getAliasInContext(candidateAccount.id, scoreContextProvider.context())
+        val scoreAlias = bandersnatchSecretsStorage.getAliasInContext(candidateAccount.id, BandersnatchContext.SCORE)
         val participant = OnChainAccountOrPerson.Person(scoreAlias)
 
         return getParticipantCredit(participant)
@@ -164,7 +164,7 @@ class RegisterScoreVouchersExecutor @Inject constructor(
                 Timber.d("Using score personal alias origin")
 
                 peopleOrigins
-                    .asPersonalAliasWithAccountEnsuringRevision(scoreContextProvider.context())
+                    .asPersonalAliasWithAccountEnsuringRevision(BandersnatchContext.SCORE)
             }
         }
     }

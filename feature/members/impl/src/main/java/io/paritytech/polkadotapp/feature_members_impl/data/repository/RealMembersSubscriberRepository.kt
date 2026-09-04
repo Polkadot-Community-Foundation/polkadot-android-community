@@ -13,12 +13,9 @@ import io.paritytech.polkadotapp.feature_members_api.data.model.RingCollectionId
 import io.paritytech.polkadotapp.feature_members_api.data.model.RingCommitmentRecord
 import io.paritytech.polkadotapp.feature_members_api.data.model.RingIndex
 import io.paritytech.polkadotapp.feature_members_api.data.repository.MembersSubscriberRepository
-import io.paritytech.polkadotapp.feature_members_impl.data.network.blockchain.api.currentGeneration
 import io.paritytech.polkadotapp.feature_members_impl.data.network.blockchain.api.membersSubscriber
 import io.paritytech.polkadotapp.feature_members_impl.data.network.blockchain.api.ringRoots
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flatMapLatest
-import java.math.BigInteger
 import javax.inject.Inject
 
 class RealMembersSubscriberRepository @Inject constructor(
@@ -32,8 +29,7 @@ class RealMembersSubscriberRepository @Inject constructor(
         blockHash: BlockHash?,
     ): Result<List<RingCommitmentRecord>?> {
         return storageDataSources.pickForDataConsistencyRequirement(consistency).queryCatching(chainId, blockHash) {
-            val generation = metadata.membersSubscriber.currentGeneration.query()
-            metadata.membersSubscriber.ringRoots.query(generation.toGenerationKey(), collectionId, ringIndex)
+            metadata.membersSubscriber.ringRoots.query(collectionId, ringIndex)
         }
     }
 
@@ -43,14 +39,7 @@ class RealMembersSubscriberRepository @Inject constructor(
         ringIndex: RingIndex,
     ): Flow<Result<WithRawValue<List<RingCommitmentRecord>?>>> {
         return storageDataSources.remote.subscribeCatching(chainId) {
-            metadata.membersSubscriber.currentGeneration.observe()
-                .flatMapLatest { generation ->
-                    metadata.membersSubscriber.ringRoots.observeWithRaw(generation.toGenerationKey(), collectionId, ringIndex)
-                }
+            metadata.membersSubscriber.ringRoots.observeWithRaw(collectionId, ringIndex)
         }
-    }
-
-    private fun UInt?.toGenerationKey(): BigInteger {
-        return (this ?: 0u).toLong().toBigInteger()
     }
 }

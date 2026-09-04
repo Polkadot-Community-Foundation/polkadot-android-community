@@ -35,11 +35,8 @@ class RealChatBotStateController @Inject constructor(
     }
 
     override suspend fun activateDefaultBots() {
-        val bots = ChatBotData.defaultBots()
-        if (bots.isEmpty()) return
-
         dao.insertAll(
-            bots.map {
+            ChatBotData.defaultBots().map {
                 ChatBotStateLocal(
                     middlewareId = it.id,
                     isActive = true

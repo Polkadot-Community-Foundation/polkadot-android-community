@@ -2,9 +2,6 @@ package io.paritytech.polkadotapp.feature_chats_impl.presentation.chatSearch.mod
 
 import io.novasama.substrate_sdk_android.extensions.toHexString
 import io.paritytech.polkadotapp.common.presentation.search.SearchState
-import io.paritytech.polkadotapp.common.presentation.search.map
-import io.paritytech.polkadotapp.common.utils.SizedList
-import io.paritytech.polkadotapp.common.utils.toSizedList
 import io.paritytech.polkadotapp.design.components.avatar.AvatarUiModel
 import io.paritytech.polkadotapp.design.configs.colors.AvatarColorScheme
 import io.paritytech.polkadotapp.feature_chats_api.domain.model.ChatId
@@ -18,10 +15,13 @@ import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
 import io.paritytech.polkadotapp.common.R as RCommon
 
-internal fun SearchState<SizedList<ChatListSearchResult>>.toSectionsState(
+internal fun SearchState<ChatListSearchResult>.toSectionsState(
     query: String,
     chatsById: Map<ChatId, Chat>,
-): SearchState<SizedList<ChatSearchSectionUiModel>> = map { it.toSearchSections(query, chatsById).toSizedList() }
+): SearchState<ChatSearchSectionUiModel> = when (this) {
+    is SearchState.Loaded -> SearchState.Loaded(results.toSearchSections(query, chatsById))
+    is SearchState.Initial, is SearchState.Loading, is SearchState.Empty, is SearchState.Error -> this
+}
 
 internal fun List<ChatListSearchResult>.toSearchSections(
     query: String,

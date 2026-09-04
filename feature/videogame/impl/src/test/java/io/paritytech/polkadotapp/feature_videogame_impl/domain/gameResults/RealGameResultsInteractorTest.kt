@@ -21,7 +21,6 @@ import io.paritytech.polkadotapp.feature_usernames_api.domain.model.StoredUserna
 import io.paritytech.polkadotapp.feature_usernames_api.domain.model.Username
 import io.paritytech.polkadotapp.feature_usernames_api.domain.usecase.UsernameOfAccountUseCase
 import io.paritytech.polkadotapp.feature_videogame_api.domain.state.model.GameIndex
-import io.paritytech.polkadotapp.feature_videogame_impl.data.ScoreContextProvider
 import io.paritytech.polkadotapp.feature_videogame_impl.data.gameResults.GameNftsSubscriptionService
 import io.paritytech.polkadotapp.feature_videogame_impl.data.models.onchain.OnChainAccountOrPerson
 import io.paritytech.polkadotapp.feature_videogame_impl.data.models.onchain.OnChainEarlyAttendanceEnactment
@@ -82,7 +81,6 @@ class RealGameResultsInteractorTest {
     private val checkUsernameAvailabilityUseCase: CheckUsernameAvailabilityUseCase = mock()
 
     private val scoreRepository: ScoreRepository = mock()
-    private val scoreContextProvider: ScoreContextProvider = mock()
 
     // Real collaborators wired around the same mocks — keeps every assertion driving the actual
     // context-resolve and live-update paths end-to-end, rather than stubbing the extracted seams.
@@ -93,7 +91,6 @@ class RealGameResultsInteractorTest {
         gameGroupRosterService = gameGroupRosterService,
         bandersnatchSecretsStorage = bandersnatchSecretsStorage,
         reportSnapshot = reportSnapshot,
-        scoreContextProvider = scoreContextProvider,
     )
 
     private val gameResultsLiveUpdater = GameResultsLiveUpdater(

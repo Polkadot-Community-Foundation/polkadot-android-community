@@ -5,6 +5,7 @@ import io.mockk.coVerify
 import io.mockk.coVerifyOrder
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.verify
 import io.paritytech.polkadotapp.bandersnatch_crypto.BandersnatchEntropy
 import io.paritytech.polkadotapp.chains.multiNetwork.ChainRegistry
 import io.paritytech.polkadotapp.chains.multiNetwork.connection.ChainConnectionRefCounter
@@ -85,9 +86,23 @@ class RealCoinageRecyclingUseCaseTest {
     fun `returns success when no coins to recycle`() = runTest {
         val useCase = createUseCase()
 
-        val result = useCase.recycle(emptyList())
+        withCoinsToRecycle(emptyList())
+
+        val result = useCase()
 
         assertTrue(result.isSuccess)
+    }
+
+    @Test
+    fun `uses recycling age from repository as min age filter`() = runTest {
+        val useCase = createUseCase()
+
+        withCoinsToRecycle(emptyList())
+
+        useCase()
+
+        verify { coinRepository.getCoinRecyclingAge() }
+        coVerify { coinRepository.getOnChainCoinsWithAgeAtLeast(recyclingAge) }
     }
 
     @Test
@@ -96,10 +111,11 @@ class RealCoinageRecyclingUseCaseTest {
 
         val coins = listOf(createCoin(exponent = 1), createCoin(exponent = 2))
         val vouchers = listOf(createVoucher(ringVrfKeyIndex = 5, exponent = 1), createVoucher(ringVrfKeyIndex = 6, exponent = 2))
+        withCoinsToRecycle(coins)
         withAllocatedVouchers(coins, vouchers)
         withBuiltExtrinsics(count = 2)
 
-        val result = useCase.recycle(coins)
+        val result = useCase()
 
         assertTrue("recycle failed: ${result.exceptionOrNull()}", result.isSuccess)
         verifyRegisteredUnderOneGroup(coins, vouchers)
@@ -111,10 +127,11 @@ class RealCoinageRecyclingUseCaseTest {
 
         val coins = listOf(createCoin(exponent = 1), createCoin(exponent = 2))
         val vouchers = listOf(createVoucher(ringVrfKeyIndex = 5, exponent = 1), createVoucher(ringVrfKeyIndex = 6, exponent = 2))
+        withCoinsToRecycle(coins)
         withAllocatedVouchers(coins, vouchers)
         withBuiltExtrinsics(count = 2)
 
-        useCase.recycle(coins)
+        useCase()
 
         coVerifyOrder {
             extrinsicService.buildExtrinsics(any(), any(), any())
@@ -127,11 +144,12 @@ class RealCoinageRecyclingUseCaseTest {
         val useCase = createUseCase()
 
         val coins = listOf(createCoin(exponent = 1))
+        withCoinsToRecycle(coins)
         withAllocatedVouchers(coins, listOf(createVoucher(ringVrfKeyIndex = 5, exponent = 1)))
         coEvery { extrinsicService.buildExtrinsics(any(), any(), any()) } returns
             Result.failure(RuntimeException("Batch failed"))
 
-        val result = useCase.recycle(coins)
+        val result = useCase()
 
         assertTrue(result.isFailure)
     }
@@ -150,11 +168,12 @@ class RealCoinageRecyclingUseCaseTest {
         val idle = createCoin(exponent = 2)
         val voucher = createVoucher(ringVrfKeyIndex = 6, exponent = 2)
 
+        withCoinsToRecycle(listOf(inFlight, idle))
         withLedgerHolding(inFlight)
         withAllocatedVouchers(listOf(idle), listOf(voucher))
         withBuiltExtrinsics(count = 1)
 
-        val result = useCase.recycle(listOf(inFlight, idle))
+        val result = useCase()
 
         assertTrue("recycle failed: ${result.exceptionOrNull()}", result.isSuccess)
         verifyRegisteredUnderOneGroup(listOf(idle), listOf(voucher))
@@ -168,9 +187,10 @@ class RealCoinageRecyclingUseCaseTest {
 
         val coins = listOf(createCoin(exponent = 1), createCoin(exponent = 2))
 
+        withCoinsToRecycle(coins)
         withLedgerHolding(*coins.toTypedArray())
 
-        val result = useCase.recycle(coins)
+        val result = useCase()
 
         assertTrue("recycle failed: ${result.exceptionOrNull()}", result.isSuccess)
         coVerify(exactly = 0) { voucherAllocator.allocate(any()) }
@@ -184,6 +204,7 @@ class RealCoinageRecyclingUseCaseTest {
 
         val handedOff = createCoin(exponent = 1)
 
+        withCoinsToRecycle(listOf(handedOff))
         coEvery { transactionService.getAssetStates(any()) } returns Result.success(
             mapOf(
                 OwnAsset.Coin(handedOff.derivationIndex) to
@@ -191,7 +212,7 @@ class RealCoinageRecyclingUseCaseTest {
             )
         )
 
-        val result = useCase.recycle(listOf(handedOff))
+        val result = useCase()
 
         assertTrue(result.isSuccess)
         coVerify(exactly = 0) { transactionService.submitTransactions(any(), any()) }
@@ -224,10 +245,11 @@ class RealCoinageRecyclingUseCaseTest {
         val unallocatable = createCoin(exponent = 2)
         val voucher = createVoucher(ringVrfKeyIndex = 5, exponent = 1)
 
+        withCoinsToRecycle(listOf(allocatable, unallocatable))
         withAllocatedVouchers(listOf(allocatable), listOf(voucher))
         withBuiltExtrinsics(count = 1)
 
-        val result = useCase.recycle(listOf(allocatable, unallocatable))
+        val result = useCase()
 
         assertTrue("recycle failed: ${result.exceptionOrNull()}", result.isSuccess)
         verifyRegisteredUnderOneGroup(listOf(allocatable), listOf(voucher))
@@ -237,9 +259,10 @@ class RealCoinageRecyclingUseCaseTest {
     fun `nothing is submitted when no voucher could be allocated`() = runTest {
         val useCase = createUseCase()
 
+        withCoinsToRecycle(listOf(createCoin(exponent = 1)))
         withAllocatedVouchers(emptyList(), emptyList())
 
-        val result = useCase.recycle(listOf(createCoin(exponent = 1)))
+        val result = useCase()
 
         assertTrue("recycle failed: ${result.exceptionOrNull()}", result.isSuccess)
         coVerify(exactly = 0) { transactionService.submitTransactions(any(), any()) }
@@ -253,10 +276,11 @@ class RealCoinageRecyclingUseCaseTest {
     fun `nothing is recycled when the ledger cannot be read`() = runTest {
         val useCase = createUseCase()
 
+        withCoinsToRecycle(listOf(createCoin(exponent = 1)))
         coEvery { transactionService.getAssetStates(any()) } returns
             Result.failure(IllegalStateException("no ledger"))
 
-        val result = useCase.recycle(listOf(createCoin(exponent = 1)))
+        val result = useCase()
 
         assertTrue("recycle failed: ${result.exceptionOrNull()}", result.isSuccess)
         coVerify(exactly = 0) { voucherAllocator.allocate(any()) }
@@ -274,10 +298,11 @@ class RealCoinageRecyclingUseCaseTest {
         val coins = listOf(createCoin(exponent = 1), createCoin(exponent = 2))
         val vouchers = listOf(createVoucher(ringVrfKeyIndex = 5, exponent = 1), createVoucher(ringVrfKeyIndex = 6, exponent = 2))
 
+        withCoinsToRecycle(coins)
         withAllocatedVouchers(coins, vouchers)
         withFormedExtrinsics(count = coins.size)
 
-        val result = useCase.recycle(coins)
+        val result = useCase()
         assertTrue("recycle failed: ${result.exceptionOrNull()}", result.isSuccess)
 
         coVerify { coinageTransactionOrigins.createAsCoinOrigin(coins[0]) }
@@ -316,7 +341,14 @@ class RealCoinageRecyclingUseCaseTest {
             ringVrfPublicKey = byteArrayOf(ringVrfKeyIndex.toByte()).toDataByteArray(),
             recyclerValue = ValueExponent(exponent),
             location = RecyclerVoucher.Location.Unknown,
+            allocatedAt = 0L,
+            delayUnloadUntil = 0L,
+            ringHasEnoughRingMembersToWithdraw = false
         )
+    }
+
+    private fun withCoinsToRecycle(coins: List<Coin>) {
+        coEvery { coinRepository.getOnChainCoinsWithAgeAtLeast(recyclingAge) } returns coins
     }
 
     private fun withAllocatedVouchers(coins: List<Coin>, vouchers: List<RecyclerVoucher>) {

@@ -11,10 +11,7 @@ import org.junit.Test
 
 class AutoAllowProductPermissionRequesterTest {
     private val delegate = RecordingRequester(PermissionDecision.Deny)
-    private val requester = AutoAllowProductPermissionRequester(
-        FakeWhitelistedProductsProvider(setOf(productId("getcash.dot"))),
-        delegate,
-    )
+    private val requester = AutoAllowProductPermissionRequester(setOf("getcash"), delegate)
 
     @Test
     fun `prompt auto-allows an allow-listed product`() = runBlocking {
@@ -62,12 +59,6 @@ class AutoAllowProductPermissionRequesterTest {
     private fun productId(value: String) = ProductId.fromStoredValue(value)
 
     private fun networkAccess() = RemotePermission.NetworkAccess("example.com")
-}
-
-private class FakeWhitelistedProductsProvider(
-    private val products: Set<ProductId>,
-) : WhitelistedProductsProvider {
-    override suspend fun whitelistedProducts(): Set<ProductId> = products
 }
 
 private class RecordingRequester(private val decision: PermissionDecision) : ProductPermissionRequester {

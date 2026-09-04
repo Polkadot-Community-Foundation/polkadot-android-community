@@ -4,7 +4,6 @@ import androidx.annotation.StringRes
 import androidx.compose.runtime.Immutable
 import io.paritytech.polkadotapp.common.domain.model.Timestamp
 import io.paritytech.polkadotapp.common.presentation.search.SearchState
-import io.paritytech.polkadotapp.common.utils.SizedList
 import io.paritytech.polkadotapp.design.components.avatar.AvatarUiModel
 import io.paritytech.polkadotapp.feature_chats_api.domain.model.ChatId
 import io.paritytech.polkadotapp.feature_chats_api.domain.model.ChatMessageId
@@ -15,7 +14,7 @@ import kotlinx.collections.immutable.ImmutableList
 @Immutable
 data class ChatSearchUiState(
     val query: String,
-    val results: SearchState<SizedList<ChatSearchSectionUiModel>>,
+    val results: SearchState<ChatSearchSectionUiModel>,
     val recents: ImmutableList<RecentChatUiModel>,
 )
 

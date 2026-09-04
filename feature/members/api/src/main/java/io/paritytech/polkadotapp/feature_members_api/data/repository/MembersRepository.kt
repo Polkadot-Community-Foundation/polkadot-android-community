@@ -44,12 +44,6 @@ interface MembersRepository {
         consistency: CacheableDataConsistency,
     ): Result<RingCollection>
 
-    suspend fun getCollections(
-        chainId: ChainId,
-        collectionIds: List<RingCollectionId>,
-        consistency: CacheableDataConsistency,
-    ): Result<Map<RingCollectionId, RingCollection>>
-
     suspend fun getOnboardingSize(
         chainId: ChainId,
         collectionId: RingCollectionId,

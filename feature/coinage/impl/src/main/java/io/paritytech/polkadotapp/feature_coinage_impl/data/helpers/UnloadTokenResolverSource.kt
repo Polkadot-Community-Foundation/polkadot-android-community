@@ -5,6 +5,8 @@ import io.paritytech.polkadotapp.chains.call.MultiChainViewFunctionsApi
 import io.paritytech.polkadotapp.chains.multiNetwork.ChainRegistry
 import io.paritytech.polkadotapp.chains.multiNetwork.chain.model.ChainId
 import io.paritytech.polkadotapp.chains.multiNetwork.withRuntime
+import io.paritytech.polkadotapp.common.utils.flatMap
+import io.paritytech.polkadotapp.common.utils.toResult
 import io.paritytech.polkadotapp.feature_account_api.data.repository.AccountRepository
 import io.paritytech.polkadotapp.feature_account_api.data.repository.getCandidateAccount
 import io.paritytech.polkadotapp.feature_account_api.data.storage.accountSecrets.BandersnatchSecretsStorage
@@ -37,7 +39,9 @@ class PeopleLiteUnloadTokenResolverSource @Inject constructor(
     override suspend fun getFreeUnloadTokenLimit(chainId: ChainId): Result<Long> {
         return viewFunctionsApi.forChain(chainId)
             .getFreeUnloadTokenInfo()
-            .map { info -> info.litePeopleLimit }
+            .flatMap { info ->
+                info.litePeopleLimit.toResult { "Free unload token limit is not available for Lite People" }
+            }
     }
 
     override suspend fun generateAlias(context: ByteArray): ByteArray {
@@ -64,7 +68,9 @@ class PeopleUnloadTokenResolverSource @Inject constructor(
     override suspend fun getFreeUnloadTokenLimit(chainId: ChainId): Result<Long> {
         return viewFunctionsApi.forChain(chainId)
             .getFreeUnloadTokenInfo()
-            .map { info -> info.peopleLimit }
+            .flatMap { info ->
+                info.peopleLimit.toResult { "Free unload token limit is not available for People" }
+            }
     }
 
     override suspend fun generateAlias(context: ByteArray): ByteArray {

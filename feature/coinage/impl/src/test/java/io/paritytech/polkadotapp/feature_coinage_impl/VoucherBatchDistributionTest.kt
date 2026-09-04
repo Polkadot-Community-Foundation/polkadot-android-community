@@ -115,10 +115,9 @@ class VoucherBatchDistributionTest {
         ringVrfKeyIndex = voucherIndexCounter++,
         ringVrfPublicKey = mock(),
         recyclerValue = ValueExponent(exponent),
-        location = Location.InRecycler(RingIndex(ring.toBigInteger()), recyclerMembers = FULL_RING),
+        location = Location.InRecycler(RingIndex(ring.toBigInteger())),
+        allocatedAt = 0L,
+        delayUnloadUntil = 0L,
+        ringHasEnoughRingMembersToWithdraw = true
     )
-
-    private companion object {
-        const val FULL_RING = 767
-    }
 }

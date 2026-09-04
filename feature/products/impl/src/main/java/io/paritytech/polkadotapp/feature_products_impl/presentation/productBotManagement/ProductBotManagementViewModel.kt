@@ -24,7 +24,7 @@ class ProductBotManagementViewModel @Inject constructor(
 ) : BaseViewModel(), ProductBotManagementContract {
     private val tld = interactor.currentTld()
 
-    override val state = MutableStateFlow(ProductBotManagementState(tldSuffix = tld?.suffix.orEmpty()))
+    override val state = MutableStateFlow(ProductBotManagementState(tldSuffix = tld.suffix))
 
     init {
         interactor.observeProducts()
@@ -103,16 +103,12 @@ class ProductBotManagementViewModel @Inject constructor(
         val result = if (form.productId != null) {
             interactor.updateProduct(ProductId.fromStoredValue(form.productId), form.workerUrl, form.dotNsName)
         } else {
-            runCatching { requireNotNull(interactor.currentTld()) { "Network TLD is not known yet" } }
-                .flatMap { tld ->
-                    // Typed by hand in the debug menu, so it is validated rather than trusted.
-                    val dotNs = form.dotNsName.lowercase().requireSuffix(tld.suffix)
+            // Typed by hand in the debug menu, so it is validated rather than trusted.
+            val dotNs = form.dotNsName.lowercase().requireSuffix(tld.suffix)
 
-                    ProductId.fromString(dotNs, tld)
-                }
-                .flatMap { productId ->
-                    interactor.upsertProduct(productId, form.workerUrl, form.dotNsName)
-                }
+            ProductId.fromString(dotNs, tld).flatMap { productId ->
+                interactor.upsertProduct(productId, form.workerUrl, form.dotNsName)
+            }
         }
 
         result
