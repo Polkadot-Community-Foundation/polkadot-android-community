@@ -52,9 +52,10 @@ name: Release (Dev)
 #   APPLICATION_ID, APPLICATION_NAME, CURRENCY_SYMBOL, FIRESTORE_DATABASE_ID,
 #   LOG_COLLECTION_EMAIL, PRIVACY_POLICY_URL, TERMS_OF_USE_URL, SENTRY_ORG, SENTRY_PROJECT.
 #   They are NOT secrets. Each is read from a repository Variable of the same name and
-#   falls back to the value this workflow shipped before they became required, so a
+#   falls back to a PCF-owned value (never a paritytech one), so a
 #   variable is only needed to CHANGE one. The DEV applicationId stays io.pcf.polkadotapp.dev
-#   (pinned in app/build.gradle.kts onVariants), independent of APPLICATION_ID.
+#   (pinned in app/build.gradle.kts onVariants) whatever APPLICATION_ID says; the other build
+#   types derive io.pcf.polkadotapp{.debug,.nightly,.safetynet} from it.
 
 on:
   workflow_dispatch:
@@ -140,7 +141,7 @@ jobs:
           # faucet (throwing secret: an empty value fails the build)
           NIGHTLY_FUNDING_MNEMONIC: ${{ secrets.DEV_FUNDING_MNEMONIC }}
           # build variables upstream made required (see header); Variable overrides default
-          APPLICATION_ID: ${{ vars.APPLICATION_ID || 'io.paritytech.polkadotapp' }}
+          APPLICATION_ID: ${{ vars.APPLICATION_ID || 'io.pcf.polkadotapp' }}
           APPLICATION_NAME: ${{ vars.APPLICATION_NAME || 'Polkadot' }}
           CURRENCY_SYMBOL: ${{ vars.CURRENCY_SYMBOL || 'CASH' }}
           FIRESTORE_DATABASE_ID: ${{ vars.FIRESTORE_DATABASE_ID || '(default)' }}
