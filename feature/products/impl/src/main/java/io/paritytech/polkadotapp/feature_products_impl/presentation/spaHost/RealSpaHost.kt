@@ -10,6 +10,7 @@ import io.paritytech.polkadotapp.common.presentation.deeplink.DeepLinkHandler
 import io.paritytech.polkadotapp.common.presentation.deeplink.handleAndProcessOutcomeWithSystemFallback
 import io.paritytech.polkadotapp.common.presentation.screens.MessageDisplay
 import io.paritytech.polkadotapp.common.utils.logFailure
+import io.paritytech.polkadotapp.feature_dotns_api.domain.DotNsLoadProgress
 import io.paritytech.polkadotapp.feature_dotns_api.domain.DotNsTldProvider
 import io.paritytech.polkadotapp.feature_products_api.model.ProductId
 import io.paritytech.polkadotapp.feature_products_api.presentation.spaHost.SpaHost
@@ -23,6 +24,10 @@ import io.paritytech.polkadotapp.feature_products_impl.domain.hostApi.navigation
 import io.paritytech.polkadotapp.feature_products_impl.domain.jsRuntime.WebViewRuntime
 import io.paritytech.polkadotapp.feature_products_impl.domain.product.ProductRegistrar
 import io.paritytech.polkadotapp.feature_products_impl.domain.webView.BrowserWebViewProvider
+import io.paritytech.polkadotapp.feature_products_impl.domain.worker.ProductWorkerRefCounter
+import io.paritytech.polkadotapp.feature_products_impl.domain.worker.withWorkerAcquired
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flow
@@ -40,6 +45,7 @@ class RealSpaHost @Inject constructor(
     private val productRegistrar: ProductRegistrar,
     private val deepLinkHandler: DeepLinkHandler,
     private val dotNsTldProvider: DotNsTldProvider,
+    private val workerRefCounter: ProductWorkerRefCounter,
     @param:ApplicationContext private val context: Context,
 ) : SpaHost {
     context(scope: ComputationalScope, messageDisplay: MessageDisplay)
@@ -58,6 +64,7 @@ class RealSpaHost @Inject constructor(
         webViewProvider = browserWebViewProviderFactory.create(
             initialUrl = initialUrl,
             navigationPolicy = webViewNavigation,
+            allowIframes = true,
             scope = scope
         )
 
@@ -78,6 +85,16 @@ class RealSpaHost @Inject constructor(
             ),
             handlerGroups = handlerGroups,
         )
+
+        // Keep the product's worker alive for as long as the session is hosted. A product that
+        // publishes no worker is a no-op; the reference releases when the session scope ends.
+        scope.launch {
+            val tld = dotNsTldProvider.getTld().getOrNull() ?: return@launch
+            val productId = ProductId.fromUrl(initialUrl.toUri(), tld).getOrNull() ?: return@launch
+            workerRefCounter.withWorkerAcquired(productId, "spa:${productId.value}") {
+                awaitCancellation()
+            }
+        }
 
         val session = sessionFactory.create(environment, runtime, transport, scope)
         scope.launch {
@@ -114,6 +131,8 @@ private class RealSpaHostSession(
     override val webView: StateFlow<WebView?>,
     private val provider: BrowserWebViewProvider,
 ) : SpaHostSession {
+    override val loadProgress: Flow<DotNsLoadProgress> = provider.loadProgress
+
     override fun pauseConnections() {
         provider.pauseConnections()
     }

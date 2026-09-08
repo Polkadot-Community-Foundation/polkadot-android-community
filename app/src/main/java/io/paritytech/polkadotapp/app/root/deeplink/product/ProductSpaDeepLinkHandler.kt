@@ -15,7 +15,7 @@ import io.paritytech.polkadotapp.feature_account_api.data.repository.awaitAccoun
 import io.paritytech.polkadotapp.feature_dotns_api.domain.DotNsTld
 import io.paritytech.polkadotapp.feature_dotns_api.domain.DotNsTldProvider
 import io.paritytech.polkadotapp.feature_dotns_api.domain.DotNsUtils
-import io.paritytech.polkadotapp.feature_products_api.model.KnownProductIds
+import io.paritytech.polkadotapp.feature_products_api.domain.FundingDomainProvider
 import io.paritytech.polkadotapp.feature_products_api.model.ProductId
 import io.paritytech.polkadotapp.feature_products_api.presentation.SpaBrowserPayload
 import kotlinx.coroutines.withContext
@@ -26,8 +26,9 @@ internal class ProductSpaDeepLinkHandler @Inject constructor(
     private val accountRepository: AccountRepository,
     private val rootRouter: RootRouter,
     private val dotNsTldProvider: DotNsTldProvider,
+    private val fundingDomainProvider: FundingDomainProvider,
 ) : DeepLinkHandler {
-    override fun canHandle(data: Uri): Boolean {
+    override suspend fun canHandle(data: Uri): Boolean {
         val tld = dotNsTldProvider.currentTldOrNull() ?: return false
         if (!DotNsUtils.isDotDomain(data, tld)) return false
 
@@ -37,10 +38,12 @@ internal class ProductSpaDeepLinkHandler @Inject constructor(
     // The app still owns its own dotNS destinations when arbitrary ones are off. Get CASH is the
     // only one, and it is gated off while getcash.<tld> is undeployed — see
     // FeatureOption.GET_CASH_PRODUCT — so an inbound getcash link is not claimed into a 404.
-    private fun Uri.isBuiltInProduct(tld: DotNsTld): Boolean {
+    private suspend fun Uri.isBuiltInProduct(tld: DotNsTld): Boolean {
         if (FeatureOption.GET_CASH_PRODUCT.isDisabled) return false
 
-        return ProductId.fromUrl(asWebUri(), tld).getOrNull() == KnownProductIds.getCash(tld)
+        val fundingProductId = fundingDomainProvider.getFundingProductId().getOrNull() ?: return false
+
+        return ProductId.fromUrl(asWebUri(), tld).getOrNull() == fundingProductId
     }
 
     // Swaps the scheme rather than prefixing it: ensureHttpsProtocol would mangle a polkadotapp:// deeplink.

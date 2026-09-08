@@ -1,36 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="balance_details_title">Balance details</string>
-    <string name="balance_details_subtitle">See what makes up your balance</string>
-    <string name="balance_details_total">Total Balance</string>
-    <string name="balance_details_total_description">Everything in your balance</string>
-    <string name="balance_details_available_now">Available now</string>
-    <string name="balance_details_available_now_description">Funds you can use for payments right away</string>
-    <string name="balance_details_available_now_secured">— Secured</string>
-    <string name="balance_details_available_now_low_privacy">— Low privacy</string>
-    <string name="balance_details_available_soon">Available soon</string>
-    <string name="balance_details_available_soon_description">Funds being prepared by the private payment system. Processing usually takes around 1-5 minutes</string>
-    <string name="balance_details_available_now_info_title">What does \"Available now\" mean?</string>
-    <string name="balance_details_available_now_info_body">This is the amount you can use for a payment right away.\n\nIt may include funds that are already ready for private sending, funds that can be prepared instantly for a payment, and funds that can be sent now with slightly less privacy.</string>
-    <string name="balance_details_available_now_why_subtitle">Why are some funds less private?</string>
-    <string name="balance_details_available_now_why_body">Some funds are ready to send, but have not completed all privacy preparation steps yet. If you use them now, they may reveal a little more on-chain information than fully private funds.\n\nTo make them private, you don\'t need to do anything. Just wait — they will become private-ready automatically.</string>
-    <string name="balance_details_available_soon_info_title">What does \"Available soon\" mean?</string>
-    <string name="balance_details_available_soon_info_body">These funds are still being prepared by the private payment system and cannot be sent yet.\n\nThey may include funds from recent payments that are still settling, or change that is being made ready for future private sends.\n\nThey will become available automatically once processing is complete.</string>
-
-    <string name="send_degraded_title">Some funds are less private</string>
-    <string name="send_degraded_can_send_privately">You can send %1$s privately.</string>
-    <string name="send_degraded_full_amount">To send %1$s, the remaining %2$s will use lower-privacy funds.</string>
-    <string name="send_degraded_why_link">Why is %1$s less private?</string>
-    <string name="send_degraded_send_privately_button">Send %1$s privately</string>
-    <string name="send_degraded_send_with_degraded_button">Send %1$s with less privacy</string>
-    <string name="send_degraded_why_title">About lower-privacy funds</string>
-    <string name="send_degraded_why_body">When your ring has insufficient members, part of the amount is sent using vouchers that reveal more information about the sender. Wait for your ring to grow to keep every transfer fully private.</string>
+    <string name="send_gaining_privacy_title">This payment might reduce your privacy</string>
+    <string name="send_gaining_privacy_full_amount">In this payment you are using funds that have not yet been fully processed by the privacy system.</string>
+    <string name="send_gaining_privacy_send_anyway_button">Send %1$s anyway</string>
 
     <string name="send_payment_failed">Failed to submit transaction</string>
     <string name="common_intent_failed">Failed to find application to perform specified action</string>
     <string name="add_contact_already_exists_error">You have already added this contact</string>
-
-    <string name="contact_us_email" translatable="false">contact@example.com</string>
 
     <string name="video_game_deposit_lost_title">Deposit lost: You didn’t participate in the weekly game</string>
     <string name="video_game_deposit_lost_message">If you still want to play the weekly games, please add a new deposit.</string>
@@ -749,10 +725,12 @@ I’m attaching PDF with more information and details regarding the Tattoo Stenc
     <string name="send_payment_toolbar_title">Send payment</string>
     <string name="send_payment_search_placeholder">Type username or wallet address</string>
     <string name="send_payment_to">To:</string>
+    <string name="send_payment_open_chat_message">You need to first establish a chat before sending a payment</string>
 
     <string name="send_enter_amount_title">Enter amount</string>
     <string name="send_enter_amount_placeholder">Enter Amount</string>
-    <string name="send_enter_amount_your_balance_label">Available now</string>
+    <string name="send_enter_amount_max_balance_prefix">Max:</string>
+    <string name="send_enter_amount_privacy_cost_hint">Extra %1$s is spendable, but at the risk of reducing your privacy</string>
     <string name="send_enter_amount_not_enough_funds_error">You don’t have enough funds</string>
     <string name="send_enter_amount_cash_title">%1$s</string>
     <string name="send_enter_amount_submitting">Sending…</string>
@@ -799,6 +777,13 @@ I’m attaching PDF with more information and details regarding the Tattoo Stenc
     <string name="pgas_stall_claiming">Allocating smart contract allowance</string>
     <string name="pgas_stall_picking_slot">Looking for a free gas claim</string>
     <string name="chats_stall_broadcasting_device">Broadcasting to network</string>
+    <string name="coinage_stall_preparing_transfer">Preparing payment</string>
+    <string name="coinage_stall_picking_unload_token">Looking for a free transfer allowance</string>
+    <string name="coinage_stall_reading_anonymity_set">Reading the anonymity set</string>
+    <string name="coinage_stall_generating_proofs">Generating privacy proofs</string>
+    <string name="wallet_stall_sending">Sending your payment</string>
+    <string name="wallet_stall_delivering">Delivering payment to recipient</string>
+    <string name="wallet_stall_awaiting_claim">Waiting for the recipient to receive the payment</string>
     <string name="pair_request_link_action">Link</string>
     <string name="pair_request_cancel_action">Cancel</string>
     <string name="pair_request_close_action">Close</string>
@@ -917,6 +902,11 @@ I’m attaching PDF with more information and details regarding the Tattoo Stenc
     <string name="chat_reply_to">Reply to %1$s</string>
 
     <string name="chat_reactions_expand">Show more reactions</string>
+    <string name="chat_reactions_details_title">Reactions</string>
+    <plurals name="chat_reactions_details_total">
+        <item quantity="one">%1$d total</item>
+        <item quantity="other">%1$d total</item>
+    </plurals>
     <string name="chat_emoji_category_smileys">Smileys</string>
     <string name="chat_emoji_category_people">People</string>
     <string name="chat_emoji_category_animals">Animals &amp; Nature</string>
@@ -1043,6 +1033,9 @@ I’m attaching PDF with more information and details regarding the Tattoo Stenc
     <string name="chat_search_section_apps">APPS</string>
     <string name="chat_search_section_chats">CHATS AND CONTACTS</string>
     <string name="chat_search_section_messages">MESSAGES</string>
+    <string name="address_section_previous_payments">Previous payments</string>
+    <string name="address_section_my_contacts">My Contacts</string>
+    <string name="send_payment_section_global_search">Global search</string>
     <string name="chat_search_recents_header">RECENT</string>
     <string name="chat_search_recents_clear">CLEAR</string>
     <string name="chat_search_recent_menu_remove">Remove from Recents</string>
@@ -1302,6 +1295,9 @@ I’m attaching PDF with more information and details regarding the Tattoo Stenc
 
     <string name="products_toolbar_title">Apps</string>
     <string name="products_empty_state_message">No products found</string>
+    <string name="products_message_custom_preview">Custom message</string>
+    <string name="products_message_load_failed">Couldn\'t load this message.</string>
+    <string name="products_message_render_failed">Couldn\'t display this message.</string>
     <string name="product_settings_version">version %1$s</string>
     <string name="product_settings_created_by">created by %1$s</string>
     <string name="product_settings_section_privacy">Privacy &amp; Security</string>
@@ -1456,15 +1452,43 @@ I’m attaching PDF with more information and details regarding the Tattoo Stenc
     <string name="collectibles_title">Collectibles</string>
     <string name="collectibles_unavailable">Collectibles are temporarily unavailable. Please try again later.</string>
 
-    <string name="connection_status_waiting_for_network">Waiting for network...</string>
-    <string name="connection_status_connecting">Connecting... %1$d/%2$d</string>
+    <string name="chain_health_connection_connected">Connected</string>
+    <string name="chain_health_connection_connecting">Connecting…</string>
+    <string name="chain_health_connection_disconnected">Disconnected</string>
+    <string name="chain_health_metric_block_latency">Block latency</string>
+    <string name="chain_health_metric_finality_gap">Finality gap</string>
+    <string name="chain_health_metric_pending_request">Pending request</string>
+    <string name="chain_health_metric_response">Response time</string>
+    <string name="chain_health_target">target ≤ %1$s</string>
+    <plurals name="chain_health_blocks">
+        <item quantity="one">%1$d block</item>
+        <item quantity="other">%1$d blocks</item>
+    </plurals>
+
+    <string name="splash_waiting_for_network_title">Waiting for network connection…</string>
+    <string name="splash_waiting_for_network_message">Turn off Airplane Mode or check your internet</string>
 
     <string name="pocket_digital_dollar_title">Balance Card</string>
     <string name="pocket_digital_dollar_card_title">%1$s</string>
     <string name="pocket_digital_dollar_send_button">Send %1$s</string>
     <string name="pocket_digital_dollar_faucet_top_up">Faucet Top Up</string>
+    <string name="pocket_digital_dollar_available">Available</string>
     <string name="pocket_collectibles_open_button">View collectibles</string>
     <string name="pocket_collectibles_title">Collectibles</string>
+    <string name="pocket_digital_dollar_advanced">Advanced</string>
+
+    <string name="payment_privacy_mode_title">Payments Privacy Mode</string>
+    <string name="payment_privacy_mode_fastest_label">Fastest</string>
+    <string name="payment_privacy_mode_fastest_description">Fastest payments, lower privacy</string>
+    <string name="payment_privacy_mode_fastest_accessibility">Fastest. Fastest payments, lower privacy.</string>
+    <string name="payment_privacy_mode_balanced_label">Balanced</string>
+    <string name="payment_privacy_mode_balanced_description">Stronger privacy, moderate speed</string>
+    <string name="payment_privacy_mode_balanced_accessibility">Balanced. Stronger privacy, moderate speed.</string>
+    <string name="payment_privacy_mode_most_private_label">Most Private</string>
+    <string name="payment_privacy_mode_most_private_description">Maximum privacy, lowest speed</string>
+    <string name="payment_privacy_mode_most_private_accessibility">Most private. Maximum privacy, lowest speed.</string>
+    <string name="payment_privacy_mode_state_selected">Selected</string>
+    <string name="payment_privacy_mode_state_not_selected">Not selected</string>
 
     <string name="w3s_wait_title">Your username is being registered</string>
     <string name="w3s_wait_subtitle">This usually takes around 10 seconds</string>

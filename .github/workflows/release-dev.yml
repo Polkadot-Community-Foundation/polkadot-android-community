@@ -43,9 +43,18 @@ name: Release (Dev)
 #   GOOGLE_OAUTH_ID                Google OAuth client id   (throwing secret)
 #   GOOGLE_PROJECT_ID              Google Cloud project id  (throwing secret)
 #   W3S_AUTH_KEY                   auth keypair seed (hex)  (throwing secret; use a FRESH Paseo-only key)
-# Optional: DEV_FUNDING_MNEMONIC (faucet; defaults to the public substrate dev seed),
-#   SENTRY_ORG, SENTRY_PROJECT, LOG_COLLECTION_EMAIL,
-#   R2_UPLOAD_TOKEN + CLOUDFLARE_ACCOUNT_ID (publish APK to the PCF downloads host).
+#   DEV_FUNDING_MNEMONIC           faucet account mnemonic (throwing secret since upstream
+#                                  "Make important build variables required"; an EMPTY value
+#                                  now fails the build instead of falling back to a dev seed)
+# Optional: R2_UPLOAD_TOKEN + CLOUDFLARE_ACCOUNT_ID (publish APK to the PCF downloads host).
+#
+# Required build variables (upstream reads them with readSecretOrThrow, empty == missing):
+#   APPLICATION_ID, APPLICATION_NAME, CURRENCY_SYMBOL, FIRESTORE_DATABASE_ID,
+#   LOG_COLLECTION_EMAIL, PRIVACY_POLICY_URL, TERMS_OF_USE_URL, SENTRY_ORG, SENTRY_PROJECT.
+#   They are NOT secrets. Each is read from a repository Variable of the same name and
+#   falls back to the value this workflow shipped before they became required, so a
+#   variable is only needed to CHANGE one. The DEV applicationId stays io.pcf.polkadotapp.dev
+#   (pinned in app/build.gradle.kts onVariants), independent of APPLICATION_ID.
 
 on:
   workflow_dispatch:
@@ -128,11 +137,19 @@ jobs:
           GOOGLE_OAUTH_ID: ${{ secrets.GOOGLE_OAUTH_ID }}
           GOOGLE_PROJECT_ID: ${{ secrets.GOOGLE_PROJECT_ID }}
           W3S_AUTH_KEY: ${{ secrets.W3S_AUTH_KEY }}
-          # faucet (optional; defaults to the public substrate dev seed when unset)
+          # faucet (throwing secret: an empty value fails the build)
           NIGHTLY_FUNDING_MNEMONIC: ${{ secrets.DEV_FUNDING_MNEMONIC }}
-          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
-          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
-          LOG_COLLECTION_EMAIL: ${{ secrets.LOG_COLLECTION_EMAIL }}
+          # build variables upstream made required (see header); Variable overrides default
+          APPLICATION_ID: ${{ vars.APPLICATION_ID || 'io.paritytech.polkadotapp' }}
+          APPLICATION_NAME: ${{ vars.APPLICATION_NAME || 'Polkadot' }}
+          CURRENCY_SYMBOL: ${{ vars.CURRENCY_SYMBOL || 'CASH' }}
+          FIRESTORE_DATABASE_ID: ${{ vars.FIRESTORE_DATABASE_ID || '(default)' }}
+          LOG_COLLECTION_EMAIL: ${{ vars.LOG_COLLECTION_EMAIL || 'logs@example.com' }}
+          PRIVACY_POLICY_URL: ${{ vars.PRIVACY_POLICY_URL || 'https://example.com/privacy' }}
+          TERMS_OF_USE_URL: ${{ vars.TERMS_OF_USE_URL || 'https://example.com/terms' }}
+          SENTRY_ORG: ${{ vars.SENTRY_ORG || 'your-sentry-org' }}
+          SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT || 'your-sentry-project' }}
+          SENTRY_DSN: ${{ vars.SENTRY_DSN }}
         run: |
           TASKS=""
           for F in $FLAVORS; do TASKS="$TASKS assemble${F^}Dev"; done
