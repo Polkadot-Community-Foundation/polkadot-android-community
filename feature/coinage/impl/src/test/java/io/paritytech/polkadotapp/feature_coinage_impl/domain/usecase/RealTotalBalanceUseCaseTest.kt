@@ -21,9 +21,11 @@ import io.paritytech.polkadotapp.feature_coinage_api.domain.usecase.TrackedVouch
 import io.paritytech.polkadotapp.feature_coinage_impl.common.testConversionContext
 import io.paritytech.polkadotapp.feature_coinage_impl.data.repository.CoinRepository
 import io.paritytech.polkadotapp.feature_coinage_impl.domain.recycling.CoinRecyclingEvaluator
+import io.paritytech.polkadotapp.feature_coinage_impl.domain.recycling.ForcedRecyclingAgeProvider
 import io.paritytech.polkadotapp.feature_coinage_impl.domain.recycling.RecyclingStrategyProvider
 import io.paritytech.polkadotapp.feature_coinage_impl.domain.recycling.RingCapacityProvider
 import io.paritytech.polkadotapp.feature_coinage_impl.domain.recycling.UnloadQuotaTracker
+import io.paritytech.polkadotapp.feature_coinage_impl.domain.recycling.VoucherUsabilityContextFactory
 import io.paritytech.polkadotapp.test_shared.any
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -49,25 +51,29 @@ class RealTotalBalanceUseCaseTest {
     private val evaluator: CoinRecyclingEvaluator = mock()
     private val quotaTracker: UnloadQuotaTracker = mock()
 
-    private val strategyProvider = RecyclingStrategyProvider(coinRepository, quotaTracker)
+    private val strategyProvider = RecyclingStrategyProvider(ForcedRecyclingAgeProvider(coinRepository), quotaTracker)
 
     private val useCase: RealTotalBalanceUseCase
 
     init {
         runBlocking {
             `when`(coinageBalanceConverterUseCase.create()).thenReturn(Result.success(testConversionContext))
-            `when`(ringCapacityProvider.capacitiesFor(any()))
+
+            // The balance asks for an IMMEDIATE context so it never waits on the chain, which makes the
+            // cached capacities — not a fetch — what it classifies vouchers against.
+            `when`(ringCapacityProvider.peekCapacitiesFor(any()))
                 .thenReturn(mapOf(ValueExponent(1) to FULL_RING, ValueExponent(2) to FULL_RING))
+
+            `when`(coinRepository.getCoinRecyclingAge()).thenReturn(Result.success(FORCED_AGE))
         }
-        `when`(coinRepository.getCoinRecyclingAge()).thenReturn(FORCED_AGE)
 
         useCase = RealTotalBalanceUseCase(
             coinageAssetsUseCase = coinageAssetsUseCase,
             coinageBalanceConverterUseCase = coinageBalanceConverterUseCase,
             strategyProvider = strategyProvider,
-            ringCapacityProvider = ringCapacityProvider,
             settings = settings,
             evaluator = evaluator,
+            usabilityContextFactory = VoucherUsabilityContextFactory(ringCapacityProvider),
         )
     }
 
