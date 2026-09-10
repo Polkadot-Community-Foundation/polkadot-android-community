@@ -204,12 +204,23 @@ variables while credentials and mnemonics must be mapped from GitHub secrets.
 |--------------------|--------------------------------------------|-----------------|----------------------|---------|--------------------------------------|
 | `GOOGLE_OAUTH_ID`  | `tools/auth/impl` `gp` source set          | for Google sign-in | no                | empty   | Google OAuth client id (Sign-In)     |
 | `GOOGLE_PROJECT_ID`| `tools/integrity/impl` `gp` product flavor | for Play Integrity | no                | `0`     | Google Cloud project id (Play Integrity) |
-| `W3S_AUTH_KEY`     | `feature/web3summit/impl`                  | for Web3 Summit | for Web3 Summit      | empty   | Web3 Summit auth keypair seed        |
+| `W3S_AUTH_KEY`     | `feature/web3summit/impl`                  | for Web3 Summit | for Web3 Summit      | empty   | Web3 Summit auth keypair seed (build-time input only on devnet, see note below) |
 
 These values no longer block Gradle configuration when absent. Their integrations
 validate or reject the placeholder when actually invoked. Both `GOOGLE_OAUTH_ID`
 and `GOOGLE_PROJECT_ID` are scoped to the `gp` product flavor in their respective
 modules; `vanilla` builds use no-op/zero values.
+
+> **`W3S_AUTH_KEY` on devnet.** Since
+> [Paseo v2.5.2](https://github.com/paseo-network/runtimes/releases/tag/v2.5.2)
+> ([paseo-network/runtimes#421](https://github.com/paseo-network/runtimes/pull/421))
+> the devnet runtimes (People and Asset Hub) no longer include the
+> `AuthorizeValueTransfer` transaction extension (removed in v2.5.2; slot 0 is now
+> the unit extension): plain signed origins can move pUSD and coinage without a
+> Web3 Summit signature. `W3S_AUTH_KEY` remains a **required
+> build-time input** because the upstream `feature/web3summit` module still reads it,
+> but its value is no longer security-relevant on devnet. Any valid 32-byte hex seed
+> works, and the repository secret has been rotated to a throwaway value.
 
 #### 5.2.1 App endpoints / values (optional — placeholder defaults)
 
