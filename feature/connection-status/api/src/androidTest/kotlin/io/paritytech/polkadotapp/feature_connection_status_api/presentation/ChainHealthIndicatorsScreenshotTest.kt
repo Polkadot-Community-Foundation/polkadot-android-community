@@ -52,15 +52,21 @@ class ChainHealthIndicatorsScreenshotTest {
 
     @Test
     fun goodSpeedIsThreeQuartersColourless() =
-        renderAndAssert("speed-good", ChainHealthIndicator.ConnectionSpeed(Speed.Good), THREE_QUARTER_MIN, THREE_QUARTER_MAX) { it.fg.primary }
+        renderAndAssert("speed-good", ChainHealthIndicator.ConnectionSpeed(Speed.Good, arc = 0.75f), THREE_QUARTER_MIN, THREE_QUARTER_MAX) { it.fg.primary }
 
     @Test
     fun fairSpeedIsHalfAWarningArc() =
-        renderAndAssert("speed-fair", ChainHealthIndicator.ConnectionSpeed(Speed.Fair), FAIR_MIN, FAIR_MAX) { it.fg.warning }
+        renderAndAssert("speed-fair", ChainHealthIndicator.ConnectionSpeed(Speed.Fair, arc = 0.5f), FAIR_MIN, FAIR_MAX) { it.fg.warning }
 
     @Test
     fun lowSpeedIsAQuarterErrorArc() =
-        renderAndAssert("speed-low", ChainHealthIndicator.ConnectionSpeed(Speed.Low), LOW_MIN, LOW_MAX) { it.fg.error }
+        renderAndAssert("speed-low", ChainHealthIndicator.ConnectionSpeed(Speed.Low, arc = 0.25f), LOW_MIN, LOW_MAX) { it.fg.error }
+
+    // The band picks the colour, the arc picks the length: a Good score near its floor must draw a shorter
+    // ring than one near its ceiling, or the scale has collapsed back to one length per band.
+    @Test
+    fun goodSpeedAtItsBandFloorDrawsAShorterArc() =
+        renderAndAssert("speed-good-floor", ChainHealthIndicator.ConnectionSpeed(Speed.Good, arc = 0.5f), FAIR_MIN, FAIR_MAX) { it.fg.primary }
 
     @Test
     fun connectingIsAColourlessRing() =
@@ -69,6 +75,18 @@ class ChainHealthIndicatorsScreenshotTest {
     @Test
     fun disconnectedIsADottedRing() =
         renderAndAssert("disconnected", ChainHealthIndicator.Disconnected, DOTTED_MIN, DOTTED_MAX) { it.stroke.secondary }
+
+    // The panel draws the same states larger; a size not threaded through one drawing shows up here as a
+    // ring band sampled at the wrong radius.
+    @Test
+    fun panelSizeKeepsTheFairArcInItsBand() =
+        renderAndAssert(
+            "speed-fair-panel",
+            ChainHealthIndicator.ConnectionSpeed(Speed.Fair, arc = 0.5f),
+            FAIR_MIN,
+            FAIR_MAX,
+            indicatorSize = ChainIndicatorSize.Panel,
+        ) { it.fg.warning }
 
     @Test
     fun notProducingBlocksDrawsTheCrossInTheRingGap() {
@@ -106,6 +124,7 @@ class ChainHealthIndicatorsScreenshotTest {
         indicator: ChainHealthIndicator,
         minimumShare: Float,
         maximumShare: Float?,
+        indicatorSize: ChainIndicatorSize = ChainIndicatorSize.Bar,
         surround: (PolkadotColorsPalette) -> Color,
     ) {
         var expected = Color.Unspecified
@@ -121,6 +140,7 @@ class ChainHealthIndicatorsScreenshotTest {
                         ChainHealthIndicators(
                             modifier = Modifier.testTag(TAG),
                             model = model(indicator),
+                            indicatorSize = indicatorSize,
                         )
                     }
                 }
@@ -148,7 +168,7 @@ class ChainHealthIndicatorsScreenshotTest {
         chainName = name,
         glyph = glyph,
         indicator = indicator,
-        expectedBlockTime = 6.seconds,
+        lastBlockAt = null,
     )
 
     private fun surroundShare(image: ImageBitmap, expected: Color): Float {
