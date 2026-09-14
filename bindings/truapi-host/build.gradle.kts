@@ -101,6 +101,50 @@ cargo {
     }
 }
 
+// truapi-server declares its dispatcher and WASM bridge modules unconditionally
+// and gitignores them: the core's scripts/codegen.sh produces them from rustdoc
+// JSON of the protocol crates. Only the Rust half of that script is needed to
+// compile the cdylib, so it is reproduced here rather than requiring node and
+// npm on every machine that builds the app. rustdoc's JSON output is nightly
+// only, hence `cargo +nightly`; `rustup toolchain install nightly` once.
+val rustdocJsonDir = "$truapiDir/target/doc"
+
+fun registerRustdocJson(taskName: String, crate: String) = tasks.register<Exec>(taskName) {
+    workingDir = file(truapiDir)
+    commandLine("cargo", "+nightly", "rustdoc", "-p", crate, "--", "-Z", "unstable-options", "--output-format", "json")
+    inputs.files(fileTree("$truapiDir/rust/crates/$crate") { include("**/*.rs", "Cargo.toml") })
+        .withPropertyName("crateSources")
+    outputs.file("$rustdocJsonDir/${crate.replace('-', '_')}.json").withPropertyName("rustdocJson")
+}
+
+val rustdocTruapiJson = registerRustdocJson("rustdocTruapiJson", "truapi")
+val rustdocTruapiPlatformJson = registerRustdocJson("rustdocTruapiPlatformJson", "truapi-platform")
+
+val generateCoreRustSources by tasks.registering(Exec::class) {
+    dependsOn(rustdocTruapiJson, rustdocTruapiPlatformJson)
+    workingDir = file(truapiDir)
+    // `--output` is the TypeScript client, mandatory for the tool but unused
+    // here, so it lands under target/ where cargo's own clean removes it.
+    commandLine(
+        "cargo", "run", "-p", "truapi-codegen", "--",
+        "--input", "$rustdocJsonDir/truapi.json",
+        "--output", "$truapiDir/target/android-codegen/client",
+        "--rust-output", "$truapiDir/rust/crates/truapi-server/src/generated",
+        "--platform-input", "$rustdocJsonDir/truapi_platform.json",
+        "--platform-rust-output", "$truapiDir/rust/crates/truapi-server/src/wasm",
+        "--codec-version", "1",
+    )
+    inputs.files(
+        "$rustdocJsonDir/truapi.json",
+        "$rustdocJsonDir/truapi_platform.json",
+        fileTree("$truapiDir/rust/crates/truapi-codegen") { include("**/*.rs", "Cargo.toml") },
+    ).withPropertyName("codegenInputs")
+    outputs.dir("$truapiDir/rust/crates/truapi-server/src/generated").withPropertyName("generatedDispatcher")
+    outputs.file("$truapiDir/rust/crates/truapi-server/src/wasm/generated_bridge.rs").withPropertyName("generatedBridge")
+}
+
+tasks.matching { it.name.startsWith("cargoBuild") }.configureEach { dependsOn(generateCoreRustSources) }
+
 // Host cdylib uniffi-bindgen reads to extract the interface: .dylib on macOS,
 // .so on Linux, .dll on Windows. Built with truapi's `codegen` profile, which
 // that repo designates for binding generation because `[profile.release]` sets
@@ -122,6 +166,7 @@ val hostCdylib: String = run {
 // incremental on its own; the input/output declarations additionally let
 // Gradle skip the cargo invocation entirely when the rust tree is untouched.
 val buildHostCdylib by tasks.registering(Exec::class) {
+    dependsOn(generateCoreRustSources)
     workingDir = file(truapiDir)
     commandLine("cargo", "build", "-p", "truapi-server", "--profile", "codegen", "--features", "ws-bridge")
     inputs.files(

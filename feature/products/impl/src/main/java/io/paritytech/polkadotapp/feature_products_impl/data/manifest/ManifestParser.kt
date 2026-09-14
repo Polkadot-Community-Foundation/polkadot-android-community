@@ -4,8 +4,10 @@ import com.google.gson.Gson
 import io.paritytech.polkadotapp.common.utils.enumValueOfOrNull
 import io.paritytech.polkadotapp.feature_products_api.model.ExecutableHost
 import io.paritytech.polkadotapp.feature_products_api.model.ExecutableKind
+import io.paritytech.polkadotapp.feature_products_api.model.PocketCardDefinition
 import io.paritytech.polkadotapp.feature_products_api.model.ProductExecutable
 import io.paritytech.polkadotapp.feature_products_api.model.ProductIcon
+import io.paritytech.polkadotapp.feature_products_impl.domain.pocket.PocketCardIdentifier
 import io.paritytech.polkadotapp.tools_ipfs_api.Cid
 import javax.inject.Inject
 
@@ -54,15 +56,38 @@ internal class ManifestParser @Inject constructor(
                 ExecutableKind.WORKER -> {
                     val entrypoint = requireNotNull(remote.entrypoint) { "worker missing entrypoint" }
                     val includes = requireNotNull(remote.includes) { "worker missing includes" }
+                    val includesPocket = requireNotNull(includes.pocket) { "worker includes missing 'pocket'" }
                     ProductExecutable.Worker(
                         scriptUrl = "https://${host.value}/$entrypoint",
                         appVersion = appVersion,
                         includesChat = requireNotNull(includes.chat) { "worker includes missing 'chat'" },
-                        includesPocket = requireNotNull(includes.pocket) { "worker includes missing 'pocket'" },
+                        includesPocket = includesPocket,
+                        pocketCards = remote.pocket.toCardDefinitions(includesPocket),
                     )
                 }
             }
         }
+
+    // A stricter host must not see a different manifest: cards are only read behind `includes.pocket`.
+    private fun PocketRemote?.toCardDefinitions(includesPocket: Boolean): List<PocketCardDefinition> {
+        if (this == null) return emptyList()
+        require(includesPocket) { "pocket.cards published without includes.pocket" }
+        val definitions = requireNotNull(cards) { "pocket missing cards" }.map { it.toDefinition() }
+        require(definitions.distinctBy { it.id }.size == definitions.size) { "pocket.cards ids must be unique" }
+        return definitions
+    }
+
+    private fun PocketCardRemote.toDefinition(): PocketCardDefinition {
+        val title = requireNotNull(title) { "pocket card missing title" }
+        val preview = requireNotNull(preview) { "pocket card missing preview" }
+        require(title.isNotBlank()) { "pocket card title must not be blank" }
+        require(preview.isNotBlank()) { "pocket card preview must not be blank" }
+        return PocketCardDefinition(
+            id = PocketCardIdentifier.screen(requireNotNull(id) { "pocket card missing id" }),
+            title = title,
+            preview = preview,
+        )
+    }
 
     private fun IconRemote.toDomain(): ProductIcon? {
         val cid = Cid.decode(requireNotNull(cid) { "icon missing cid" })

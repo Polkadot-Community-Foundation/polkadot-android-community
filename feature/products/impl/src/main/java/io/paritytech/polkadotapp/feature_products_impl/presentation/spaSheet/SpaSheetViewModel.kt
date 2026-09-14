@@ -29,9 +29,14 @@ class SpaSheetViewModel @Inject constructor(
 ) : BaseViewModel(), SpaSheetContract {
     private val payload = savedStateHandle.getPayload<SpaSheetPayload>()
 
-    private val session = spaHost.createSession(ProductId.fromStoredValue(payload.productId).toUrl())
+    private val session = spaHost.createSession(launchUrl())
 
     val webView: StateFlow<WebView?> = session.webView
+
+    private fun launchUrl(): String {
+        val productUrl = ProductId.fromStoredValue(payload.productId).toUrl()
+        return payload.launchQuery?.let { "$productUrl?$it" } ?: productUrl
+    }
 
     override val state: StateFlow<SpaSheetUiState> = session.loadProgress
         .scan(SpaSheetUiState()) { previous, progress ->

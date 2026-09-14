@@ -4,6 +4,7 @@ import io.paritytech.polkadotapp.app.R
 import io.paritytech.polkadotapp.app.root.navigation.BaseNavigator
 import io.paritytech.polkadotapp.app.root.navigation.NavigationHolder
 import io.paritytech.polkadotapp.common.utils.toPayloadBundle
+import io.paritytech.polkadotapp.feature_products_api.domain.pocket.PocketCardKey
 import io.paritytech.polkadotapp.feature_products_api.model.ProductId
 import io.paritytech.polkadotapp.feature_products_api.presentation.SpaSheetPayload
 import io.paritytech.polkadotapp.feature_wallet_api.presentation.enterAmount.SendEnterAmountPayload
@@ -40,6 +41,11 @@ class PocketNavigator @Inject constructor(
 
     override fun openProduct(productId: ProductId) = performNavigation(
         actionId = R.id.action_global_to_spaSheetBottomSheet,
-        args = SpaSheetPayload(productId.value).toPayloadBundle()
+        args = SpaSheetPayload.forProduct(productId).toPayloadBundle()
+    )
+
+    override fun openProductCard(key: PocketCardKey) = performNavigation(
+        actionId = R.id.action_global_to_spaSheetBottomSheet,
+        args = SpaSheetPayload.forPocketCard(key).toPayloadBundle()
     )
 }

@@ -40,6 +40,7 @@ import io.paritytech.polkadotapp.database.dao.ProductDao
 import io.paritytech.polkadotapp.database.dao.ProductFundingOperationDao
 import io.paritytech.polkadotapp.database.dao.ProductIntegrationDao
 import io.paritytech.polkadotapp.database.dao.ProductPermissionGrantDao
+import io.paritytech.polkadotapp.database.dao.PocketCardDao
 import io.paritytech.polkadotapp.database.dao.ProductTopUpDao
 import io.paritytech.polkadotapp.database.dao.RecyclerVoucherDao
 import io.paritytech.polkadotapp.database.dao.RemovedChatDao
@@ -118,6 +119,7 @@ import io.paritytech.polkadotapp.database.model.ProductFundingOperationLocal
 import io.paritytech.polkadotapp.database.model.ProductIntegrationLocal
 import io.paritytech.polkadotapp.database.model.ProductLocal
 import io.paritytech.polkadotapp.database.model.ProductPermissionGrantLocal
+import io.paritytech.polkadotapp.database.model.PocketCardLocal
 import io.paritytech.polkadotapp.database.model.ProductTopUpLocal
 import io.paritytech.polkadotapp.database.model.RecyclerVoucherLocal
 import io.paritytech.polkadotapp.database.model.RemovedChatLocal
@@ -144,7 +146,7 @@ import io.paritytech.polkadotapp.database.model.chain.ChainNodeLocal
 import io.paritytech.polkadotapp.database.model.chain.ChainRuntimeInfoLocal
 
 @Database(
-    version = 61,
+    version = 62,
     entities = [
         ProductFundingOperationLocal::class,
         ChainLocal::class,
@@ -201,6 +203,7 @@ import io.paritytech.polkadotapp.database.model.chain.ChainRuntimeInfoLocal
         CoinageEntryOutputLocal::class,
         CoinageHandoffLocal::class,
         ProductTopUpLocal::class,
+        PocketCardLocal::class,
     ],
     autoMigrations = [
         // Add ChatMessageReactionLocal
@@ -275,6 +278,8 @@ import io.paritytech.polkadotapp.database.model.chain.ChainRuntimeInfoLocal
         AutoMigration(from = 58, to = 59),
         // Add product_top_ups table (kept indefinitely and resumed on app start)
         AutoMigration(from = 59, to = 60),
+        // Add pocket_cards table (cards the user added to the Pocket, with their approved face)
+        AutoMigration(from = 61, to = 62),
     ]
 )
 @TypeConverters(
@@ -421,4 +426,6 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun ringVrfKeyRegistrationDao(): RingVrfKeyRegistrationDao
 
     abstract fun durableTxDao(): DurableTxDao
+
+    abstract fun pocketCardDao(): PocketCardDao
 }

@@ -30,6 +30,8 @@ internal class ProductSpaDeepLinkHandler @Inject constructor(
     override suspend fun canHandle(data: Uri): Boolean {
         val tld = dotNsTldProvider.currentTldOrNull() ?: return false
         if (!DotNsUtils.isDotDomain(data, tld)) return false
+        // The first segment `-` is reserved for host-handled targets (Pocket deeplinks), never an App route.
+        if (data.pathSegments.firstOrNull() == RESERVED_SEGMENT) return false
 
         return FeatureOption.ARBITRARY_PRODUCTS.isEnabled || data.isBuiltInProduct(tld)
     }
@@ -43,6 +45,10 @@ internal class ProductSpaDeepLinkHandler @Inject constructor(
 
     // Swaps the scheme rather than prefixing it: ensureHttpsProtocol would mangle a polkadotapp:// deeplink.
     private fun Uri.asWebUri(): Uri = buildUpon().scheme(WEB_HTTPS_SCHEME).build()
+
+    private companion object {
+        const val RESERVED_SEGMENT = "-"
+    }
 
     context(scope: ComputationalScope)
     override suspend fun handle(data: Uri): Result<DeeplinkProcessingOutcome> =

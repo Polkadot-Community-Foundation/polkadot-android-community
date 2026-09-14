@@ -316,6 +316,35 @@ Native runtime: `StorageHostCalls` provides a per-product key-value store namesp
 
 ---
 
+## Pocket — the host-owned card collection
+
+Spec: host-rust-core RFC "Pocket modality" (#609), core implementation #706. The host owns the collection and is
+its only writer; a product observes its own cards over the wire (`Pocket::list_subscribe`) and may remove one
+(`Pocket::remove_card`). There is no add call: a card enters when the user follows a
+`polkadotapp://<product>.<tld>/-/pocket/add?card=<id>` deeplink and approves the sheet. The first path segment `-`
+is reserved for host-handled targets; `ProductSpaDeepLinkHandler` declines it.
+
+Seams, all in `feature/products/api/.../domain/pocket/`:
+- `PocketCollection` — `observeCards()` and user removal. Pinned cards (`AssetPinnedPocketCards`) are constants
+  with bundled faces; added cards live in Room (`pocket_cards`) with the face they were approved with.
+- `PocketFaceSource.observeFace(key)` — emits the cached tree and holds one `pocket:<cardId>` worker reference for
+  as long as it is collected. The Pocket screen collects one flow per composed card, so visibility drives the
+  reference. A live render stream (host-rust-core #633) is merged here later, without touching the screen.
+- The face vocabulary is the chat one: `PocketFaceJsonDecoder` reads the archive's `{ tag, value }` JSON into
+  `ScaleWidget` and the existing mapper, bounded at 32 levels; `JsWidgetRenderer` (now in `api/presentation/widget`)
+  draws it.
+
+Core side: `ProductPocketHostBridge` implements `PocketHostBridge` for every execution `ProductTrUAPIHostBridge`
+opens and republishes through `notifyPocketCardsChanged`. Both callbacks run on the core's dispatcher thread, so the
+list is a snapshot and a removal is launched, not awaited. Deeplinks are classified by the core's `parse_navigate`
+behind `PocketDeeplinkParser`; card ids are screened at manifest load with the chat identifier rules
+(`PocketCardIdentifier`) so a bad id fails there rather than on the wire.
+
+Known gap: the worker runs on the native JS bridge (`RealWorkerBootFactory`) and the core only opens `APP`
+executions, so the core's Pocket wire is not reachable from a product on Android until a Worker execution exists.
+
+---
+
 ## Where new things live
 
 | Concept | Goes in |

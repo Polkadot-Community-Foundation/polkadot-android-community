@@ -12,6 +12,8 @@ import io.paritytech.polkadotapp.common.utils.logFailure
 import io.paritytech.polkadotapp.common.utils.stateInBackground
 import io.paritytech.polkadotapp.common.utils.withLoading
 import io.paritytech.polkadotapp.feature_coinage_api.domain.model.BackupProgress
+import io.paritytech.polkadotapp.feature_products_api.domain.pocket.PocketCard
+import io.paritytech.polkadotapp.feature_products_api.model.JsWidget
 import io.paritytech.polkadotapp.feature_tokens_api.presentation.formatter.TokenAmountFormatter
 import io.paritytech.polkadotapp.feature_tokens_api.presentation.formatter.formatFiat
 import io.paritytech.polkadotapp.feature_tokens_api.presentation.mapper.TokenAmountMapper
@@ -23,6 +25,7 @@ import io.paritytech.polkadotapp.feature_wallet_impl.presentation.pocket.models.
 import io.paritytech.polkadotapp.feature_wallet_impl.presentation.pocket.models.PocketScreenState
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -35,7 +38,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class PocketViewModel @Inject constructor(
-    interactor: PocketInteractor,
+    private val interactor: PocketInteractor,
     private val tokenAmountMapper: TokenAmountMapper,
     private val tokenAmountFormatter: TokenAmountFormatter,
     private val router: PocketRouter,
@@ -45,6 +48,7 @@ class PocketViewModel @Inject constructor(
 ) : BaseViewModel() {
     private val selectedCardId = MutableStateFlow<String?>(null)
     private val collectiblesShown = MutableStateFlow(false)
+    private val removalCandidateId = MutableStateFlow<String?>(null)
 
     private val digitalDollarAmounts = interactor.observeDigitalDollarBalance()
         .map { balance ->
@@ -75,8 +79,13 @@ class PocketViewModel @Inject constructor(
         PocketCardUiModel.IdCard(username = username, address = address, rank = rank)
     }.onStart { emit(null) }
 
-    val cards = combine(balanceCard, addressCard) { balance, address ->
-        listOfNotNull(balance, address).toImmutableList()
+    // Native cards keep their place; the product-backed collection follows, pinned cards first.
+    private val productCards = interactor.observeProductCards()
+        .map { cards -> cards.map { it.toUiModel() } }
+        .onStart { emit(emptyList()) }
+
+    val cards = combine(balanceCard, addressCard, productCards) { balance, address, products ->
+        (listOfNotNull(balance, address) + products).toImmutableList()
     }
         .distinctUntilChangedBy { cards -> cards.map(::cardDisplayKey) }
         .inBackground()
@@ -95,20 +104,27 @@ class PocketViewModel @Inject constructor(
         cards,
         selectedCardId,
         collectiblesShown,
-        collectiblesAvailable
-    ) { cards, selectedId, collectiblesShown, collectiblesAvailable ->
+        collectiblesAvailable,
+        removalCandidateId
+    ) { cards, selectedId, collectiblesShown, collectiblesAvailable, removalId ->
         val selectedCard = cards.firstOrNull { it.id == selectedId }
         when {
             selectedCard != null -> PocketScreenState.CardDetails(selectedCard = selectedCard)
             collectiblesShown -> PocketScreenState.Collectibles
-            else -> PocketScreenState.List(collectiblesAvailable = collectiblesAvailable)
+            else -> PocketScreenState.List(
+                collectiblesAvailable = collectiblesAvailable,
+                removalCandidate = cards.filterIsInstance<PocketCardUiModel.ProductCard>().firstOrNull { it.id == removalId }
+            )
         }
     }
         .stateIn(
             scope = this,
             started = SharingStarted.Eagerly,
-            initialValue = PocketScreenState.List(collectiblesAvailable = false)
+            initialValue = PocketScreenState.List(collectiblesAvailable = false, removalCandidate = null)
         )
+
+    /** One collection per composed card item, so a face on screen is what keeps its worker running. */
+    fun faceOf(card: PocketCardUiModel.ProductCard): Flow<JsWidget> = interactor.observeFace(card.key)
 
     private fun cardDisplayKey(card: PocketCardUiModel): String = when (card) {
         is PocketCardUiModel.DigitalDollar -> {
@@ -125,7 +141,15 @@ class PocketViewModel @Inject constructor(
         }
 
         is PocketCardUiModel.IdCard -> listOf(card.username, card.address, card.rank).joinToString("|")
+
+        is PocketCardUiModel.ProductCard -> listOf(card.id, card.title, card.pinned).joinToString("|")
     }
+
+    private fun PocketCard.toUiModel() = PocketCardUiModel.ProductCard(
+        key = key,
+        title = title,
+        pinned = privileged
+    )
 
     fun selectCard(card: PocketCardUiModel) {
         selectedCardId.value = card.id
@@ -145,6 +169,27 @@ class PocketViewModel @Inject constructor(
 
     fun openCollectibles() {
         router.openCollectibles()
+    }
+
+    fun openProductCard(card: PocketCardUiModel.ProductCard) {
+        router.openProductCard(card.key)
+    }
+
+    fun requestRemoval(card: PocketCardUiModel.ProductCard) {
+        if (!card.pinned) removalCandidateId.value = card.id
+    }
+
+    fun dismissRemoval() {
+        removalCandidateId.value = null
+    }
+
+    fun confirmRemoval() = launchUnit {
+        val candidate = cards.value.filterIsInstance<PocketCardUiModel.ProductCard>()
+            .firstOrNull { it.id == removalCandidateId.value }
+            ?: return@launchUnit
+        removalCandidateId.value = null
+
+        interactor.removeProductCard(candidate.key).logFailure("PocketViewModel: failed to remove ${candidate.id}")
     }
 
     fun onShareId() = launchUnit {

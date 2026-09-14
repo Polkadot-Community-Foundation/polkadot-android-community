@@ -29,6 +29,7 @@ import io.paritytech.polkadotapp.feature_products_impl.domain.hostApi.navigation
 import io.paritytech.polkadotapp.feature_products_impl.domain.notifications.NotificationId
 import io.paritytech.polkadotapp.feature_products_impl.domain.permissions.models.DeviceCapabilityType
 import io.paritytech.polkadotapp.feature_products_impl.domain.permissions.models.RemotePermissionRequest
+import io.paritytech.polkadotapp.feature_products_impl.domain.pocket.PocketCardStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.job
@@ -75,6 +76,7 @@ class ProductTrUAPIHostBridge @AssistedInject constructor(
     private val confirmationLauncher: TrUAPIConfirmationLauncher,
     private val appLifecycleObserver: AppLifecycleObserver,
     private val dotNsTldProvider: DotNsTldProvider,
+    private val pocketCardStore: PocketCardStore,
     @Assisted private val scope: CoroutineScope,
 ) {
     @AssistedFactory
@@ -237,14 +239,17 @@ class ProductTrUAPIHostBridge @AssistedInject constructor(
             return
         }
         cachedChains.set(chains)
+        val pocketBridge = ProductPocketHostBridge(productId, pocketCardStore, scope)
         val opened = runtime.openProductExecution(
             bridge = buildBridge(productId, navigationPolicy),
             configuration = ProductExecutionConfig(productId.value, ProductExecutionKind.APP),
+            pocket = pocketBridge,
         )
         execution = opened
         // Anything failing past this point leaves a live execution behind, and
         // `execution != null` would then block every re-attach; tear it down.
         runCatching {
+            pocketBridge.start(opened::notifyPocketCardsChanged)
             chainProvider.attach(
                 onResponse = opened::notifyChainResponse,
                 onClosed = opened::notifyChainClosed,

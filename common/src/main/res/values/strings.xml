@@ -1495,6 +1495,20 @@ I’m attaching PDF with more information and details regarding the Tattoo Stenc
     <string name="pocket_error_get_cash_unavailable">Get %1$s isn\'t available right now. Try again later.</string>
     <string name="pocket_error_auto_fund_failed">Couldn\'t add test funds to this account. Try again.</string>
     <string name="pocket_error_share_coinage_logs_failed">Couldn\'t share the coinage logs. Try again.</string>
+    <string name="pocket_pinned_card_humanity">Humanity</string>
+    <string name="pocket_pinned_card_balance">Balance</string>
+    <string name="pocket_pinned_card_scarcity">Scarcity</string>
+    <string name="pocket_add_card_title">Add to Pocket</string>
+    <string name="pocket_add_card_subtitle">%1$s wants to add a card to your Pocket. This is how it will look.</string>
+    <string name="pocket_add_card_action">Add</string>
+    <string name="pocket_add_card_cancel">Not now</string>
+    <string name="pocket_add_card_failed">This card can\'t be added right now.</string>
+    <string name="pocket_remove_card_title">Remove %1$s?</string>
+    <string name="pocket_remove_card_message">You can add it again from the product later.</string>
+    <string name="pocket_remove_card_action">Remove</string>
+    <string name="pocket_remove_card_cancel">Cancel</string>
+    <string name="pocket_deeplink_unknown_card">This product doesn\'t publish that card.</string>
+    <string name="pocket_deeplink_no_pocket">This product has no Pocket cards.</string>
     <string name="pocket_error_force_recycle_failed">Couldn\'t recycle this coin. Try again.</string>
 
     <string name="payment_privacy_mode_title">Payments Privacy Mode</string>

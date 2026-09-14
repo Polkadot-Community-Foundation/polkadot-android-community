@@ -7,10 +7,11 @@ inputs:
       SHA so an unrelated merge there cannot turn this build red; bump it
       deliberately.
       The app's HostCallbacks implementation must match the native API surface
-      at this commit. Currently the 0.12.0 release tag, which is what
-      polkadot-app-ios-v2 pins.
+      at this commit. Currently the head of host-rust-core #706
+      (`pocket-core-impl`, Pocket collection over the 0.12.0 core), which the
+      Android Pocket modality needs; bump again once #706 is rebased and merged.
     required: false
-    default: "7e0284cef81c4ca025d613428d02defd0f80b863"
+    default: "ef6bc7b2ae549d738f4b8175fa6de703effe2f8a"
 
 runs:
   using: "composite"
@@ -132,6 +133,12 @@ runs:
         cache-workspaces: |
           .
           .truapi -> target
+
+    # :bindings:truapi-host regenerates the core's gitignored Rust sources from
+    # rustdoc JSON, which only a nightly rustdoc emits.
+    - name: Add nightly for the core codegen
+      run: rustup toolchain install nightly --profile minimal
+      shell: bash
 
     - name: Add targets
       run: |

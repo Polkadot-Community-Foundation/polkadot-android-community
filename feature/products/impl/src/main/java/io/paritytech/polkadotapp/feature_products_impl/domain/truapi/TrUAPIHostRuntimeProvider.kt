@@ -14,6 +14,8 @@ import io.paritytech.polkadotapp.common.presentation.AppLifecycleObserver
 import io.paritytech.polkadotapp.common.utils.CoroutineDispatchers
 import io.paritytech.polkadotapp.common.utils.logFailure
 import io.paritytech.polkadotapp.feature_account_api.data.repository.AccountRepository
+import io.paritytech.polkadotapp.feature_dotns_api.domain.DotNsTldProvider
+import io.paritytech.polkadotapp.feature_dotns_api.domain.getTldRetrying
 import io.paritytech.polkadotapp.feature_products_impl.di.TrUAPIChainHttpClient
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
@@ -60,6 +62,7 @@ class TrUAPIHostRuntimeProvider @Inject constructor(
     @param:TrUAPIChainHttpClient private val chainHttpClient: OkHttpClient,
     private val confirmationLauncher: TrUAPIConfirmationLauncher,
     private val appLifecycleObserver: AppLifecycleObserver,
+    private val dotNsTldProvider: DotNsTldProvider,
     dispatchers: CoroutineDispatchers,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + dispatchers.computation)
@@ -120,11 +123,15 @@ class TrUAPIHostRuntimeProvider @Inject constructor(
         val localSession = localSessionSource.resolve()
             .logFailure("TrUAPI local session unavailable; booting the host runtime without one")
             .getOrNull()
+        // The core derives the wallet's reserved identities under this suffix, so a
+        // guessed TLD would mint identities that belong to no network.
+        val tld = dotNsTldProvider.getTldRetrying()
 
         return HostRuntimeConfig(
             hostName = HOST_NAME,
             peopleChainGenesisHash = peopleGenesis,
             bulletinChainGenesisHash = bulletinGenesis,
+            networkSuffix = tld.value,
             localSessionSecret = localSession?.secret,
             localSessionLiteUsername = localSession?.liteUsername,
         )

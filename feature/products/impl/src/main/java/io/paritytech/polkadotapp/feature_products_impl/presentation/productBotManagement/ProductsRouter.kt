@@ -2,8 +2,10 @@ package io.paritytech.polkadotapp.feature_products_impl.presentation.productBotM
 
 import io.paritytech.polkadotapp.common.presentation.navigation.ReturnableRouter
 import io.paritytech.polkadotapp.feature_chats_api.domain.model.ChatId
+import io.paritytech.polkadotapp.feature_products_api.domain.pocket.PocketCardKey
 import io.paritytech.polkadotapp.feature_products_api.model.ProductId
 import io.paritytech.polkadotapp.feature_products_api.model.signing.SigningRouter
+import io.paritytech.polkadotapp.feature_products_api.presentation.PocketAddCardPayload
 import io.paritytech.polkadotapp.feature_products_api.presentation.SpaBrowserPayload
 
 interface ProductsRouter : ReturnableRouter, SigningRouter {
@@ -23,4 +25,10 @@ interface ProductsRouter : ReturnableRouter, SigningRouter {
     suspend fun openTrUAPIConfirmation()
     fun openProductSettings(productId: ProductId)
     fun openProductPermissions(productId: ProductId)
+
+    /** Approval sheet for a card the user was offered through a Pocket deeplink. */
+    fun openPocketAddCard(payload: PocketAddCardPayload)
+
+    /** Expands a Pocket card: the product opens with the card named in its launch URL. */
+    fun openPocketCard(key: PocketCardKey)
 }

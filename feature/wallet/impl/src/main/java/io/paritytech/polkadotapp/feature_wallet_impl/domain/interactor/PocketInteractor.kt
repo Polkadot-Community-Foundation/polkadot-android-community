@@ -12,6 +12,11 @@ import io.paritytech.polkadotapp.feature_account_api.data.repository.AccountRepo
 import io.paritytech.polkadotapp.feature_coinage_api.domain.model.BackupProgress
 import io.paritytech.polkadotapp.feature_coinage_api.domain.service.CoinageBackupService
 import io.paritytech.polkadotapp.feature_coinage_api.domain.usecase.TotalBalanceUseCase
+import io.paritytech.polkadotapp.feature_products_api.domain.pocket.PocketCard
+import io.paritytech.polkadotapp.feature_products_api.domain.pocket.PocketCardKey
+import io.paritytech.polkadotapp.feature_products_api.domain.pocket.PocketCollection
+import io.paritytech.polkadotapp.feature_products_api.domain.pocket.PocketFaceSource
+import io.paritytech.polkadotapp.feature_products_api.model.JsWidget
 import io.paritytech.polkadotapp.feature_tokens_api.di.DigitalDollarChainAssetProvider
 import io.paritytech.polkadotapp.feature_tokens_api.domain.ChainAssetProvider
 import io.paritytech.polkadotapp.feature_usernames_api.domain.usecase.UsernameOfAccountUseCase
@@ -35,7 +40,9 @@ class PocketInteractor @Inject constructor(
     private val coinageBackupService: CoinageBackupService,
     private val accountRepository: AccountRepository,
     private val chainRegistry: ChainRegistry,
-    private val knownChains: KnownChains
+    private val knownChains: KnownChains,
+    private val pocketCollection: PocketCollection,
+    private val pocketFaceSource: PocketFaceSource,
 ) {
     fun observeBackupProgress(): Flow<BackupProgress> = coinageBackupService.subscribeProgress()
 
@@ -66,6 +73,13 @@ class PocketInteractor @Inject constructor(
     fun observeUsername(): Flow<String> = usernameOfAccountUseCase()
         .filterNotNull()
         .map { it.username.getDisplayUsername() }
+
+    fun observeProductCards(): Flow<List<PocketCard>> = pocketCollection.observeCards()
+
+    /** Collect only while the face is on screen: collecting keeps the backing product's worker running. */
+    fun observeFace(key: PocketCardKey): Flow<JsWidget> = pocketFaceSource.observeFace(key)
+
+    suspend fun removeProductCard(key: PocketCardKey): Result<Unit> = pocketCollection.removeCard(key)
 
     context(scope: ComputationalScope)
     fun observeRank(): Flow<PocketRank> = if (FeatureOption.PERSONHOOD.isEnabled) {

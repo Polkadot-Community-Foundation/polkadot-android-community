@@ -1,4 +1,4 @@
-package io.paritytech.polkadotapp.feature_products_impl.presentation.compose
+package io.paritytech.polkadotapp.feature_products_api.presentation.widget
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border

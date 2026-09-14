@@ -1,0 +1,47 @@
+package io.paritytech.polkadotapp.feature_products_impl.domain.pocket
+
+import io.paritytech.polkadotapp.feature_products_api.domain.pocket.PocketCard
+import io.paritytech.polkadotapp.feature_products_api.domain.pocket.PocketCardId
+import io.paritytech.polkadotapp.feature_products_api.domain.pocket.PocketCardKey
+import io.paritytech.polkadotapp.feature_products_api.model.JsWidget
+import io.paritytech.polkadotapp.feature_products_api.model.ProductId
+import io.paritytech.polkadotapp.feature_products_impl.data.pocket.PocketCardRepository
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+
+internal val gameProduct = ProductId.fromStoredValue("game.dot")
+internal val personhoodProduct = ProductId.fromStoredValue("peopl.dot")
+
+internal fun cardKey(productId: ProductId, cardId: String) = PocketCardKey(productId, PocketCardId(cardId))
+
+internal fun faceOf(text: String): JsWidget = JsWidget.Text(text = text)
+
+internal fun pinnedCard(productId: ProductId, cardId: String) = CachedPocketCard(
+    card = PocketCard(cardKey(productId, cardId), title = cardId, privileged = true),
+    face = faceOf("pinned $cardId"),
+)
+
+internal fun addedCard(productId: ProductId, cardId: String) = CachedPocketCard(
+    card = PocketCard(cardKey(productId, cardId), title = cardId, privileged = false),
+    face = faceOf("added $cardId"),
+)
+
+internal class FakePinnedPocketCards(private val cards: List<CachedPocketCard>) : PinnedPocketCards {
+    override suspend fun cards(): List<CachedPocketCard> = cards
+}
+
+internal class InMemoryPocketCardRepository : PocketCardRepository {
+    private val cards = MutableStateFlow<List<CachedPocketCard>>(emptyList())
+
+    override fun observeCards(): Flow<List<CachedPocketCard>> = cards
+
+    override suspend fun get(key: PocketCardKey): CachedPocketCard? = cards.value.firstOrNull { it.card.key == key }
+
+    override suspend fun insert(card: CachedPocketCard) {
+        cards.value = cards.value.filterNot { it.card.key == card.card.key } + card
+    }
+
+    override suspend fun delete(key: PocketCardKey) {
+        cards.value = cards.value.filterNot { it.card.key == key }
+    }
+}

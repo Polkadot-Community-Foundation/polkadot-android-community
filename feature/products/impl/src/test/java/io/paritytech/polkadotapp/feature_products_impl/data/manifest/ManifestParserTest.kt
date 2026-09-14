@@ -2,7 +2,9 @@ package io.paritytech.polkadotapp.feature_products_impl.data.manifest
 
 import com.google.gson.Gson
 import io.paritytech.polkadotapp.feature_products_api.model.ExecutableHost
+import io.paritytech.polkadotapp.feature_products_api.domain.pocket.PocketCardId
 import io.paritytech.polkadotapp.feature_products_api.model.ExecutableKind
+import io.paritytech.polkadotapp.feature_products_api.model.PocketCardDefinition
 import io.paritytech.polkadotapp.feature_products_api.model.ProductExecutable
 import io.paritytech.polkadotapp.feature_products_api.model.ProductIcon
 import org.junit.Assert.assertEquals
@@ -124,6 +126,45 @@ class ManifestParserTest {
 
         assertEquals(false, worker?.includesChat)
         assertEquals(false, worker?.includesPocket)
+    }
+
+    @Test
+    fun `worker publishes pocket cards behind includes pocket`() {
+        val worker = parser.parseExecutable(
+            """{"${'$'}v":1,"kind":"worker","appVersion":[1,0,0],"entrypoint":"index.js","includes":{"chat":false,"pocket":true},
+               "pocket":{"cards":[{"id":" loyalty ","title":"Loyalty","preview":"faces/loyalty.json"}]}}""",
+            ExecutableKind.WORKER,
+            host("worker.coinflip.dot"),
+        ).getOrNull() as? ProductExecutable.Worker
+
+        assertEquals(true, worker?.includesPocket)
+        assertEquals(listOf(PocketCardDefinition(PocketCardId("loyalty"), "Loyalty", "faces/loyalty.json")), worker?.pocketCards)
+    }
+
+    @Test
+    fun `worker that includes pocket but publishes no cards is valid and has none`() {
+        val worker = parser.parseExecutable(
+            """{"${'$'}v":1,"kind":"worker","appVersion":[1,0,0],"entrypoint":"index.js","includes":{"chat":false,"pocket":true}}""",
+            ExecutableKind.WORKER,
+            host("worker.coinflip.dot"),
+        ).getOrNull() as? ProductExecutable.Worker
+
+        assertEquals(emptyList<PocketCardDefinition>(), worker?.pocketCards)
+    }
+
+    @Test
+    fun `pocket cards that a stricter host would reject do not load here either`() {
+        fun worker(pocket: String, includesPocket: Boolean = true) =
+            """{"${'$'}v":1,"kind":"worker","appVersion":[1,0,0],"entrypoint":"i.js","includes":{"chat":false,"pocket":$includesPocket},"pocket":$pocket}"""
+
+        // Cards without the include, a bad id (screened as a chat identifier), duplicate ids, and missing fields.
+        rejectsExecutable(worker("""{"cards":[{"id":"a","title":"A","preview":"a.json"}]}""", includesPocket = false), ExecutableKind.WORKER)
+        rejectsExecutable(worker("""{"cards":[{"id":"loy\u200dalty","title":"A","preview":"a.json"}]}"""), ExecutableKind.WORKER)
+        rejectsExecutable(worker("""{"cards":[{"id":"a","title":"A","preview":"a.json"},{"id":"a","title":"B","preview":"b.json"}]}"""), ExecutableKind.WORKER)
+        rejectsExecutable(worker("""{"cards":[{"id":"a","preview":"a.json"}]}"""), ExecutableKind.WORKER)
+        rejectsExecutable(worker("""{"cards":[{"id":"a","title":"A"}]}"""), ExecutableKind.WORKER)
+        rejectsExecutable(worker("""{"cards":[{"id":"a","title":"","preview":"a.json"}]}"""), ExecutableKind.WORKER)
+        rejectsExecutable(worker("""{}"""), ExecutableKind.WORKER)
     }
 
     @Test

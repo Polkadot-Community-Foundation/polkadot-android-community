@@ -25,6 +25,7 @@ import io.paritytech.polkadotapp.database.dao.FileUploadDao
 import io.paritytech.polkadotapp.database.dao.GamePlayersDao
 import io.paritytech.polkadotapp.database.dao.ProductDao
 import io.paritytech.polkadotapp.database.dao.ProductFundingOperationDao
+import io.paritytech.polkadotapp.database.dao.PocketCardDao
 import io.paritytech.polkadotapp.database.dao.ProductIntegrationDao
 import io.paritytech.polkadotapp.database.dao.ProductPermissionGrantDao
 import io.paritytech.polkadotapp.database.dao.ProductTopUpDao
@@ -193,6 +194,9 @@ class DbModule {
     @Provides
     @Singleton
     fun provideProductIntegrationDao(appDatabase: AppDatabase): ProductIntegrationDao = appDatabase.productIntegrationDao()
+
+    @Provides
+    fun providePocketCardDao(appDatabase: AppDatabase): PocketCardDao = appDatabase.pocketCardDao()
 
     @Provides
     @Singleton

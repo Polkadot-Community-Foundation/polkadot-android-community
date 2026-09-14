@@ -28,6 +28,11 @@ import io.paritytech.polkadotapp.feature_products_api.domain.sponsoring.Statemen
 import io.paritytech.polkadotapp.feature_products_api.domain.sponsoring.TransactionSponsoring
 import io.paritytech.polkadotapp.feature_products_api.presentation.spaHost.SpaHost
 import io.paritytech.polkadotapp.feature_products_impl.data.config.RemoteConfigFundingDomainProvider
+import io.paritytech.polkadotapp.feature_products_api.domain.pocket.PocketCollection
+import io.paritytech.polkadotapp.feature_products_api.domain.pocket.PocketFaceSource
+import io.paritytech.polkadotapp.common.presentation.deeplink.DeepLinkHandler
+import io.paritytech.polkadotapp.feature_products_impl.data.pocket.PocketCardRepository
+import io.paritytech.polkadotapp.feature_products_impl.data.pocket.RealPocketCardRepository
 import io.paritytech.polkadotapp.feature_products_impl.data.repository.BrowserTabRepository
 import io.paritytech.polkadotapp.feature_products_impl.data.repository.ProductFundingOperationRepository
 import io.paritytech.polkadotapp.feature_products_impl.data.repository.ProductIntegrationRepository
@@ -109,6 +114,12 @@ import io.paritytech.polkadotapp.feature_products_impl.domain.topUpRequest.TopUp
 import io.paritytech.polkadotapp.feature_products_impl.domain.usecase.RealResolveProductUseCase
 import io.paritytech.polkadotapp.feature_products_impl.domain.usecase.ResolveProductUseCase
 import io.paritytech.polkadotapp.feature_products_impl.domain.webView.ProductServingHostResolver
+import io.paritytech.polkadotapp.feature_products_impl.domain.pocket.AssetPinnedPocketCards
+import io.paritytech.polkadotapp.feature_products_impl.domain.pocket.PinnedPocketCards
+import io.paritytech.polkadotapp.feature_products_impl.domain.pocket.PocketCardStore
+import io.paritytech.polkadotapp.feature_products_impl.domain.pocket.RealPocketCollection
+import io.paritytech.polkadotapp.feature_products_impl.domain.pocket.RealPocketFaceSource
+import io.paritytech.polkadotapp.feature_products_impl.presentation.deeplink.PocketDeepLinkHandler
 import io.paritytech.polkadotapp.feature_products_impl.domain.worker.ProductWorkerRefCounter
 import io.paritytech.polkadotapp.feature_products_impl.domain.worker.RealProductWorkerRefCounter
 import io.paritytech.polkadotapp.feature_products_impl.domain.worker.RealWorkerBootFactory
@@ -154,6 +165,24 @@ internal interface ProductsModule {
 
     @Binds
     @Singleton
+    fun bindPocketCardRepository(impl: RealPocketCardRepository): PocketCardRepository
+
+    @Binds
+    @Singleton
+    fun bindPinnedPocketCards(impl: AssetPinnedPocketCards): PinnedPocketCards
+
+    @Binds
+    @Singleton
+    fun bindPocketCardStore(impl: RealPocketCollection): PocketCardStore
+
+    @Binds
+    fun bindPocketCollection(impl: PocketCardStore): PocketCollection
+
+    @Binds
+    fun bindPocketFaceSource(impl: RealPocketFaceSource): PocketFaceSource
+
+    @Binds
+    @Singleton
     fun bindServingHostResolver(impl: ProductServingHostResolver): DotNsServingHostResolver
 
     @Binds
@@ -167,6 +196,10 @@ internal interface ProductsModule {
     @Binds
     @IntoSet
     fun bindProductExternalExtensionProvider(impl: ProductExternalExtensionProvider): ExternalExtensionProvider
+
+    @Binds
+    @IntoSet
+    fun bindPocketDeepLinkHandler(impl: PocketDeepLinkHandler): DeepLinkHandler
 
     @Binds
     fun bindProductLocalStorage(impl: RealProductLocalStorage): ProductLocalStorage
