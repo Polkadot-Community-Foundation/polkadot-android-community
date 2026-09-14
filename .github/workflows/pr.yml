@@ -19,6 +19,18 @@ env:
   SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT || 'your-sentry-project' }}
   TERMS_OF_USE_URL: ${{ vars.TERMS_OF_USE_URL || 'https://example.com/terms' }}
 
+# ⭐ FORK NOTE — this lane is upstream's, wired to Parity-owned secret NAMES the PCF fork
+# does not hold, so it failed at :app:processGpDebugGoogleServices on every branch. Each
+# reference below falls back to the fork's OWN already-present secret, matching the idiom
+# already used here (`NIGHTLY_FUNDING_MNEMONIC || DEV_FUNDING_MNEMONIC`).
+#   GOOGLE_SERVICES_JSON_BASE64   -> GOOGLE_SERVICES_JSON_DEV_BASE64
+#   CI_GITHUB_KEYSTORE_KEY_FILE   -> DEV_KEYSTORE_BASE64   (the `debug` buildType signs with
+#                                    the `dev` signingConfig, so develop_key.jks must exist)
+# This ADDS NO Parity-named secret. release-dev.yml's policy header warns that adding
+# GOOGLE_SERVICES_JSON_BASE64 would arm the inherited distribution workflows; that warning is
+# about creating THAT secret. Nothing here creates it, and all four of those workflows are
+# deleted from this fork anyway.
+
 on:
   pull_request:
   merge_group:
@@ -38,7 +50,7 @@ jobs:
       - name: Prepare Android build files
         uses: ./.github/actions/prepare-android-build
         with:
-          google_services_json_base64: ${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}
+          google_services_json_base64: ${{ secrets.GOOGLE_SERVICES_JSON_BASE64 || secrets.GOOGLE_SERVICES_JSON_DEV_BASE64 }}
 
       - name: Run tests
         env:
@@ -63,8 +75,8 @@ jobs:
       - name: Prepare Android build files
         uses: ./.github/actions/prepare-android-build
         with:
-          google_services_json_base64: ${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}
-          keystore_file_base64: ${{ secrets.CI_GITHUB_KEYSTORE_KEY_FILE }}
+          google_services_json_base64: ${{ secrets.GOOGLE_SERVICES_JSON_BASE64 || secrets.GOOGLE_SERVICES_JSON_DEV_BASE64 }}
+          keystore_file_base64: ${{ secrets.CI_GITHUB_KEYSTORE_KEY_FILE || secrets.DEV_KEYSTORE_BASE64 }}
           keystore_path: develop_key.jks
 
       - name: Build
