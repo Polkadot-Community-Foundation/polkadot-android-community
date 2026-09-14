@@ -6,8 +6,10 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import dagger.multibindings.IntoMap
+import dagger.multibindings.IntoSet
 import io.paritytech.polkadotapp.chains.network.updaters.system.UpdateSystemFactory
 import io.paritytech.polkadotapp.common.data.storage.SingleValueStorageFactory
+import io.paritytech.polkadotapp.common.presentation.tabs.TabWarningProvider
 import io.paritytech.polkadotapp.feature_coinage_api.data.updaters.CoinageUpdateSystem
 import io.paritytech.polkadotapp.feature_coinage_api.domain.CoinsInteractor
 import io.paritytech.polkadotapp.feature_coinage_api.domain.RecyclerVouchersInteractor
@@ -18,6 +20,7 @@ import io.paritytech.polkadotapp.feature_coinage_api.domain.externalPayment.Exte
 import io.paritytech.polkadotapp.feature_coinage_api.domain.externalPayment.ExternalPaymentService
 import io.paritytech.polkadotapp.feature_coinage_api.domain.externalPayment.ExternalPaymentWorkerStarter
 import io.paritytech.polkadotapp.feature_coinage_api.domain.recycling.CoinageRecyclingStrategySettings
+import io.paritytech.polkadotapp.feature_coinage_api.domain.service.CoinageAccountBackupObserver
 import io.paritytech.polkadotapp.feature_coinage_api.domain.service.CoinageBackupService
 import io.paritytech.polkadotapp.feature_coinage_api.domain.service.CoinageServiceStarter
 import io.paritytech.polkadotapp.feature_coinage_api.domain.transaction.CoinageTransactionService
@@ -26,6 +29,7 @@ import io.paritytech.polkadotapp.feature_coinage_api.domain.usecase.CoinAmountBr
 import io.paritytech.polkadotapp.feature_coinage_api.domain.usecase.CoinageAssetValueUseCase
 import io.paritytech.polkadotapp.feature_coinage_api.domain.usecase.CoinageAssetsUseCase
 import io.paritytech.polkadotapp.feature_coinage_api.domain.usecase.CoinageBalanceConverterUseCase
+import io.paritytech.polkadotapp.feature_coinage_api.domain.usecase.CoinageHoldingsUseCase
 import io.paritytech.polkadotapp.feature_coinage_api.domain.usecase.CoinagePaymentStatusUseCase
 import io.paritytech.polkadotapp.feature_coinage_api.domain.usecase.CoinageRecyclingUseCase
 import io.paritytech.polkadotapp.feature_coinage_api.domain.usecase.CoinageTestnetFundUseCase
@@ -33,6 +37,12 @@ import io.paritytech.polkadotapp.feature_coinage_api.domain.usecase.OnboardingUs
 import io.paritytech.polkadotapp.feature_coinage_api.domain.usecase.PrepareCoinageTransferUseCase
 import io.paritytech.polkadotapp.feature_coinage_api.domain.usecase.ShareCoinageLogsUseCase
 import io.paritytech.polkadotapp.feature_coinage_api.domain.usecase.TotalBalanceUseCase
+import io.paritytech.polkadotapp.feature_coinage_impl.data.dataStore.AccountDataStoreConfigProvider
+import io.paritytech.polkadotapp.feature_coinage_impl.data.dataStore.AccountDataStoreRepository
+import io.paritytech.polkadotapp.feature_coinage_impl.data.dataStore.DataStoreAccountKeys
+import io.paritytech.polkadotapp.feature_coinage_impl.data.dataStore.RealAccountDataStoreRepository
+import io.paritytech.polkadotapp.feature_coinage_impl.data.dataStore.RealDataStoreAccountKeys
+import io.paritytech.polkadotapp.feature_coinage_impl.data.dataStore.RemoteConfigAccountDataStoreConfigProvider
 import io.paritytech.polkadotapp.feature_coinage_impl.data.debug.RealCoinageDebugSettings
 import io.paritytech.polkadotapp.feature_coinage_impl.data.derivation.CoinKeypairDerivation
 import io.paritytech.polkadotapp.feature_coinage_impl.data.derivation.RealCoinKeypairDerivation
@@ -42,6 +52,8 @@ import io.paritytech.polkadotapp.feature_coinage_impl.data.helpers.ConsumedToken
 import io.paritytech.polkadotapp.feature_coinage_impl.data.helpers.RealConsumedTokenChecker
 import io.paritytech.polkadotapp.feature_coinage_impl.data.helpers.RealUnloadTokenPeriodCalculator
 import io.paritytech.polkadotapp.feature_coinage_impl.data.helpers.UnloadTokenPeriodCalculator
+import io.paritytech.polkadotapp.feature_coinage_impl.data.installation.CoinageInstallationRepository
+import io.paritytech.polkadotapp.feature_coinage_impl.data.installation.RealCoinageInstallationRepository
 import io.paritytech.polkadotapp.feature_coinage_impl.data.repository.CoinRepository
 import io.paritytech.polkadotapp.feature_coinage_impl.data.repository.CoinageInstanceRepository
 import io.paritytech.polkadotapp.feature_coinage_impl.data.repository.ExponentBoundsRepository
@@ -54,19 +66,9 @@ import io.paritytech.polkadotapp.feature_coinage_impl.data.repository.RecyclerPr
 import io.paritytech.polkadotapp.feature_coinage_impl.data.repository.VoucherRepository
 import io.paritytech.polkadotapp.feature_coinage_impl.data.signer.context.CoinageSigningContextProvider
 import io.paritytech.polkadotapp.feature_coinage_impl.data.signer.context.RealCoinageSigningContextProvider
-import io.paritytech.polkadotapp.feature_coinage_impl.data.storage.CoinsBackupLastIndexStorage
-import io.paritytech.polkadotapp.feature_coinage_impl.data.storage.CoinsDeepBackupCompletedStorage
-import io.paritytech.polkadotapp.feature_coinage_impl.data.storage.CoinsInitialBackupCompletedStorage
-import io.paritytech.polkadotapp.feature_coinage_impl.data.storage.RealCoinsBackupLastIndexStorage
-import io.paritytech.polkadotapp.feature_coinage_impl.data.storage.RealCoinsDeepBackupCompletedStorage
-import io.paritytech.polkadotapp.feature_coinage_impl.data.storage.RealCoinsInitialBackupCompletedStorage
-import io.paritytech.polkadotapp.feature_coinage_impl.data.storage.RealVouchersBackupLastIndexStorage
-import io.paritytech.polkadotapp.feature_coinage_impl.data.storage.RealVouchersDeepBackupCompletedStorage
-import io.paritytech.polkadotapp.feature_coinage_impl.data.storage.RealVouchersInitialBackupCompletedStorage
+import io.paritytech.polkadotapp.feature_coinage_impl.data.storage.DeepRecoveryCompletedStorage
+import io.paritytech.polkadotapp.feature_coinage_impl.data.storage.RealDeepRecoveryCompletedStorage
 import io.paritytech.polkadotapp.feature_coinage_impl.data.storage.RecyclingStrategyStorage
-import io.paritytech.polkadotapp.feature_coinage_impl.data.storage.VouchersBackupLastIndexStorage
-import io.paritytech.polkadotapp.feature_coinage_impl.data.storage.VouchersDeepBackupCompletedStorage
-import io.paritytech.polkadotapp.feature_coinage_impl.data.storage.VouchersInitialBackupCompletedStorage
 import io.paritytech.polkadotapp.feature_coinage_impl.data.storage.createRecyclingStrategyStorage
 import io.paritytech.polkadotapp.feature_coinage_impl.data.transaction.CoinageAssetLedger
 import io.paritytech.polkadotapp.feature_coinage_impl.data.transaction.CoinageStateReaderFactory
@@ -84,11 +86,19 @@ import io.paritytech.polkadotapp.feature_coinage_impl.domain.externalPayment.rep
 import io.paritytech.polkadotapp.feature_coinage_impl.domain.externalPayment.repository.RealExternalPaymentRepository
 import io.paritytech.polkadotapp.feature_coinage_impl.domain.externalPayment.usecase.RealUnloadRecyclerIntoExternalAssetUseCase
 import io.paritytech.polkadotapp.feature_coinage_impl.domain.externalPayment.usecase.UnloadRecyclerIntoExternalAssetUseCase
+import io.paritytech.polkadotapp.feature_coinage_impl.domain.installation.COINAGE_INSTALLATION_DOMAIN_ID
+import io.paritytech.polkadotapp.feature_coinage_impl.domain.installation.CoinageBackupTabWarningProvider
+import io.paritytech.polkadotapp.feature_coinage_impl.domain.installation.CoinageInstallationRegistrar
+import io.paritytech.polkadotapp.feature_coinage_impl.domain.installation.CoinageInstallationRegistrationOracle
+import io.paritytech.polkadotapp.feature_coinage_impl.domain.installation.InstallationRegistrationSubmitter
+import io.paritytech.polkadotapp.feature_coinage_impl.domain.installation.RealInstallationRegistrationSubmitter
 import io.paritytech.polkadotapp.feature_coinage_impl.domain.model.CoinageTransaction
 import io.paritytech.polkadotapp.feature_coinage_impl.domain.model.CoinageTransactionFactory
 import io.paritytech.polkadotapp.feature_coinage_impl.domain.recycling.RealCoinageRecyclingStrategySettings
+import io.paritytech.polkadotapp.feature_coinage_impl.domain.service.InstallationAssetScanner
 import io.paritytech.polkadotapp.feature_coinage_impl.domain.service.RealCoinageBackupService
 import io.paritytech.polkadotapp.feature_coinage_impl.domain.service.RealCoinageServiceStarter
+import io.paritytech.polkadotapp.feature_coinage_impl.domain.service.RealInstallationAssetScanner
 import io.paritytech.polkadotapp.feature_coinage_impl.domain.transaction.COINAGE_DOMAIN_ID
 import io.paritytech.polkadotapp.feature_coinage_impl.domain.transaction.RealCoinageTransactionService
 import io.paritytech.polkadotapp.feature_coinage_impl.domain.transaction.recovery.CoinageResourceOracle
@@ -99,6 +109,7 @@ import io.paritytech.polkadotapp.feature_coinage_impl.domain.usecase.RealCoinAmo
 import io.paritytech.polkadotapp.feature_coinage_impl.domain.usecase.RealCoinageAssetValueUseCase
 import io.paritytech.polkadotapp.feature_coinage_impl.domain.usecase.RealCoinageAssetsUseCase
 import io.paritytech.polkadotapp.feature_coinage_impl.domain.usecase.RealCoinageBalanceConverterUseCase
+import io.paritytech.polkadotapp.feature_coinage_impl.domain.usecase.RealCoinageHoldingsUseCase
 import io.paritytech.polkadotapp.feature_coinage_impl.domain.usecase.RealCoinageOnboardingSubmissionUseCase
 import io.paritytech.polkadotapp.feature_coinage_impl.domain.usecase.RealCoinagePaymentStatusUseCase
 import io.paritytech.polkadotapp.feature_coinage_impl.domain.usecase.RealCoinageRecyclingUseCase
@@ -133,24 +144,6 @@ interface CoinageFeatureModule {
     ): CoinageRecyclingStrategySettings
 
     @Binds
-    fun bindCoinsInitialBackupCompletedStorage(impl: RealCoinsInitialBackupCompletedStorage): CoinsInitialBackupCompletedStorage
-
-    @Binds
-    fun bindVouchersInitialBackupCompletedStorage(impl: RealVouchersInitialBackupCompletedStorage): VouchersInitialBackupCompletedStorage
-
-    @Binds
-    fun bindCoinsDeepBackupCompletedStorage(impl: RealCoinsDeepBackupCompletedStorage): CoinsDeepBackupCompletedStorage
-
-    @Binds
-    fun bindVouchersDeepBackupCompletedStorage(impl: RealVouchersDeepBackupCompletedStorage): VouchersDeepBackupCompletedStorage
-
-    @Binds
-    fun bindCoinsBackupLastIndexStorage(impl: RealCoinsBackupLastIndexStorage): CoinsBackupLastIndexStorage
-
-    @Binds
-    fun bindVouchersBackupLastIndexStorage(impl: RealVouchersBackupLastIndexStorage): VouchersBackupLastIndexStorage
-
-    @Binds
     fun bindCoinageInstanceRepository(impl: RealCoinageInstanceRepository): CoinageInstanceRepository
 
     @Binds
@@ -160,13 +153,49 @@ interface CoinageFeatureModule {
     fun bindVoucherRingDerivation(impl: RealVoucherRingDerivation): VoucherRingDerivation
 
     @Binds
+    @Singleton
     fun bindCoinAllocator(impl: RealCoinAllocator): CoinAllocator
 
     @Binds
     fun bindCoinRepository(impl: RealCoinRepository): CoinRepository
 
     @Binds
+    @Singleton
     fun bindVoucherAllocator(impl: RealVoucherAllocator): VoucherAllocator
+
+    @Binds
+    fun bindDeepRecoveryCompletedStorage(impl: RealDeepRecoveryCompletedStorage): DeepRecoveryCompletedStorage
+
+    @Binds
+    fun bindInstallationAssetScanner(impl: RealInstallationAssetScanner): InstallationAssetScanner
+
+    @Binds
+    fun bindCoinageInstallationRepository(impl: RealCoinageInstallationRepository): CoinageInstallationRepository
+
+    @Binds
+    @Singleton
+    fun bindDataStoreAccountKeys(impl: RealDataStoreAccountKeys): DataStoreAccountKeys
+
+    @Binds
+    fun bindAccountDataStoreConfigProvider(impl: RemoteConfigAccountDataStoreConfigProvider): AccountDataStoreConfigProvider
+
+    @Binds
+    fun bindAccountDataStoreRepository(impl: RealAccountDataStoreRepository): AccountDataStoreRepository
+
+    @Binds
+    fun bindInstallationRegistrationSubmitter(impl: RealInstallationRegistrationSubmitter): InstallationRegistrationSubmitter
+
+    @Binds
+    fun bindCoinageAccountBackupObserver(impl: CoinageInstallationRegistrar): CoinageAccountBackupObserver
+
+    @Binds
+    @IntoMap
+    @TxDomainKey(COINAGE_INSTALLATION_DOMAIN_ID)
+    fun bindCoinageInstallationRegistrationOracle(impl: CoinageInstallationRegistrationOracle): TxCompletionOracle
+
+    @Binds
+    @IntoSet
+    fun bindCoinageBackupTabWarningProvider(impl: CoinageBackupTabWarningProvider): TabWarningProvider
 
     @Binds
     fun bindVoucherRepository(impl: RealVoucherRepository): VoucherRepository
@@ -197,6 +226,12 @@ interface CoinageFeatureModule {
 
     @Binds
     fun bindTotalBalanceUseCase(impl: RealTotalBalanceUseCase): TotalBalanceUseCase
+
+    @Binds
+    fun bindCoinageHoldingsUseCase(impl: RealCoinageHoldingsUseCase): CoinageHoldingsUseCase
+
+    @Binds
+    fun bindShareCoinageLogsUseCase(impl: RealShareCoinageLogsUseCase): ShareCoinageLogsUseCase
 
     @Binds
     fun bindExponentBoundsRepository(impl: RealExponentBoundsRepository): ExponentBoundsRepository
@@ -249,9 +284,6 @@ interface CoinageFeatureModule {
 
     @Binds
     fun bindClaimReceivedCoinsUseCase(impl: RealClaimReceivedCoinsUseCase): ClaimReceivedCoinsUseCase
-
-    @Binds
-    fun bindShareCoinageLogsUseCase(impl: RealShareCoinageLogsUseCase): ShareCoinageLogsUseCase
 
     @Binds
     fun bindCoinageRecyclingUseCase(impl: RealCoinageRecyclingUseCase): CoinageRecyclingUseCase

@@ -46,11 +46,6 @@
 
 
     <fragment
-        android:id="@+id/LanguageFragment"
-        android:name="io.paritytech.polkadotapp.feature_settings_impl.presentation.language.LanguageFragment"
-        android:label="LanguageFragment" />
-
-    <fragment
         android:id="@+id/ThemeFragment"
         android:name="io.paritytech.polkadotapp.feature_settings_impl.presentation.theme.ThemeFragment"
         android:label="ThemeFragment" />
@@ -182,18 +177,6 @@
         app:popUpToInclusive="true" />
 
     <action
-        android:id="@+id/action_global_to_w3s_spa_graph"
-        app:destination="@id/w3s_spa_graph"
-        app:popUpTo="@id/root_nav_graph"
-        app:popUpToInclusive="true" />
-
-    <action
-        android:id="@+id/action_global_to_w3s_ended_graph"
-        app:destination="@id/w3s_ended_graph"
-        app:popUpTo="@id/root_nav_graph"
-        app:popUpToInclusive="true" />
-
-    <action
         android:id="@+id/action_global_to_chatFeedFragment"
         app:destination="@id/chatFeedFragment"
         app:popUpTo="@id/mainFragment" />
@@ -301,11 +284,6 @@
         app:destination="@id/commit_to_tattoo_graph" />
 
     <action
-        android:id="@+id/action_global_to_change_language"
-        app:destination="@id/LanguageFragment"
-        app:launchSingleTop="true" />
-
-    <action
         android:id="@+id/action_global_to_change_theme"
         app:destination="@id/ThemeFragment"
         app:launchSingleTop="true" />
@@ -380,8 +358,6 @@
 
     <include app:graph="@navigation/main_graph" />
     <include app:graph="@navigation/username_graph" />
-    <include app:graph="@navigation/w3s_spa_graph" />
-    <include app:graph="@navigation/w3s_ended_graph" />
     <include app:graph="@navigation/send_contact_payment_graph" />
     <include app:graph="@navigation/send_enter_amount_graph" />
     <include app:graph="@navigation/backup_graph" />
