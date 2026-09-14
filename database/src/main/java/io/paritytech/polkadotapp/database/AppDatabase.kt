@@ -148,7 +148,7 @@ import io.paritytech.polkadotapp.database.model.chain.ChainNodeLocal
 import io.paritytech.polkadotapp.database.model.chain.ChainRuntimeInfoLocal
 
 @Database(
-    version = 64,
+    version = 65,
     entities = [
         ProductFundingOperationLocal::class,
         ChainLocal::class,
@@ -282,6 +282,8 @@ import io.paritytech.polkadotapp.database.model.chain.ChainRuntimeInfoLocal
         AutoMigration(from = 59, to = 60),
         // Add recycler_vouchers.enteredAt to preserve readiness timers across restarts
         AutoMigration(from = 61, to = 62),
+        // Key external_payments by (origin, id); add claimedPlanks for partially claimed payments
+        AutoMigration(from = 64, to = 65),
     ]
 )
 @TypeConverters(

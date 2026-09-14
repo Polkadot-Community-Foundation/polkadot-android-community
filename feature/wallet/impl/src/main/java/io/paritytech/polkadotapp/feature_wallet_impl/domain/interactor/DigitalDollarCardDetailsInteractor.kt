@@ -11,8 +11,8 @@ import io.paritytech.polkadotapp.feature_coinage_api.domain.usecase.CoinageHoldi
 import io.paritytech.polkadotapp.feature_coinage_api.domain.usecase.CoinageHoldingsUseCase
 import io.paritytech.polkadotapp.feature_coinage_api.domain.usecase.CoinageTestnetFundUseCase
 import io.paritytech.polkadotapp.feature_coinage_api.domain.usecase.ShareCoinageLogsUseCase
+import io.paritytech.polkadotapp.feature_products_api.domain.FundingConfig
 import io.paritytech.polkadotapp.feature_products_api.domain.FundingDomainProvider
-import io.paritytech.polkadotapp.feature_products_api.model.ProductId
 import io.paritytech.polkadotapp.feature_tokens_api.di.DigitalDollarChainAssetProvider
 import io.paritytech.polkadotapp.feature_tokens_api.domain.ChainAssetProvider
 import io.paritytech.polkadotapp.feature_wallet_impl.domain.model.CoinageHoldingsInfo
@@ -36,7 +36,7 @@ class DigitalDollarCardDetailsInteractor @Inject constructor(
         private val NIGHTLY_TOP_UP_AMOUNT = 10.toBigDecimal()
     }
 
-    suspend fun getCashProductId(): Result<ProductId> = fundingDomainProvider.getFundingProductId()
+    suspend fun getFundingConfig(): Result<FundingConfig> = fundingDomainProvider.getFundingConfig()
 
     suspend fun asset(): Chain.Asset = chainAssetProvider.asset()
 
