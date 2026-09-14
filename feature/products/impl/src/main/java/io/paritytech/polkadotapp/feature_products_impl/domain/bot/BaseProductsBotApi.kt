@@ -7,7 +7,6 @@ import io.paritytech.polkadotapp.common.domain.model.AccountId
 import io.paritytech.polkadotapp.common.domain.model.DataByteArray
 import io.paritytech.polkadotapp.common.utils.flatMap
 import io.paritytech.polkadotapp.feature_account_api.domain.derivation.DerivationIndex32
-import io.paritytech.polkadotapp.feature_coinage_api.domain.externalPayment.PaymentId
 import io.paritytech.polkadotapp.feature_coinage_api.domain.externalPayment.PaymentStatus
 import io.paritytech.polkadotapp.feature_products_api.domain.accountsProtocol.AllocatableResource
 import io.paritytech.polkadotapp.feature_products_api.domain.accountsProtocol.AllocationOutcome
@@ -30,9 +29,12 @@ import io.paritytech.polkadotapp.feature_products_impl.domain.hostApi.PaymentBal
 import io.paritytech.polkadotapp.feature_products_impl.domain.hostApi.ProductAccountResult
 import io.paritytech.polkadotapp.feature_products_impl.domain.hostApi.ProductTheme
 import io.paritytech.polkadotapp.feature_products_impl.domain.notifications.NotificationId
+import io.paritytech.polkadotapp.feature_products_impl.domain.paymentRequest.ProductPaymentRequestId
 import io.paritytech.polkadotapp.feature_products_impl.domain.permissions.models.DeviceCapabilityType
 import io.paritytech.polkadotapp.feature_products_impl.domain.permissions.models.RemotePermissionRequest
+import io.paritytech.polkadotapp.feature_products_impl.domain.topUpRequest.PaymentTopUpId
 import io.paritytech.polkadotapp.feature_products_impl.domain.topUpRequest.PaymentTopUpSource
+import io.paritytech.polkadotapp.feature_products_impl.domain.topUpRequest.TopUpStatus
 import io.paritytech.polkadotapp.feature_statement_store_api.data.Statement
 import io.paritytech.polkadotapp.feature_statement_store_api.data.StatementsPage
 import io.paritytech.polkadotapp.feature_statement_store_api.data.TopicFilter
@@ -182,25 +184,31 @@ abstract class BaseProductsBotApi(
 
     override suspend fun requestPayment(
         callingProductId: ProductId,
+        id: ProductPaymentRequestId,
         amount: Balance,
         destination: AccountId,
-    ): Result<PaymentId> {
-        return hostApiInteractor.requestPayment(callingProductId, amount, destination)
+    ): Result<Unit> {
+        return hostApiInteractor.requestPayment(callingProductId, id, amount, destination)
     }
 
     override suspend fun topUp(
         callingProductId: ProductId,
+        id: PaymentTopUpId,
         amount: Balance,
         source: PaymentTopUpSource,
     ): Result<Unit> {
-        return hostApiInteractor.topUp(callingProductId, amount, source)
+        return hostApiInteractor.topUp(callingProductId, id, amount, source)
+    }
+
+    override fun subscribeTopUpStatus(callingProductId: ProductId, id: PaymentTopUpId): Flow<TopUpStatus> {
+        return hostApiInteractor.subscribeTopUpStatus(callingProductId, id)
     }
 
     override fun subscribePaymentStatus(
         callingProductId: ProductId,
-        paymentId: PaymentId,
+        id: ProductPaymentRequestId,
     ): Flow<PaymentStatus> {
-        return hostApiInteractor.subscribePaymentStatus(callingProductId, paymentId)
+        return hostApiInteractor.subscribePaymentStatus(callingProductId, id)
     }
 
     override fun subscribeTheme(): Flow<ProductTheme> {

@@ -37,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import io.paritytech.polkadotapp.common.presentation.tabbar.TabBarBaseInset
 import io.paritytech.polkadotapp.common.presentation.tabs.BottomTab
 import io.paritytech.polkadotapp.design.components.spacer.VerticalSpacer
+import io.paritytech.polkadotapp.feature_connection_status_api.presentation.mixin.ChainHealthIndicatorsModel
 import io.paritytech.polkadotapp.feature_products_api.domain.browser.TabInfo
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableMap
@@ -74,6 +75,7 @@ fun RootNavBarOverlay(
     currentTab: BottomTab,
     tabWarnings: ImmutableMap<BottomTab, Boolean>,
     openApps: ImmutableList<TabInfo>,
+    chainsHealth: ChainHealthIndicatorsModel,
     scannerTooltipVisible: Boolean,
     onTabSelected: (BottomTab) -> Unit,
     onScanClicked: () -> Unit,
@@ -98,12 +100,19 @@ fun RootNavBarOverlay(
     LaunchedEffect(Unit) {
         snapshotFlow { pull.visibleWidthPx }.collect { onOffset(with(density) { it.toDp() }) }
     }
+    // Both intrusions have to be surrendered on hide, not just the horizontal one: the height is only ever
+    // measured while the bar is composed, so without this screens keep reserving the band it used to
+    // occupy — and ChatExtensionOverlayHost reads a non-zero height as "a bar is there" and drops its own
+    // navigation-bar padding.
     LaunchedEffect(hidden) {
-        if (hidden) onOffset(0.dp)
+        if (hidden) {
+            onOffset(0.dp)
+            onBarHeight(0.dp)
+        }
     }
 
     val scrimVisible by remember(hidden, forceShown) {
-        derivedStateOf { !hidden && (pull.appsExpanded || (pull.isOpen && !forceShown)) }
+        derivedStateOf { !hidden && (pull.panelExpanded || (pull.isOpen && !forceShown)) }
     }
 
     val tooltipVisible by remember(hidden, scannerTooltipVisible) {
@@ -119,7 +128,7 @@ fun RootNavBarOverlay(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
                     ) {
-                        if (pull.appsExpanded) pull.collapseApps() else pull.collapse()
+                        if (pull.panelExpanded) pull.collapsePanels() else pull.collapse()
                     },
             )
         }
@@ -188,7 +197,7 @@ fun RootNavBarOverlay(
                             .padding(start = BAR_HORIZONTAL_MARGIN)
                             .onSizeChanged {
                                 pull.setBarWidth(it.width.toFloat())
-                                if (!pull.appsExpanded && !hidden) {
+                                if (!pull.panelExpanded && !hidden) {
                                     onBarHeight(with(density) { it.height.toDp() })
                                 }
                             }
@@ -197,9 +206,14 @@ fun RootNavBarOverlay(
                         tabWarnings = tabWarnings,
                         apps = openApps,
                         appsExpanded = pull.appsExpanded,
+                        chainsHealth = chainsHealth,
+                        networkStatusExpanded = pull.networkStatusExpanded,
                         scannerTooltipVisible = tooltipVisible,
-                        onTabSelected = { tab -> onTabSelected(tab) },
+                        // Selecting the tab you are already on adds no back-stack entry, so the
+                        // panel would otherwise stay up with its tab deselected.
+                        onTabSelected = { tab -> pull.collapsePanels(); onTabSelected(tab) },
                         onCountClicked = { pull.toggleApps() },
+                        onNetworkStatusClicked = { pull.toggleNetworkStatus() },
                         onAppClick = onAppClick,
                         onAppClose = onAppClose,
                         onScanClicked = onScanClicked,
