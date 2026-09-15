@@ -10,6 +10,8 @@ import io.paritytech.polkadotapp.common.utils.isEnabled
 import io.paritytech.polkadotapp.common.utils.logFailure
 import io.paritytech.polkadotapp.feature_account_api.data.repository.AccountRepository
 import io.paritytech.polkadotapp.feature_coinage_api.domain.model.BackupProgress
+import io.paritytech.polkadotapp.feature_coinage_api.domain.model.needsAttention
+import io.paritytech.polkadotapp.feature_coinage_api.domain.service.CoinageAccountBackupObserver
 import io.paritytech.polkadotapp.feature_coinage_api.domain.service.CoinageBackupService
 import io.paritytech.polkadotapp.feature_coinage_api.domain.usecase.TotalBalanceUseCase
 import io.paritytech.polkadotapp.feature_products_api.domain.pocket.PocketCard
@@ -38,6 +40,7 @@ class PocketInteractor @Inject constructor(
     private val usernameOfAccountUseCase: UsernameOfAccountUseCase,
     private val gamesProgressUseCase: VideoGamesProgressUseCase,
     private val coinageBackupService: CoinageBackupService,
+    private val coinageAccountBackupObserver: CoinageAccountBackupObserver,
     private val accountRepository: AccountRepository,
     private val chainRegistry: ChainRegistry,
     private val knownChains: KnownChains,
@@ -45,6 +48,8 @@ class PocketInteractor @Inject constructor(
     private val pocketFaceSource: PocketFaceSource,
 ) {
     fun observeBackupProgress(): Flow<BackupProgress> = coinageBackupService.subscribeProgress()
+
+    fun observeAccountBackupPending(): Flow<Boolean> = coinageAccountBackupObserver.subscribeStatus().map { it.needsAttention }
 
     fun observeAddress(): Flow<String> = flow { emit(getPeopleChainAddress()) }
 

@@ -7,11 +7,11 @@ inputs:
       SHA so an unrelated merge there cannot turn this build red; bump it
       deliberately.
       The app's HostCallbacks implementation must match the native API surface
-      at this commit. Currently the head of host-rust-core #706
+      at this commit. Currently the head of host-rust-core #706 rebased on main (Unified Renderer #633, Worker Lifecycle #632, wire envelope #357)
       (`pocket-core-impl`, Pocket collection over the 0.12.0 core), which the
       Android Pocket modality needs; bump again once #706 is rebased and merged.
     required: false
-    default: "ef6bc7b2ae549d738f4b8175fa6de703effe2f8a"
+    default: "0b31705730d67ea9c9e1c5beaf3f119e4e3af259"
 
 runs:
   using: "composite"

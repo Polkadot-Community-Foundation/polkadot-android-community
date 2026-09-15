@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 62,
-    "identityHash": "bf3e2f53e5c79dc6296e69bcfa13d184",
+    "identityHash": "902ecca1b8c681aeb11902374340fd11",
     "entities": [
       {
         "tableName": "product_funding_operations",
@@ -1703,7 +1703,7 @@
       },
       {
         "tableName": "recycler_vouchers",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`ringVrfKeyIndex` INTEGER NOT NULL, `ringVrfPublicKey` BLOB NOT NULL, `recyclerValue` INTEGER NOT NULL, `locationRecyclerIndex` INTEGER, `recyclerMembers` INTEGER, PRIMARY KEY(`ringVrfKeyIndex`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`ringVrfKeyIndex` INTEGER NOT NULL, `ringVrfPublicKey` BLOB NOT NULL, `recyclerValue` INTEGER NOT NULL, `locationRecyclerIndex` INTEGER, `recyclerMembers` INTEGER, `enteredAt` INTEGER, PRIMARY KEY(`ringVrfKeyIndex`))",
         "fields": [
           {
             "fieldPath": "ringVrfKeyIndex",
@@ -1731,6 +1731,11 @@
           {
             "fieldPath": "recyclerMembers",
             "columnName": "recyclerMembers",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "enteredAt",
+            "columnName": "enteredAt",
             "affinity": "INTEGER"
           }
         ],
@@ -3005,48 +3010,11 @@
             "topUpId"
           ]
         }
-      },
-      {
-        "tableName": "pocket_cards",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`productId` TEXT NOT NULL, `cardId` TEXT NOT NULL, `title` TEXT NOT NULL, `faceJson` TEXT NOT NULL, PRIMARY KEY(`productId`, `cardId`))",
-        "fields": [
-          {
-            "fieldPath": "productId",
-            "columnName": "productId",
-            "affinity": "TEXT",
-            "notNull": true
-          },
-          {
-            "fieldPath": "cardId",
-            "columnName": "cardId",
-            "affinity": "TEXT",
-            "notNull": true
-          },
-          {
-            "fieldPath": "title",
-            "columnName": "title",
-            "affinity": "TEXT",
-            "notNull": true
-          },
-          {
-            "fieldPath": "faceJson",
-            "columnName": "faceJson",
-            "affinity": "TEXT",
-            "notNull": true
-          }
-        ],
-        "primaryKey": {
-          "autoGenerate": false,
-          "columnNames": [
-            "productId",
-            "cardId"
-          ]
-        }
       }
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'bf3e2f53e5c79dc6296e69bcfa13d184')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '902ecca1b8c681aeb11902374340fd11')"
     ]
   }
 }

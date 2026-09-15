@@ -6,6 +6,7 @@ import io.mockk.mockk
 import io.paritytech.polkadotapp.common.domain.model.AccountId
 import io.paritytech.polkadotapp.common.domain.model.toDataByteArray
 import io.paritytech.polkadotapp.feature_coinage_api.domain.model.Coin
+import io.paritytech.polkadotapp.feature_coinage_api.domain.model.CoinProvenance
 import io.paritytech.polkadotapp.feature_coinage_api.domain.model.ValueExponent
 import io.paritytech.polkadotapp.feature_coinage_api.domain.transaction.model.CheckpointBlock
 import io.paritytech.polkadotapp.feature_coinage_api.domain.transaction.model.CoinageAssetState
@@ -15,6 +16,7 @@ import io.paritytech.polkadotapp.feature_coinage_api.domain.usecase.TrackedCoin
 import io.paritytech.polkadotapp.feature_coinage_impl.data.model.OnChainCoinInfo
 import io.paritytech.polkadotapp.feature_coinage_impl.data.transaction.CoinageStateReader
 import io.paritytech.polkadotapp.feature_coinage_impl.data.transaction.CoinageStateReaderFactory
+import io.paritytech.polkadotapp.feature_coinage_impl.testKey
 import io.paritytech.polkadotapp.feature_tokens_api.domain.ChainAssetProvider
 import io.paritytech.polkadotapp.feature_transactions.api.domain.durable.DurableTxStatus
 import io.paritytech.polkadotapp.feature_transactions.api.domain.durable.DurableTxStatus.FAILURE
@@ -171,12 +173,13 @@ class RealCoinagePaymentStatusUseCaseTest {
         atFinalized: FinalizedRead,
     ) {
         val coin = Coin(
-            derivationIndex = 0,
+            derivationIndex = testKey(0),
             valueExponent = ValueExponent(3),
             // An age is kept once the chain has been seen to hold the coin, and never cleared after.
             age = if (everSeen) Coin.Age.Known(0) else Coin.Age.Unknown,
             isOnChain = onChain,
             accountId = ACCOUNT,
+            provenance = CoinProvenance.UNKNOWN,
         )
         val tracked = TrackedCoin(
             coin = coin,

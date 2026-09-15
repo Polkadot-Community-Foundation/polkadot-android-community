@@ -132,7 +132,7 @@ val generateCoreRustSources by tasks.registering(Exec::class) {
         "--rust-output", "$truapiDir/rust/crates/truapi-server/src/generated",
         "--platform-input", "$rustdocJsonDir/truapi_platform.json",
         "--platform-rust-output", "$truapiDir/rust/crates/truapi-server/src/wasm",
-        "--codec-version", "1",
+        "--codec-version", "2",
     )
     inputs.files(
         "$rustdocJsonDir/truapi.json",

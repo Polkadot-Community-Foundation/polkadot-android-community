@@ -114,6 +114,10 @@ class DbModule {
 
     @Provides
     @Singleton
+    fun provideCoinageInstallationDao(appDatabase: AppDatabase) = appDatabase.coinageInstallationDao()
+
+    @Provides
+    @Singleton
     fun provideVideoGameVoteDao(appDatabase: AppDatabase) = appDatabase.videoGameVoteDao()
 
     @Provides

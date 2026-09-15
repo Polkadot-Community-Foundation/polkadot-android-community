@@ -96,6 +96,7 @@ dependencies {
 
     testImplementation(project(":test-shared"))
     testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.mockk)
     // :bindings:truapi-host ships JNA as an @aar, which carries only the Android
     // dispatch libraries. JVM unit tests that cross the FFI boundary need the
     // desktop jar's libjnidispatch too.

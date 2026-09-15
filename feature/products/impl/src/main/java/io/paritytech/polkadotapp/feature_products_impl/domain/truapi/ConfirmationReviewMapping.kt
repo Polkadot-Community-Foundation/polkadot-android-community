@@ -141,12 +141,13 @@ private fun RawPayload.toContent(): RawPayloadContent = when (this) {
     is RawPayload.Payload -> RawPayloadContent.Payload(payload)
 }
 
+// `watermarked` is not surfaced yet: the native raw-signing sheet shows the payload bytes as they are.
 private fun SignRawReview.toSigningRequestBody(): SigningRequestBody = when (this) {
     is SignRawReview.Product ->
-        SigningRequestBody.Raw(SigningRawPayload(v1.account.toDomain(), v1.payload.toContent()))
+        SigningRequestBody.Raw(SigningRawPayload(request.account.toDomain(), request.payload.toContent()))
     is SignRawReview.LegacyAccount ->
         SigningRequestBody.RawLegacy(
-            SigningRawLegacyPayload(v1.signer.parseLegacySigner().toDataByteArray(), v1.payload.toContent()),
+            SigningRawLegacyPayload(request.signer.parseLegacySigner().toDataByteArray(), request.payload.toContent()),
         )
 }
 

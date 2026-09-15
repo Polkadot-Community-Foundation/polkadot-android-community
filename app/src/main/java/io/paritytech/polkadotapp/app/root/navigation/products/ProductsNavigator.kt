@@ -94,6 +94,6 @@ class ProductsNavigator @Inject constructor(
 
     override fun openPocketCard(key: PocketCardKey) = performNavigation(
         actionId = R.id.action_global_to_spaSheetBottomSheet,
-        args = SpaSheetPayload.forPocketCard(key).toPayloadBundle(),
+        args = SpaSheetPayload(key.launchUrl()).toPayloadBundle(),
     )
 }
