@@ -37,6 +37,15 @@ runs:
 
     - name: 📱 Install Android SDK
       uses: android-actions/setup-android@v3
+      with:
+        # The action's default is `tools platform-tools`. Google REMOVED the obsolete
+        # `tools` package from the SDK repository, so `sdkmanager tools` fails with
+        # "Failed to find package 'tools'" and exits 1, taking the whole step with it.
+        # It only surfaces on an SDK cache MISS ("Cache service responded with 400"),
+        # because a cache hit skips the install path entirely - which is why this passed
+        # for months and then broke every lane at once. Bumping the action does NOT help:
+        # v3 HEAD and v4.0.1 both still default to the dead `tools`. Pin the live package.
+        packages: "platform-tools"
 
     - name: 📦 Install Node.js
       uses: actions/setup-node@v6
