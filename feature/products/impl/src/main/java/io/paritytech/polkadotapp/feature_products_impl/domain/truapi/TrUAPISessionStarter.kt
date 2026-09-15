@@ -4,6 +4,7 @@ import android.net.Uri
 import androidx.core.net.toUri
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
+import io.parity.truapi.ProductExecutionKind
 import io.paritytech.polkadotapp.common.utils.flatMap
 import io.paritytech.polkadotapp.common.utils.logFailure
 import io.paritytech.polkadotapp.feature_dotns_api.domain.DotNsTldProvider
@@ -65,7 +66,7 @@ class TrUAPISessionStarter @Inject constructor(
                 // bridge endpoint to any page the WebView is ever pointed at.
                 val origins = setOf(productUrl.toUri().origin())
 
-                bridge.attach(runtime, productId, chains, navigation) { bootstrap ->
+                bridge.attach(runtime, productId, chains, navigation, ProductExecutionKind.APP) { bootstrap ->
                     WebViewCompat.addDocumentStartJavaScript(webView, bootstrap, origins)
                 }
 

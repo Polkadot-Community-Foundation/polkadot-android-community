@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
@@ -23,7 +24,10 @@ import io.paritytech.polkadotapp.feature_products_api.domain.pocket.PocketCardKe
 import io.paritytech.polkadotapp.feature_products_api.model.JsTypographyStyle
 import io.paritytech.polkadotapp.feature_products_api.model.JsWidget
 import io.paritytech.polkadotapp.feature_products_api.model.ProductId
+import io.paritytech.polkadotapp.feature_products_api.presentation.widget.JsImageResolver
+import io.paritytech.polkadotapp.feature_products_api.presentation.widget.JsUiEventHandler
 import io.paritytech.polkadotapp.feature_products_api.presentation.widget.JsWidgetRenderer
+import io.paritytech.polkadotapp.feature_products_api.presentation.widget.LocalJsImageResolver
 import io.paritytech.polkadotapp.feature_wallet_impl.R
 import io.paritytech.polkadotapp.feature_wallet_impl.presentation.pocket.PocketTestTags
 import io.paritytech.polkadotapp.feature_wallet_impl.presentation.pocket.compose.components.CardSizes
@@ -42,6 +46,8 @@ fun ProductPocketCard(
     modifier: Modifier = Modifier,
     card: PocketCardUiModel.ProductCard,
     face: Flow<JsWidget>,
+    onFaceAction: JsUiEventHandler,
+    imageResolver: JsImageResolver,
     onOpen: (PocketCardUiModel.ProductCard) -> Unit,
     onRemoveRequested: (PocketCardUiModel.ProductCard) -> Unit,
 ) {
@@ -71,11 +77,13 @@ fun ProductPocketCard(
             )
 
             currentFace?.let { widget ->
-                JsWidgetRenderer(
-                    widget = widget,
-                    modifier = Modifier.matchParentSize(),
-                    jsEventHandler = { _, _ -> },
-                )
+                CompositionLocalProvider(LocalJsImageResolver provides imageResolver) {
+                    JsWidgetRenderer(
+                        widget = widget,
+                        modifier = Modifier.matchParentSize(),
+                        jsEventHandler = onFaceAction,
+                    )
+                }
             }
         }
     }
@@ -92,6 +100,8 @@ private fun ProductPocketCardPreview() {
                 pinned = false
             ),
             face = flowOf(JsWidget.Text(text = "Loyalty", style = JsTypographyStyle.HEADLINE_LARGE)),
+            onFaceAction = { _, _ -> },
+            imageResolver = JsImageResolver { null },
             onOpen = {},
             onRemoveRequested = {}
         )

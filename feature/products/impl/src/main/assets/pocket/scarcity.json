@@ -2,7 +2,7 @@
   "tag": "Column",
   "value": {
     "modifiers": [
-      { "tag": "FillWidth", "value": { "enabled": true } },
+      { "tag": "FillWidth", "value": true },
       { "tag": "Padding", "value": { "top": 16, "end": 16 } }
     ],
     "props": { "verticalArrangement": "SpaceBetween" },

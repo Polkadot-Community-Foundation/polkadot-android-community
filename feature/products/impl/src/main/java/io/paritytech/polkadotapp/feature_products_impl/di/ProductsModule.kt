@@ -119,6 +119,10 @@ import io.paritytech.polkadotapp.feature_products_impl.domain.webView.ProductSer
 import io.paritytech.polkadotapp.feature_products_impl.domain.pocket.AssetPinnedPocketCards
 import io.paritytech.polkadotapp.feature_products_impl.domain.pocket.PinnedPocketCards
 import io.paritytech.polkadotapp.feature_products_impl.domain.pocket.PocketCardStore
+import io.paritytech.polkadotapp.feature_products_impl.domain.pocket.PocketFaceStreams
+import io.paritytech.polkadotapp.feature_products_impl.domain.pocket.PocketImageResolver
+import io.paritytech.polkadotapp.feature_products_impl.domain.pocket.RealPocketImageResolver
+import io.paritytech.polkadotapp.feature_products_impl.domain.truapi.worker.TrUAPIPocketFaceStreams
 import io.paritytech.polkadotapp.feature_products_impl.domain.pocket.RealPocketCollection
 import io.paritytech.polkadotapp.feature_products_impl.domain.pocket.RealPocketFaceSource
 import io.paritytech.polkadotapp.feature_products_impl.presentation.deeplink.PocketDeepLinkHandler
@@ -182,6 +186,12 @@ internal interface ProductsModule {
 
     @Binds
     fun bindPocketFaceSource(impl: RealPocketFaceSource): PocketFaceSource
+
+    @Binds
+    fun bindPocketFaceStreams(impl: TrUAPIPocketFaceStreams): PocketFaceStreams
+
+    @Binds
+    fun bindPocketImageResolver(impl: RealPocketImageResolver): PocketImageResolver
 
     @Binds
     @Singleton

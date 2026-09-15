@@ -103,7 +103,8 @@ class ProductTrUAPIHostBridge @AssistedInject constructor(
         onLog = { Timber.tag("truapi.chain").d("%s", it) },
     )
 
-    private var execution: TrUAPIProductExecution? = null
+    var execution: TrUAPIProductExecution? = null
+        private set
 
     init {
         // Tear the execution down with the owning scope: otherwise a closed
@@ -232,6 +233,7 @@ class ProductTrUAPIHostBridge @AssistedInject constructor(
         productId: ProductId,
         chains: TrUAPIChains,
         navigationPolicy: NavigationPolicy,
+        kind: ProductExecutionKind,
         onReadyToInject: (bootstrap: String) -> Unit,
     ) {
         if (execution != null) {
@@ -242,7 +244,7 @@ class ProductTrUAPIHostBridge @AssistedInject constructor(
         val pocketBridge = ProductPocketHostBridge(productId, pocketCardStore, scope)
         val opened = runtime.openProductExecution(
             bridge = buildBridge(productId, navigationPolicy),
-            configuration = ProductExecutionConfig(productId.value, ProductExecutionKind.APP),
+            configuration = ProductExecutionConfig(productId.value, kind),
             pocket = pocketBridge,
         )
         execution = opened

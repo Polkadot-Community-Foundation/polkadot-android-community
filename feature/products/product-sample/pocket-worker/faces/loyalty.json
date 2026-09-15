@@ -12,7 +12,7 @@
         "value": {
           "modifiers": [],
           "props": { "style": "TitleMediumRegular", "color": "FgPrimary" },
-          "children": [ { "tag": "String", "value": { "text": "Balance" } } ]
+          "children": [ { "tag": "String", "value": { "text": "Loyalty" } } ]
         }
       },
       {
@@ -20,7 +20,7 @@
         "value": {
           "modifiers": [],
           "props": { "style": "BodyMediumRegular", "color": "FgSecondary" },
-          "children": [ { "tag": "String", "value": { "text": "Digital dollar balance" } } ]
+          "children": [ { "tag": "String", "value": { "text": "Collect stamps with every visit" } } ]
         }
       }
     ]

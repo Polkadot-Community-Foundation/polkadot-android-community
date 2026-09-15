@@ -18,6 +18,8 @@ import io.paritytech.polkadotapp.feature_products_api.domain.pocket.PocketCard
 import io.paritytech.polkadotapp.feature_products_api.domain.pocket.PocketCardKey
 import io.paritytech.polkadotapp.feature_products_api.domain.pocket.PocketCollection
 import io.paritytech.polkadotapp.feature_products_api.domain.pocket.PocketFaceSource
+import android.net.Uri
+import io.paritytech.polkadotapp.feature_products_api.model.JsImageSource
 import io.paritytech.polkadotapp.feature_products_api.model.JsWidget
 import io.paritytech.polkadotapp.feature_tokens_api.di.DigitalDollarChainAssetProvider
 import io.paritytech.polkadotapp.feature_tokens_api.domain.ChainAssetProvider
@@ -85,6 +87,12 @@ class PocketInteractor @Inject constructor(
     fun observeFace(key: PocketCardKey): Flow<JsWidget> = pocketFaceSource.observeFace(key)
 
     suspend fun removeProductCard(key: PocketCardKey): Result<Unit> = pocketCollection.removeCard(key)
+
+    fun sendFaceAction(key: PocketCardKey, actionId: String, payload: ByteArray) =
+        pocketFaceSource.sendAction(key, actionId, payload)
+
+    suspend fun resolveFaceImage(key: PocketCardKey, source: JsImageSource): Result<Uri> =
+        pocketFaceSource.resolveImage(key, source)
 
     context(scope: ComputationalScope)
     fun observeRank(): Flow<PocketRank> = if (FeatureOption.PERSONHOOD.isEnabled) {

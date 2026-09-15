@@ -6,6 +6,7 @@ import io.parity.truapi.HostRuntimeConfig
 import io.parity.truapi.HostStorage
 import io.parity.truapi.TrUAPIHostRuntime
 import io.parity.truapi.WebSocketChainProvider
+import dagger.Lazy
 import io.paritytech.polkadotapp.chains.multiNetwork.ChainRegistry
 import io.paritytech.polkadotapp.chains.multiNetwork.KnownChains
 import io.paritytech.polkadotapp.common.data.app.AppLifecycleState
@@ -16,7 +17,10 @@ import io.paritytech.polkadotapp.common.utils.logFailure
 import io.paritytech.polkadotapp.feature_account_api.data.repository.AccountRepository
 import io.paritytech.polkadotapp.feature_dotns_api.domain.DotNsTldProvider
 import io.paritytech.polkadotapp.feature_dotns_api.domain.getTldRetrying
+import io.paritytech.polkadotapp.feature_products_api.model.ProductId
 import io.paritytech.polkadotapp.feature_products_impl.di.TrUAPIChainHttpClient
+import io.paritytech.polkadotapp.feature_products_impl.domain.truapi.worker.TrUAPIWorkerSupervisor
+import io.paritytech.polkadotapp.feature_products_impl.domain.truapi.worker.WorkerDemand
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.SupervisorJob
@@ -42,6 +46,7 @@ import uniffi.truapi_platform.HostChainSet
 import uniffi.truapi_platform.UserConfirmationReview
 import uniffi.truapi_server.HostNavigateRejection
 import uniffi.truapi_server.HostStorageException
+import uniffi.truapi_server.WorkerTransition
 import java.util.concurrent.atomic.AtomicReference
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -63,6 +68,8 @@ class TrUAPIHostRuntimeProvider @Inject constructor(
     private val confirmationLauncher: TrUAPIConfirmationLauncher,
     private val appLifecycleObserver: AppLifecycleObserver,
     private val dotNsTldProvider: DotNsTldProvider,
+    // Lazy: the supervisor boots workers on this runtime, and reports back through this bridge.
+    private val workerSupervisor: Lazy<TrUAPIWorkerSupervisor>,
     dispatchers: CoroutineDispatchers,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + dispatchers.computation)
@@ -176,6 +183,15 @@ class TrUAPIHostRuntimeProvider @Inject constructor(
 
         override fun onCoreLog(marker: String, detail: String) {
             Timber.tag("truapi.core").d("%s: %s", marker, detail)
+        }
+
+        // Runtime-wide demand from the core's worker ledger; the supervisor marshals it off this thread.
+        override fun workerDemandChanged(productId: String, transition: WorkerTransition) {
+            val demand = when (transition) {
+                WorkerTransition.START -> WorkerDemand.START
+                WorkerTransition.STOP -> WorkerDemand.STOP
+            }
+            workerSupervisor.get().onDemandChanged(ProductId.fromStoredValue(productId), demand)
         }
 
         override suspend fun navigateTo(url: String) {

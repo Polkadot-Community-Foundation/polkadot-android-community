@@ -1,89 +1,77 @@
 package io.paritytech.polkadotapp.feature_products_impl.domain.pocket
 
+import android.net.Uri
+import io.paritytech.polkadotapp.feature_products_api.domain.pocket.PocketCardKey
+import io.paritytech.polkadotapp.feature_products_api.model.JsImageSource
 import io.paritytech.polkadotapp.feature_products_api.model.JsWidget
 import io.paritytech.polkadotapp.feature_products_api.model.ProductId
-import io.paritytech.polkadotapp.feature_products_impl.domain.worker.ProductWorker
-import io.paritytech.polkadotapp.feature_products_impl.domain.worker.ProductWorkerRefCounter
-import io.paritytech.polkadotapp.feature_products_impl.domain.worker.ProductWorkerReference
-import io.paritytech.polkadotapp.feature_products_impl.domain.worker.WorkerModalityApi
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Test
-import java.util.concurrent.atomic.AtomicBoolean
 
 class RealPocketFaceSourceTest {
-    private class FakeRefCounter : ProductWorkerRefCounter {
-        val acquired = mutableListOf<String>()
-        var released = 0
+    private class FakeStreams : PocketFaceStreams {
+        val faces = MutableSharedFlow<JsWidget>()
+        var collectors = 0
+        val actions = mutableListOf<Triple<PocketCardKey, String, String>>()
 
-        override suspend fun acquire(productId: ProductId, label: String): ProductWorkerReference {
-            acquired += "$productId|$label"
-            return object : ProductWorkerReference {
-                private val done = AtomicBoolean(false)
-                override suspend fun worker(): ProductWorker = error("unused")
-                override suspend fun enableModalityApi(api: WorkerModalityApi) = error("unused")
-                override fun release() {
-                    if (done.compareAndSet(false, true)) released++
-                }
-            }
+        override fun renderFaces(key: PocketCardKey): Flow<JsWidget> = faces.onStart { collectors++ }
+
+        override fun sendAction(key: PocketCardKey, actionId: String, payload: ByteArray) {
+            actions += Triple(key, actionId, payload.decodeToString())
         }
     }
 
+    private class NoImages : PocketImageResolver {
+        override suspend fun resolve(productId: ProductId, source: JsImageSource): Result<Uri> =
+            Result.failure(IllegalStateException("unused"))
+    }
+
     private val loyalty = addedCard(gameProduct, "loyalty")
-    private val repository = InMemoryPocketCardRepository()
-    private val store = RealPocketCollection(FakePinnedPocketCards(emptyList()), repository)
-    private val refCounter = FakeRefCounter()
-    private val source = RealPocketFaceSource(store, refCounter)
+    private val store = RealPocketCollection(FakePinnedPocketCards(emptyList()), InMemoryPocketCardRepository())
+    private val streams = FakeStreams()
+    private val source = RealPocketFaceSource(store, streams, NoImages())
 
     @Test
-    fun `a collected face holds exactly one reference labelled for the card and releases it when it leaves`() = runTest {
+    fun `shows the cached face first, then every live face, and remembers the newest`() = runTest {
         store.addCard(loyalty)
-        val faces = mutableListOf<JsWidget>()
+        val shown = mutableListOf<JsWidget>()
 
-        val onScreen = source.observeFace(loyalty.card.key).onEach { faces += it }.launchIn(this)
+        val onScreen = source.observeFace(loyalty.card.key).onEach { shown += it }.launchIn(this)
+        advanceUntilIdle()
+        streams.faces.emit(faceOf("live 1"))
+        streams.faces.emit(faceOf("live 2"))
         advanceUntilIdle()
 
-        assertEquals(listOf(loyalty.face), faces)
-        assertEquals(listOf("$gameProduct|pocket:loyalty"), refCounter.acquired)
-        assertEquals(0, refCounter.released)
-
+        assertEquals(listOf(loyalty.face, faceOf("live 1"), faceOf("live 2")), shown)
+        assertEquals("the live stream is opened once per face on screen", 1, streams.collectors)
+        assertEquals(faceOf("live 2"), store.cachedFace(loyalty.card.key))
         onScreen.cancel()
-        advanceUntilIdle()
-
-        assertEquals(1, refCounter.released)
     }
 
     @Test
-    fun `two faces of one product hold two references, so the worker outlives either alone`() = runTest {
-        store.addCard(loyalty)
-        store.addCard(addedCard(gameProduct, "receipt"))
+    fun `a card with no cached face still opens the live stream`() = runTest {
+        val shown = mutableListOf<JsWidget>()
 
-        val first = source.observeFace(loyalty.card.key).launchIn(this)
-        val second = source.observeFace(cardKey(gameProduct, "receipt")).launchIn(this)
+        val onScreen = source.observeFace(cardKey(gameProduct, "unknown")).onEach { shown += it }.launchIn(this)
         advanceUntilIdle()
-        first.cancel()
+        streams.faces.emit(faceOf("first"))
         advanceUntilIdle()
 
-        assertEquals(2, refCounter.acquired.size)
-        assertEquals(1, refCounter.released)
-
-        second.cancel()
-        advanceUntilIdle()
-        assertEquals(2, refCounter.released)
+        assertEquals(listOf(faceOf("first")), shown)
+        onScreen.cancel()
     }
 
     @Test
-    fun `a card with no cached face still keeps its worker while on screen`() = runTest {
-        val onScreen = source.observeFace(cardKey(gameProduct, "unknown")).launchIn(this)
-        advanceUntilIdle()
+    fun `actions go to the product with the card's key`() {
+        source.sendAction(loyalty.card.key, "stamp", "value".toByteArray())
 
-        assertEquals(1, refCounter.acquired.size)
-
-        onScreen.cancel()
-        advanceUntilIdle()
-        assertEquals(1, refCounter.released)
+        assertEquals(listOf(Triple(loyalty.card.key, "stamp", "value")), streams.actions)
     }
 }

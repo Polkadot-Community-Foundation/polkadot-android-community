@@ -13,6 +13,9 @@ import io.paritytech.polkadotapp.common.utils.stateInBackground
 import io.paritytech.polkadotapp.common.utils.withLoading
 import io.paritytech.polkadotapp.feature_coinage_api.domain.model.BackupProgress
 import io.paritytech.polkadotapp.feature_products_api.domain.pocket.PocketCard
+import android.net.Uri
+import io.paritytech.polkadotapp.feature_products_api.model.JsImageSource
+import io.paritytech.polkadotapp.feature_products_api.model.JsUiEvent
 import io.paritytech.polkadotapp.feature_products_api.model.JsWidget
 import io.paritytech.polkadotapp.feature_tokens_api.presentation.formatter.TokenAmountFormatter
 import io.paritytech.polkadotapp.feature_tokens_api.presentation.formatter.formatFiat
@@ -177,6 +180,20 @@ class PocketViewModel @Inject constructor(
     fun openProductCard(card: PocketCardUiModel.ProductCard) {
         router.openSpaSheet(card.key.launchUrl())
     }
+
+    /** A press or edit inside a face goes back to the product; a text edit carries the new value as UTF-8. */
+    fun onFaceAction(card: PocketCardUiModel.ProductCard, actionId: String, type: JsUiEvent.Type) {
+        val payload = when (type) {
+            JsUiEvent.Type.ButtonClick -> ByteArray(0)
+            is JsUiEvent.Type.InputFieldValueChange -> type.newValue.toByteArray()
+        }
+        interactor.sendFaceAction(card.key, actionId, payload)
+    }
+
+    suspend fun resolveFaceImage(card: PocketCardUiModel.ProductCard, source: JsImageSource): Uri? =
+        interactor.resolveFaceImage(card.key, source)
+            .logFailure("PocketViewModel: face image unavailable for ${card.id}")
+            .getOrNull()
 
     fun requestRemoval(card: PocketCardUiModel.ProductCard) {
         if (!card.pinned) removalCandidateId.value = card.id

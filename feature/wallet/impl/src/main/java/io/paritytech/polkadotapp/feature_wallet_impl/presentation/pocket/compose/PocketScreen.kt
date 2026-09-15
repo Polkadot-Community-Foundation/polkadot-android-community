@@ -39,6 +39,8 @@ import io.paritytech.polkadotapp.feature_tokens_api.presentation.formatter.Token
 import io.paritytech.polkadotapp.feature_products_api.domain.pocket.PocketCardId
 import io.paritytech.polkadotapp.feature_products_api.domain.pocket.PocketCardKey
 import io.paritytech.polkadotapp.feature_products_api.model.JsWidget
+import io.paritytech.polkadotapp.feature_products_api.presentation.widget.JsImageResolver
+import io.paritytech.polkadotapp.feature_products_api.presentation.widget.JsUiEventHandler
 import io.paritytech.polkadotapp.feature_products_api.model.ProductId
 import io.paritytech.polkadotapp.feature_tokens_api.presentation.model.TokenAmountModel
 import io.paritytech.polkadotapp.feature_wallet_impl.domain.model.PocketRank
@@ -73,6 +75,8 @@ fun PocketScreen() {
         screenState = screenState,
         cards = cards,
         faceOf = viewModel::faceOf,
+        faceActionsOf = { card -> { actionId, type -> viewModel.onFaceAction(card, actionId, type) } },
+        faceImagesOf = { card -> JsImageResolver { source -> viewModel.resolveFaceImage(card, source) } },
         onCardSelected = viewModel::selectCard,
         onCardDismissed = viewModel::dismissCard,
         onShareId = viewModel::onShareId,
@@ -91,6 +95,8 @@ private fun PocketScreenInternal(
     screenState: PocketScreenState,
     cards: ImmutableList<PocketCardUiModel>,
     faceOf: (PocketCardUiModel.ProductCard) -> Flow<JsWidget>,
+    faceActionsOf: (PocketCardUiModel.ProductCard) -> JsUiEventHandler,
+    faceImagesOf: (PocketCardUiModel.ProductCard) -> JsImageResolver,
     onCardSelected: (PocketCardUiModel) -> Unit,
     onCardDismissed: () -> Unit,
     onShareId: () -> Unit,
@@ -125,6 +131,8 @@ private fun PocketScreenInternal(
                                     listState = listState,
                                     collectiblesAvailable = current.collectiblesAvailable,
                                     faceOf = faceOf,
+                                    faceActionsOf = faceActionsOf,
+                                    faceImagesOf = faceImagesOf,
                                     onCardSelected = onCardSelected,
                                     onCollectiblesSelected = onSketchbookSelected,
                                     onProductCardOpened = onProductCardOpened,
@@ -215,6 +223,8 @@ private fun PocketList(
     listState: LazyListState,
     collectiblesAvailable: Boolean,
     faceOf: (PocketCardUiModel.ProductCard) -> Flow<JsWidget>,
+    faceActionsOf: (PocketCardUiModel.ProductCard) -> JsUiEventHandler,
+    faceImagesOf: (PocketCardUiModel.ProductCard) -> JsImageResolver,
     onCardSelected: (PocketCardUiModel) -> Unit,
     onCollectiblesSelected: () -> Unit,
     onProductCardOpened: (PocketCardUiModel.ProductCard) -> Unit,
@@ -276,6 +286,8 @@ private fun PocketList(
                                 modifier = cardModifier,
                                 card = card,
                                 face = remember(card.id) { faceOf(card) },
+                                onFaceAction = remember(card.id) { faceActionsOf(card) },
+                                imageResolver = remember(card.id) { faceImagesOf(card) },
                                 onOpen = onProductCardOpened,
                                 onRemoveRequested = onProductCardRemovalRequested
                             )
@@ -341,6 +353,8 @@ private fun PocketScreenPreview() {
                     )
                 ),
                 faceOf = { flowOf(JsWidget.Text(text = it.title)) },
+                faceActionsOf = { { _, _ -> } },
+                faceImagesOf = { JsImageResolver { null } },
                 onCardSelected = {},
                 onCardDismissed = {},
                 onShareId = {},

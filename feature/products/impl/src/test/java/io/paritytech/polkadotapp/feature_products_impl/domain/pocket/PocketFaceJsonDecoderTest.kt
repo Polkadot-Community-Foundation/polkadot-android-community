@@ -2,17 +2,22 @@ package io.paritytech.polkadotapp.feature_products_impl.domain.pocket
 
 import io.paritytech.polkadotapp.feature_products_api.model.JsAlignment
 import io.paritytech.polkadotapp.feature_products_api.model.JsArrangement
+import io.paritytech.polkadotapp.feature_products_api.model.JsBlendingMode
 import io.paritytech.polkadotapp.feature_products_api.model.JsColor
+import io.paritytech.polkadotapp.feature_products_api.model.JsEffect
+import io.paritytech.polkadotapp.feature_products_api.model.JsImageFit
+import io.paritytech.polkadotapp.feature_products_api.model.JsImageSource
 import io.paritytech.polkadotapp.feature_products_api.model.JsModifier
 import io.paritytech.polkadotapp.feature_products_api.model.JsShape
 import io.paritytech.polkadotapp.feature_products_api.model.JsTypographyStyle
 import io.paritytech.polkadotapp.feature_products_api.model.JsWidget
+import io.paritytech.polkadotapp.feature_products_impl.domain.truapi.renderer.RendererNodeJsonDecoder
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class PocketFaceJsonDecoderTest {
-    private val decoder = PocketFaceJsonDecoder()
+    private val decoder = PocketFaceJsonDecoder(RendererNodeJsonDecoder())
 
     @Test
     fun `decodes the generated TypeScript shape into the shared widget vocabulary`() {
@@ -20,17 +25,18 @@ class PocketFaceJsonDecoderTest {
             """
             {"tag":"Column","value":{
               "modifiers":[
-                {"tag":"FillWidth","value":{"enabled":true}},
+                {"tag":"FillWidth","value":true},
                 {"tag":"Padding","value":{"top":16,"end":8}},
-                {"tag":"Background","value":{"color":"BgSurfaceContainer","shape":{"tag":"Rounded","value":{"radius":12}}}},
-                {"tag":"Height","value":{"height":200}}
+                {"tag":"Background","value":{"color":"BgSurfaceContainer","shape":{"tag":"Rounded","value":12}}},
+                {"tag":"Height","value":200}
               ],
               "props":{"verticalArrangement":"SpaceBetween"},
               "children":[
                 {"tag":"Text","value":{"modifiers":[],"props":{"style":"HeadlineLarge","color":"FgPrimary"},
                   "children":[{"tag":"String","value":{"text":"Loyalty"}}]}},
                 {"tag":"Box","value":{"modifiers":[],"props":{"contentAlignment":"CenterEnd"},"children":[{"tag":"Nil"}]}},
-                {"tag":"Button","value":{"modifiers":[],"props":{"text":"Open","variant":"Text","clickAction":"open"},"children":[]}}
+                {"tag":"Button","value":{"modifiers":[],"props":{"text":"Open","variant":"Text","clickAction":"open"},"children":[]}},
+                {"tag":"Spacer","value":{"modifiers":[{"tag":"Opacity","value":128}]}}
               ]
             }}
             """.trimIndent()
@@ -59,6 +65,43 @@ class PocketFaceJsonDecoderTest {
 
         val button = column.children[2] as JsWidget.Button
         assertEquals("open", button.onClick)
+
+        val spacer = column.children[3] as JsWidget.Spacer
+        assertEquals(listOf(JsModifier.Opacity(128)), spacer.modifiers)
+    }
+
+    @Test
+    fun `decodes the nodes the unified renderer added`() {
+        val face = decoder.decode(
+            """
+            {"tag":"Effect","value":{"props":{"effect":"Rainbow"},"children":[
+              {"tag":"Image","value":{
+                "modifiers":[{"tag":"Width","value":40},{"tag":"BlendingMode","value":"Multiply"},
+                             {"tag":"Border","value":{"width":1,"color":"FgTertiary","shape":{"tag":"Square"}}}],
+                "props":{"source":{"tag":"Archive","value":"images/stamp.png"},"fit":"Cover"}}},
+              {"tag":"Image","value":{"modifiers":[],"props":{"source":{"tag":"Bulletin","value":"bafy"}}}}
+            ]}}
+            """.trimIndent()
+        ).getOrThrow()
+
+        val effect = face as JsWidget.Effect
+        assertEquals(JsEffect.RAINBOW, effect.effect)
+
+        val stamp = effect.children[0] as JsWidget.Image
+        assertEquals(JsImageSource.Archive("images/stamp.png"), stamp.source)
+        assertEquals(JsImageFit.COVER, stamp.fit)
+        assertEquals(
+            listOf(
+                JsModifier.BlendingMode(JsBlendingMode.MULTIPLY),
+                JsModifier.Border(1, JsColor.FG_TERTIARY, JsShape.Square),
+                JsModifier.Size(width = 40, height = null, minWidth = null, minHeight = null),
+            ),
+            stamp.modifiers,
+        )
+
+        val remote = effect.children[1] as JsWidget.Image
+        assertEquals(JsImageSource.Bulletin("bafy"), remote.source)
+        assertEquals("fit defaults to Fill", JsImageFit.FILL, remote.fit)
     }
 
     @Test
@@ -83,8 +126,8 @@ class PocketFaceJsonDecoderTest {
 
     @Test
     fun `unknown nodes, modifiers and enum names are rejected rather than drawn as something else`() {
-        assertTrue(decoder.decode("""{"tag":"Image","value":{}}""").isFailure)
-        assertTrue(decoder.decode("""{"tag":"Spacer","value":{"modifiers":[{"tag":"Opacity","value":{}}]}}""").isFailure)
+        assertTrue(decoder.decode("""{"tag":"Video","value":{}}""").isFailure)
+        assertTrue(decoder.decode("""{"tag":"Spacer","value":{"modifiers":[{"tag":"Rotate","value":90}]}}""").isFailure)
         assertTrue(decoder.decode("""{"tag":"Text","value":{"props":{"color":"Purple"},"children":[]}}""").isFailure)
         assertTrue(decoder.decode("not json").isFailure)
     }

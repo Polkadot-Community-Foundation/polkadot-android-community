@@ -12,11 +12,19 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.toRect
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Paint
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.unit.dp
 import io.paritytech.polkadotapp.design.theme.PolkadotTheme
+import io.paritytech.polkadotapp.feature_products_api.model.JsBlendingMode
 import io.paritytech.polkadotapp.feature_products_api.model.JsColor
 import io.paritytech.polkadotapp.feature_products_api.model.JsModifier
 import io.paritytech.polkadotapp.feature_products_api.model.JsShape
@@ -35,6 +43,8 @@ fun List<JsModifier>.toComposeModifier(): Modifier {
             is JsModifier.Size -> 5
             is JsModifier.FillMaxWidth -> 6
             is JsModifier.FillMaxHeight -> 7
+            is JsModifier.Opacity -> 8
+            is JsModifier.BlendingMode -> 9
         }
     })
 
@@ -53,6 +63,38 @@ fun JsModifier.toComposeModifier(): Modifier = when (this) {
     is JsModifier.FillMaxWidth -> Modifier.fillMaxWidth(fraction)
     is JsModifier.FillMaxHeight -> Modifier.fillMaxHeight(fraction)
     is JsModifier.Clip -> Modifier.clip(shape.toComposeShape())
+    is JsModifier.Opacity -> Modifier.alpha(alpha / OPAQUE)
+    is JsModifier.BlendingMode -> Modifier.blendedWith(mode.toComposeBlendMode())
+}
+
+private const val OPAQUE = 255f
+
+// Compose has no blend-mode modifier; the node is drawn into its own layer composited with the mode.
+private fun Modifier.blendedWith(blendMode: BlendMode): Modifier = drawWithContent {
+    drawIntoCanvas { canvas ->
+        canvas.saveLayer(size.toRect(), Paint().apply { this.blendMode = blendMode })
+        drawContent()
+        canvas.restore()
+    }
+}
+
+private fun JsBlendingMode.toComposeBlendMode(): BlendMode = when (this) {
+    JsBlendingMode.NORMAL -> BlendMode.SrcOver
+    JsBlendingMode.MULTIPLY -> BlendMode.Multiply
+    JsBlendingMode.SCREEN -> BlendMode.Screen
+    JsBlendingMode.OVERLAY -> BlendMode.Overlay
+    JsBlendingMode.DARKEN -> BlendMode.Darken
+    JsBlendingMode.LIGHTEN -> BlendMode.Lighten
+    JsBlendingMode.COLOR_DODGE -> BlendMode.ColorDodge
+    JsBlendingMode.COLOR_BURN -> BlendMode.ColorBurn
+    JsBlendingMode.HARD_LIGHT -> BlendMode.Hardlight
+    JsBlendingMode.SOFT_LIGHT -> BlendMode.Softlight
+    JsBlendingMode.DIFFERENCE -> BlendMode.Difference
+    JsBlendingMode.EXCLUSION -> BlendMode.Exclusion
+    JsBlendingMode.HUE -> BlendMode.Hue
+    JsBlendingMode.SATURATION -> BlendMode.Saturation
+    JsBlendingMode.COLOR -> BlendMode.Color
+    JsBlendingMode.LUMINOSITY -> BlendMode.Luminosity
 }
 
 @Composable
@@ -128,6 +170,7 @@ private fun JsModifier.Size.toSizeModifier(): Modifier {
 @Composable
 fun JsShape.toComposeShape(): Shape = when (this) {
     is JsShape.Circle -> PolkadotTheme.shapes.full
+    is JsShape.Square -> RectangleShape
     is JsShape.Rounded -> {
         if (topStart != null || topEnd != null || bottomStart != null || bottomEnd != null) {
             RoundedCornerShape(
