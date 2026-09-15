@@ -5,16 +5,15 @@
  * Uses the product SDK directly for messaging and action handling.
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Column, Row, Spacer, Text, Button, TextField, registerChatMessageRenderer } from '@novasamatech/product-react-renderer';
 import { createClient, type PolkadotSigner, type TxEvent } from 'polkadot-api';
 import { pop, assetHub, MultiAddress, XcmV5Junctions, XcmV5Junction } from '@polkadot-api/descriptors';
-import { createAccountsProvider, createPapiProvider, createProductChatManager, createStatementStore, deriveEntropy, hostApi, notificationManager, paymentManager, preimageManager, requestDevicePermission, ringVrfKeyHandle, type ProofContext, type RegisteredRingVrfKey, type RingVrfKeyDisclosure, type RingVrfKeyHandle, type SignedStatement, type TopUpSource } from '@novasamatech/host-api-wrapper';
-import { enumValue, RingLocation } from '@novasamatech/host-api';
+import { createAccountsProvider, createPapiProvider, createProductChatManager, createStatementStore, deriveEntropy, hostApi, notificationManager, paymentManager, preimageManager, requestDevicePermission, ringVrfKeyHandle, type ProofContext, type RegisteredRingVrfKey, type RingVrfKeyDisclosure, type RingVrfKeyHandle, type PaymentStatus, type SignedStatement, type TopUpStatus } from '@novasamatech/host-api-wrapper';
+import { enumValue, fromHex, RingLocation } from '@novasamatech/host-api';
 import type { CodecType } from 'scale-ts';
-import { fromBufferToBase58 } from '@polkadot-api/substrate-bindings';
+import { fromBufferToBase58, getSs58AddressInfo } from '@polkadot-api/substrate-bindings';
 import { Keyring } from '@polkadot/keyring';
-import { randomAsU8a } from '@polkadot/util-crypto';
 
 // ============================================================================
 // Message Data Types
@@ -79,7 +78,8 @@ interface PaymentRequestData {
 
 interface PaymentTrackingData {
     type: 'paymentTracking';
-    paymentId: string;
+    /** Hex of the 32-byte payment id, so the message survives as plain JSON. */
+    paymentIdHex: string;
 }
 
 interface PaymentTopUpData {
@@ -114,8 +114,8 @@ type MessageData = CounterData | BalanceData | TransferData | SignRawData | Ring
 
 const HOST_PLAYGROUND_URL = 'https://host-playground.dot';
 
-const POP_GENESIS_HASH = '0xc5af1826b31493f08b7e2a823842f98575b806a784126f28da9608c68665afa5';
-const ASSET_HUB_GENESIS_HASH = '0xbf0488dbe9daa1de1c08c5f743e26fdc2a4ecd74cf87dd1b4b1eeb99ae4ef19f';
+const POP_GENESIS_HASH = '0x4a2b5b737de1da59e209b0000a876ec2fa20035dc34fd292a848da32d255ad48';
+const ASSET_HUB_GENESIS_HASH = '0x4349b00e54897e21196fd331015fc5be0f14e118beb0375ed2bb1793737bb57a';
 const ROOM_ID = 'default';
 
 // Shared 32-byte topic so the statement subscription only matches statements this demo submits.
@@ -377,7 +377,7 @@ chat.onCustomMessageRenderingRequest(
                 case 'paymentTopUp':
                     return <PaymentTopUpCard />;
                 case 'paymentTracking':
-                    return <PaymentTrackingCard paymentId={data.paymentId} />;
+                    return <PaymentTrackingCard paymentIdHex={data.paymentIdHex} />;
                 case 'rfcAllowance':
                     return <RfcAllowanceCard />;
                 case 'statementSubscribe':
@@ -406,7 +406,7 @@ function CounterCard({ initialCount }: { initialCount: number }) {
     const [accountName, setAccountName] = useState<string | undefined>();
 
     useEffect(() => {
-        Promise.resolve(accountsProvider.getProductAccount('product-sample.dot', 0)).then(result => {
+        Promise.resolve(accountsProvider.getProductAccount(OWN_PRODUCT_ID, 0)).then(result => {
             if (result.isOk()) {
                 const publicKey = toHex(result.value.publicKey);
                 setAccountName(publicKey);
@@ -640,9 +640,15 @@ function toHex(bytes: Uint8Array): `0x${string}` {
     return `0x${Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('')}`;
 }
 
+/**
+ * The product's own dotNS id. Must match the id it is registered under, because the host derives a product
+ * account from `//{productId}//{index}` — a mismatch silently hands out an account nothing else uses.
+ */
+const OWN_PRODUCT_ID = 'productsample.js.paseo';
+
 // RFC-0004 amended by RFC-0022: context = (productId, suffix), where the suffix is the same
 // selector an account carries — a plain index here. The ring addresses a Members-pallet ring on the PoP chain.
-const PROOF_CONTEXT: ProofContext = ['product-sample.dot', 0];
+const PROOF_CONTEXT: ProofContext = [OWN_PRODUCT_ID, 0];
 const MEMBERS_PALLET_INDEX = 67;
 
 // RingCollectionId is a 32-byte, space-padded identifier (matches RingCollectionId.Companion.PEOPLE / PEOPLE_LITE).
@@ -667,7 +673,8 @@ const LITE_PEOPLE_RING = peopleRing(ringCollectionId('pop:polkadot.network/peopl
 
 type RingKind = 'full' | 'lite';
 
-const OWN_PRODUCT_ID = 'product-sample.dot';
+/** The product account a top up draws on — the one "Copy product account id" hands out to fund. */
+const TOP_UP_ACCOUNT_INDEX = 0;
 const PERSONHOOD_PRODUCT_ID = 'peopl.dot';
 
 function ringOf(kind: RingKind): CodecType<typeof RingLocation> {
@@ -906,7 +913,7 @@ function SignVrfCard() {
 
         // RFC-0023: the host never injects `signer` — the product fetches its own public key and
         // puts it into the transcript itself.
-        Promise.resolve(accountsProvider.getProductAccount('product-sample.dot', 0)).then(accountResult => {
+        Promise.resolve(accountsProvider.getProductAccount(OWN_PRODUCT_ID, 0)).then(accountResult => {
             if (!accountResult.isOk()) {
                 setError(`accountGet error: ${JSON.stringify(accountResult.error)}`);
                 setLoading(false);
@@ -921,7 +928,7 @@ function SignVrfCard() {
                 { label: new TextEncoder().encode('signer'), value: publicKey },
             ];
 
-            return Promise.resolve(accountsProvider.signVrf('product-sample.dot', 0, AIRDROP_TRANSCRIPT_LABEL, items)).then(result => {
+            return Promise.resolve(accountsProvider.signVrf(OWN_PRODUCT_ID, 0, AIRDROP_TRANSCRIPT_LABEL, items)).then(result => {
                 if (result.isOk()) {
                     setPreOutput(toHex(result.value.preOutput));
                     setProof(toHex(result.value.proof));
@@ -1091,12 +1098,12 @@ function CreateRoomFormCard() {
 }
 
 async function resolveProductAccountWithSigner(): Promise<{ address: string; signer: PolkadotSigner }> {
-    const accountResult = await accountsProvider.getProductAccount('product-sample.dot', 0);
+    const accountResult = await accountsProvider.getProductAccount(OWN_PRODUCT_ID, 0);
     if (!accountResult.isOk()) throw new Error('Failed to get account');
 
     const account = {
         ...accountResult.value,
-        dotNsIdentifier: 'product-sample.dot',
+        dotNsIdentifier: OWN_PRODUCT_ID,
         derivationIndex: 0,
     };
     const ss58Prefix = chainProperties?.ss58Prefix ?? 42;
@@ -1114,7 +1121,7 @@ function getAliceAddress(): string {
 }
 
 async function resolveAddress(): Promise<string> {
-    const accountResult = await accountsProvider.getProductAccount('product-sample.dot', 0);
+    const accountResult = await accountsProvider.getProductAccount(OWN_PRODUCT_ID, 0);
     if (!accountResult.isOk()) throw new Error('Failed to get account');
 
     const ss58Prefix = chainProperties?.ss58Prefix ?? 42;
@@ -1649,42 +1656,97 @@ function decimalToPlanks(decimal: string, precision: number): bigint {
 }
 
 function PaymentRequestCard() {
+    const [idText, setIdText] = useState('payment-1');
     const [amountText, setAmountText] = useState('0.1');
+    const [destinationText, setDestinationText] = useState('');
     const [status, setStatus] = useState<string>('Ready');
-    const [requesting, setRequesting] = useState(false);
+    const [busy, setBusy] = useState(false);
+    const watchRef = useRef<{ unsubscribe: () => void } | null>(null);
+
+    useEffect(() => () => watchRef.current?.unsubscribe(), []);
+
+    const parsedId = (): Uint8Array | null => {
+        try {
+            return paymentIdFromLabel(idText);
+        } catch (e) {
+            setStatus(describeError(e));
+            return null;
+        }
+    };
+
+    const handleUseOwnAccount = () => {
+        if (busy) return;
+        setBusy(true);
+        setStatus('Resolving product account…');
+
+        Promise.resolve(accountsProvider.getProductAccount(OWN_PRODUCT_ID, TOP_UP_ACCOUNT_INDEX)).then(result => {
+            if (result.isErr()) {
+                setStatus(`Could not resolve the product account: ${describeError(result.error)}`);
+                return;
+            }
+
+            setDestinationText(fromBufferToBase58(chainProperties?.ss58Prefix ?? 42)(result.value.publicKey));
+            setStatus('Destination set to the product account');
+        }).catch((e: unknown) => {
+            setStatus(`Could not resolve the product account: ${describeError(e)}`);
+        }).finally(() => setBusy(false));
+    };
 
     const handleRequest = () => {
-        if (requesting) return;
+        if (busy) return;
 
-        const precision = assetMetadata?.decimals;
-        if (precision == null) {
+        const id = parsedId();
+        if (!id) return;
+
+        const destination = getSs58AddressInfo(destinationText.trim());
+        if (!destination.isValid) {
+            setStatus('Destination must be a valid SS58 address');
+            return;
+        }
+
+        const decimals = assetMetadata?.decimals;
+        if (decimals == null) {
             setStatus('Asset metadata not loaded yet');
             return;
         }
 
         let planks: bigint;
         try {
-            planks = decimalToPlanks(amountText, precision);
+            planks = decimalToPlanks(amountText, decimals);
         } catch (e) {
-            setStatus(e instanceof Error ? e.message : String(e));
+            setStatus(describeError(e));
             return;
         }
 
-        setRequesting(true);
-        setStatus('Awaiting user approval...');
+        setBusy(true);
+        setStatus('Awaiting user approval…');
 
-        accountsProvider.getProductAccount('product-sample.dot', 0).then(async (result) => {
-            if (!result.isOk()) throw new Error(`Failed to get product account: ${JSON.stringify(result.error)}`);
-            const destination = result.value.publicKey;
+        // Resolves once the host has registered the payment, not once the funds arrive.
+        paymentManager.requestPayment(planks, destination.publicKey, id)
+            .then(() => {
+                sendCustomMessage<PaymentTrackingData>({ type: 'paymentTracking', paymentIdHex: toHex(id) });
+                setStatus('Registered ✅ — tracking message posted');
+            })
+            .catch((e: unknown) => setStatus(`Payment request failed: ${describeError(e)}`))
+            .finally(() => setBusy(false));
+    };
 
-            return paymentManager.requestPayment(planks, destination);
-        }).then(({ id }) => {
-            sendCustomMessage<PaymentTrackingData>({ type: 'paymentTracking', paymentId: id });
-            setStatus(`Submitted (id=${id.slice(0, 8)}…) — tracking message posted`);
-        }).catch((e: unknown) => {
-            const msg = e instanceof Error ? e.message : String(e);
-            setStatus(`Error: ${msg}`);
-        }).finally(() => setRequesting(false));
+    const handleWatchStatus = () => {
+        const id = parsedId();
+        if (!id) return;
+
+        watchRef.current?.unsubscribe();
+        setStatus('Subscribing…');
+
+        const decimals = assetMetadata?.decimals ?? 0;
+        const symbol = assetMetadata?.symbol ?? '';
+
+        const subscription = paymentManager.subscribePaymentStatus(id, (s) => {
+            setStatus(describePaymentStatus(s, symbol, decimals));
+        });
+        subscription.onInterrupt((e: unknown) => setStatus(`Status unavailable: ${describeError(e)}`));
+
+        watchRef.current = subscription;
     };
 
     return (
@@ -1696,19 +1758,44 @@ function PaymentRequestCard() {
             <Text style="body.small.regular" color="fg.secondary">Payment Request (host)</Text>
             <Spacer height={12} />
             <TextField
+                placeholder="Payment id"
+                value={idText}
+                onValueChange={setIdText}
+            />
+            <Spacer height={8} />
+            <TextField
                 placeholder="Amount"
                 value={amountText}
                 onValueChange={setAmountText}
             />
             <Spacer height={8} />
-            <Text style="body.large.regular" color="fg.primary">{status}</Text>
+            <TextField
+                placeholder="Destination (SS58)"
+                value={destinationText}
+                onValueChange={setDestinationText}
+            />
             <Spacer height={16} />
             <Button
-                text="Request to product account"
+                text="Use own product account"
+                variant="secondary"
+                loading={busy}
+                onClick={handleUseOwnAccount}
+            />
+            <Spacer height={8} />
+            <Button
+                text="Request payment"
                 variant="primary"
-                loading={requesting}
+                loading={busy}
                 onClick={handleRequest}
             />
+            <Spacer height={8} />
+            <Button
+                text="Watch status"
+                variant="secondary"
+                onClick={handleWatchStatus}
+            />
+            <Spacer height={12} />
+            <Text style="body.large.regular" color="fg.primary">{status}</Text>
         </Column>
     );
 }
@@ -1717,46 +1804,159 @@ function PaymentRequestCard() {
 // Payment Top Up Card (RFC-0006 host_payment_top_up)
 // ============================================================================
 
-// Produces a 64-byte sr25519 secret key whose first 32 bytes form a canonical scalar
-// (< 2^252 < ℓ), so the host always accepts it as valid — only the masking matters for a fake key.
-function fakeSr25519SecretKey(): Uint8Array {
-    const sk = randomAsU8a(64);
-    sk[31] &= 0x0f;
-    return sk;
+/** The host takes a 32-byte opaque id. A short label is padded so a human can type one and reuse it. */
+function paymentIdFromLabel(label: string): Uint8Array {
+    const bytes = new TextEncoder().encode(label.trim());
+    if (bytes.length === 0) throw new Error('Id must not be empty');
+    if (bytes.length > 32) throw new Error(`Id must be at most 32 bytes, got ${bytes.length}`);
+
+    const id = new Uint8Array(32);
+    id.set(bytes);
+    return id;
+}
+
+/** Host errors arrive as codec enums (`{ tag }`), not `Error`s. */
+function describeError(e: unknown): string {
+    if (e && typeof e === 'object' && 'tag' in e) {
+        const tag = (e as { tag: string }).tag;
+        const reason = (e as { value?: { reason?: string } }).value?.reason;
+        return reason ? `${tag}: ${reason}` : tag;
+    }
+    return e instanceof Error ? e.message : String(e);
+}
+
+function describeTopUpStatus(status: TopUpStatus, symbol: string, decimals: number): string {
+    switch (status.type) {
+        case 'detecting':
+            return 'Detecting — waiting for the amount to appear at the source';
+        case 'claiming':
+            return 'Claiming — in progress';
+        case 'claimed':
+            return status.finalized ? 'Claimed ✅ (finalized)' : 'Claimed — awaiting finality';
+        case 'claimedPartially':
+            return `Claimed partially ⚠️ — ${planksToDecimal(status.actualClaimed, decimals)} ${symbol}`;
+        case 'notClaimed':
+            return 'Not claimed ❌ — the host never saw a balance at the source';
+    }
+}
+
+function describePaymentStatus(status: PaymentStatus, symbol: string, decimals: number): string {
+    switch (status.type) {
+        case 'processing':
+            return 'Processing on chain';
+        case 'completed':
+            return 'Completed ✅';
+        case 'failed':
+            return `Failed ❌ — ${status.reason}`;
+        case 'partiallyClaimed':
+            return `Partially claimed ⚠️ — ${planksToDecimal(status.actualClaimed, decimals)} ${symbol}`;
+    }
+}
+
+function planksToDecimal(planks: bigint, decimals: number): string {
+    const base = 10n ** BigInt(decimals);
+    const whole = planks / base;
+    const fraction = (planks % base).toString().padStart(decimals, '0').replace(/0+$/, '');
+    return fraction ? `${whole}.${fraction}` : `${whole}`;
 }
 
 function PaymentTopUpCard() {
+    const [idText, setIdText] = useState('topup-1');
     const [amountText, setAmountText] = useState('0.1');
     const [status, setStatus] = useState<string>('Ready');
-    const [sending, setSending] = useState(false);
+    const [busy, setBusy] = useState(false);
+    const watchRef = useRef<{ unsubscribe: () => void } | null>(null);
 
-    const handleSend = (source: TopUpSource) => {
-        if (sending) return;
+    // Only one watch at a time, and none once the card is gone: a subscription left open keeps reporting
+    // into a card nobody is looking at.
+    useEffect(() => () => watchRef.current?.unsubscribe(), []);
 
-        const precision = assetMetadata?.decimals;
-        if (precision == null) {
+    const parsedId = (): Uint8Array | null => {
+        try {
+            return paymentIdFromLabel(idText);
+        } catch (e) {
+            setStatus(describeError(e));
+            return null;
+        }
+    };
+
+    const handleCopyAccountId = () => {
+        if (busy) return;
+        setBusy(true);
+        setStatus('Resolving product account…');
+
+        Promise.resolve(accountsProvider.getProductAccount(OWN_PRODUCT_ID, TOP_UP_ACCOUNT_INDEX)).then(result => {
+            if (result.isErr()) {
+                setStatus(`Could not resolve the product account: ${describeError(result.error)}`);
+                return;
+            }
+
+            const address = fromBufferToBase58(chainProperties?.ss58Prefix ?? 42)(result.value.publicKey);
+
+            // The renderer draws native widgets, so there is no document to copy from and no guarantee the
+            // sandbox exposes a clipboard. The address is shown either way — that is what it is needed for.
+            const clipboard = (globalThis as { navigator?: { clipboard?: { writeText(text: string): Promise<void> } } })
+                .navigator?.clipboard;
+
+            if (clipboard) {
+                clipboard.writeText(address)
+                    .then(() => setStatus(`Copied ✅ ${address}`))
+                    .catch(() => setStatus(`Fund this account: ${address}`));
+            } else {
+                setStatus(`Fund this account: ${address}`);
+            }
+        }).catch((e: unknown) => {
+            setStatus(`Could not resolve the product account: ${describeError(e)}`);
+        }).finally(() => setBusy(false));
+    };
+
+    const handleStartTopUp = () => {
+        if (busy) return;
+
+        const id = parsedId();
+        if (!id) return;
+
+        const decimals = assetMetadata?.decimals;
+        if (decimals == null) {
             setStatus('Asset metadata not loaded yet');
             return;
         }
 
         let planks: bigint;
-
         try {
-            planks = decimalToPlanks(amountText, precision);
+            planks = decimalToPlanks(amountText, decimals);
         } catch (e) {
-            setStatus(e instanceof Error ? e.message : String(e));
+            setStatus(describeError(e));
             return;
         }
 
-        setSending(true);
-        setStatus('Awaiting user to claim…');
+        setBusy(true);
+        setStatus('Registering top up…');
 
-        paymentManager.topUp(planks, source).then(() => {
-            setStatus('Claimed and onboarded ✅');
-        }).catch((e: unknown) => {
-            const msg = e instanceof Error ? e.message : String(e);
-            setStatus(`Error: ${msg}`);
-        }).finally(() => setSending(false));
+        // Returns once the operation is registered, not once it is done — the outcome is what "Watch status"
+        // is for. The host drives it to completion on its own, across restarts included.
+        paymentManager.topUp(planks, { type: 'productAccount', derivationIndex: TOP_UP_ACCOUNT_INDEX }, id)
+            .then(() => setStatus('Registered ✅ — use "Watch status" to follow it'))
+            .catch((e: unknown) => setStatus(`Top up rejected: ${describeError(e)}`))
+            .finally(() => setBusy(false));
+    };
+
+    const handleWatchStatus = () => {
+        const id = parsedId();
+        if (!id) return;
+
+        watchRef.current?.unsubscribe();
+        setStatus('Subscribing…');
+
+        const decimals = assetMetadata?.decimals ?? 0;
+        const symbol = assetMetadata?.symbol ?? '';
+
+        const subscription = paymentManager.subscribeTopUpStatus(id, (s) => {
+            setStatus(describeTopUpStatus(s, symbol, decimals));
+        });
+        subscription.onInterrupt((e: unknown) => setStatus(`Status unavailable: ${describeError(e)}`));
+
+        watchRef.current = subscription;
     };
 
     return (
@@ -1768,26 +1968,38 @@ function PaymentTopUpCard() {
             <Text style="body.small.regular" color="fg.secondary">Payment Top Up (host)</Text>
             <Spacer height={12} />
             <TextField
+                placeholder="Top up id"
+                value={idText}
+                onValueChange={setIdText}
+            />
+            <Spacer height={8} />
+            <TextField
                 placeholder="Amount"
                 value={amountText}
                 onValueChange={setAmountText}
             />
-            <Spacer height={8} />
-            <Text style="body.large.regular" color="fg.primary">{status}</Text>
             <Spacer height={16} />
             <Button
-                text="Claim from product account"
-                variant="primary"
-                loading={sending}
-                onClick={() => handleSend({ type: 'productAccount', derivationIndex: 0 })}
+                text="Copy product account id"
+                variant="secondary"
+                loading={busy}
+                onClick={handleCopyAccountId}
             />
             <Spacer height={8} />
             <Button
-                text="Claim a fake coin"
-                variant="secondary"
-                loading={sending}
-                onClick={() => handleSend({ type: 'coins', keys: [fakeSr25519SecretKey()] })}
+                text="Start top up"
+                variant="primary"
+                loading={busy}
+                onClick={handleStartTopUp}
             />
+            <Spacer height={8} />
+            <Button
+                text="Watch status"
+                variant="secondary"
+                onClick={handleWatchStatus}
+            />
+            <Spacer height={12} />
+            <Text style="body.large.regular" color="fg.primary">{status}</Text>
         </Column>
     );
 }
@@ -1796,19 +2008,20 @@ function PaymentTopUpCard() {
 // Payment Tracking Card — one instance per initiated payment
 // ============================================================================
 
-function PaymentTrackingCard({ paymentId }: { paymentId: string }) {
+function PaymentTrackingCard({ paymentIdHex }: { paymentIdHex: string }) {
     const [status, setStatus] = useState<string>('Subscribing...');
 
     useEffect(() => {
-        const subscription = paymentManager.subscribePaymentStatus(paymentId, (s) => {
-            if (s.type === 'processing') setStatus('Processing on chain');
-            else if (s.type === 'completed') setStatus('Completed ✅');
-            else setStatus(`Failed: ${s.reason}`);
+        const decimals = assetMetadata?.decimals ?? 0;
+        const symbol = assetMetadata?.symbol ?? '';
+
+        const subscription = paymentManager.subscribePaymentStatus(fromHex(paymentIdHex), (s) => {
+            setStatus(describePaymentStatus(s, symbol, decimals));
         });
-        subscription.onInterrupt(() => setStatus('Status subscription interrupted'));
+        subscription.onInterrupt((e: unknown) => setStatus(`Status unavailable: ${describeError(e)}`));
 
         return () => { subscription.unsubscribe(); };
-    }, [paymentId]);
+    }, [paymentIdHex]);
 
     return (
         <Column
@@ -1818,7 +2031,7 @@ function PaymentTrackingCard({ paymentId }: { paymentId: string }) {
         >
             <Text style="body.small.regular" color="fg.secondary">Payment</Text>
             <Spacer height={4} />
-            <Text style="body.small.regular" color="fg.tertiary">{`id=${paymentId.slice(0, 12)}…`}</Text>
+            <Text style="body.small.regular" color="fg.tertiary">{`id=${paymentIdHex.slice(0, 14)}…`}</Text>
             <Spacer height={12} />
             <Text style="body.large.regular" color="fg.primary">{status}</Text>
         </Column>

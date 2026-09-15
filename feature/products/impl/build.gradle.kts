@@ -1,4 +1,5 @@
 plugins {
+    id("jacoco")
     id("polkadotapp.android.library")
     id("polkadotapp.android.compose")
     id("polkadotapp.android.hilt")
@@ -92,9 +93,35 @@ dependencies {
 
     testImplementation(project(":test-shared"))
     testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.mockk)
 
     androidTestImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.google.gson)
+}
+
+// Instrument only when the coverage report is actually being built, so an ordinary test run is unaffected.
+tasks.withType<Test>().configureEach {
+    extensions.configure<JacocoTaskExtension> {
+        isEnabled = gradle.startParameter.taskNames.any { "topUpCoverage" in it }
+    }
+}
+
+tasks.register<JacocoReport>("topUpCoverage") {
+    dependsOn("testDebugUnitTest")
+
+    executionData.setFrom(fileTree(layout.buildDirectory).matching { include("**/testDebugUnitTest.exec") })
+    sourceDirectories.setFrom(files("src/main/java"))
+    classDirectories.setFrom(
+        fileTree(layout.buildDirectory.dir("tmp/kotlin-classes/debug")).matching {
+            include("**/topUpRequest/**", "**/storage/TopUpSourceStorage*", "**/repository/TopUpRepository*")
+            exclude("**/di/**", "**/*_Factory*", "**/*_HiltModules*", "**/hilt_aggregated_deps/**", "**/*Module*")
+        }
+    )
+
+    reports {
+        xml.required.set(true)
+        html.required.set(true)
+    }
 }
