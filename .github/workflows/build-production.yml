@@ -165,8 +165,9 @@ jobs:
             echo "::error::GOOGLE_SERVICES_JSON_PROD_BASE64 did not decode to valid JSON."
             exit 1
           fi
+          # any(): the file lists one client per package, and `jq -e` would otherwise judge only the last.
           if ! jq -e --arg pkg "$PRODUCTION_APPLICATION_ID" \
-               '.client[]?.client_info.android_client_info.package_name == $pkg' "$FILE" >/dev/null; then
+               'any(.client[]?; .client_info.android_client_info.package_name == $pkg)' "$FILE" >/dev/null; then
             echo "::error::The decoded google-services.json has no client entry for $PRODUCTION_APPLICATION_ID. \
           Found: $(jq -r '[.client[]?.client_info.android_client_info.package_name] | join(", ")' "$FILE"). \
           The production build must use the production Firebase app, not the dev one."
