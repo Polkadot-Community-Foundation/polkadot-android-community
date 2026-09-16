@@ -4,8 +4,10 @@ name: Build (Production)
 #
 # This lane exists so a production-configured build can be produced on demand, in parallel with
 # the devnet lane (`release-dev.yml`), without any possibility of reaching a user. There is no
-# Firebase App Distribution, no R2 upload, no GitHub Release and no Play upload anywhere in this
-# file — the only outputs are GitHub Actions artifacts, which require repo access to download.
+# Firebase App Distribution, no R2 upload, no GitHub Release, no Play upload and no GitHub Actions
+# artifact anywhere in this file. This repository is public, and its Actions artifacts can be
+# downloaded by any signed-in GitHub user, so every output goes to a private Cloud Storage bucket
+# instead (see "Private output" below).
 #
 # ── Why `workflow_dispatch` only ────────────────────────────────────────────────────────────
 # No `push`, no `tags`, no `schedule`, no `pull_request`. Nothing here can fire by accident;
@@ -34,13 +36,22 @@ name: Build (Production)
 # ── Lane isolation from the devnet build ────────────────────────────────────────────────────
 #   concurrency group  `build-production-<ref>`  — release-dev.yml sets NO concurrency at all, so
 #                      the two can never cancel each other.
-#   artifact names     `app-polkadot-production-*` vs devnet's `app-polkadot-devnet*`.
+#   outputs            a private bucket (`vars.BUILD_BUCKET`, prefix `android/`) vs devnet's
+#                      `app-polkadot-devnet*` Actions artifacts.
 #   application id     `io.pcf.polkadotapp` (pinned in app/build.gradle.kts via androidComponents)
 #                      vs devnet's `io.pcf.polkadotapp.dev` — installable side by side.
 #   variables          read from the `production` environment. GitHub resolves vars/secrets as
 #                      environment → repository → organisation, so this job sees production values
 #                      while every devnet job keeps seeing the repo-level ones. NOTHING production
 #                      is ever set at repository level.
+#
+# ── Private output ──────────────────────────────────────────────────────────────────────────
+#   Both jobs sign in to Google Cloud without keys (GitHub OIDC -> Workload Identity Federation),
+#   using `GCP_WORKLOAD_IDENTITY_PROVIDER` and `GCP_SERVICE_ACCOUNT` from their environment. The
+#   identity is only issued to this repository's production environments, and it can only create
+#   and read objects under `android/` in `BUILD_BUCKET`: it cannot list, overwrite or delete.
+#   `build` uploads to `android/<run>/unsigned/` and passes the exact object names to `sign`,
+#   which reads them and uploads to `android/<run>/signed/`.
 
 on:
   workflow_dispatch:
@@ -74,7 +85,28 @@ jobs:
     runs-on: ubuntu-latest
     # Ungated: production CONFIGURATION only. No key material is readable from this job.
     environment: production
+    permissions:
+      contents: read
+      id-token: write
+    outputs:
+      apk: ${{ steps.upload.outputs.apk }}
+      aab: ${{ steps.upload.outputs.aab }}
     steps:
+      - name: Require the private output configuration
+        env:
+          BUILD_BUCKET: ${{ vars.BUILD_BUCKET }}
+          GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          GCP_SERVICE_ACCOUNT: ${{ vars.GCP_SERVICE_ACCOUNT }}
+        run: |
+          missing=0
+          for name in BUILD_BUCKET GCP_WORKLOAD_IDENTITY_PROVIDER GCP_SERVICE_ACCOUNT; do
+            if [ -z "${!name}" ]; then
+              echo "::error::$name is not set in the production environment; refusing to build without a private output"
+              missing=1
+            fi
+          done
+          exit "$missing"
+
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.inputs.ref || github.ref }}
@@ -196,21 +228,43 @@ jobs:
             { echo '- ✅ UNSIGNED (as designed; the build job holds no keystore)'; } >> "$GITHUB_STEP_SUMMARY"
           fi
 
-      - name: Upload unsigned production artifacts
-        uses: actions/upload-artifact@v4
+      - uses: google-github-actions/auth@v3
         with:
-          name: app-polkadot-production-unsigned
-          path: |
-            app/build/outputs/apk/gp/release/*.apk
-            app/build/outputs/bundle/gpRelease/*.aab
-          if-no-files-found: error
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@v3
+
+      - name: Upload the unsigned build to the private bucket
+        id: upload
+        env:
+          BUILD_BUCKET: ${{ vars.BUILD_BUCKET }}
+        run: |
+          set -euo pipefail
+          APK=$(find app/build/outputs/apk/gp/release -name '*.apk' | head -1)
+          AAB=$(find app/build/outputs/bundle/gpRelease -name '*.aab' | head -1)
+          [ -n "$APK" ] || { echo "::error::no gpRelease APK produced"; exit 1; }
+          [ -n "$AAB" ] || { echo "::error::no gpRelease AAB produced"; exit 1; }
+          PREFIX="android/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}/unsigned"
+          for f in "$APK" "$AAB"; do
+            gcloud storage cp --if-generation-match=0 "$f" "gs://${BUILD_BUCKET}/${PREFIX}/$(basename "$f")"
+          done
+          echo "apk=${PREFIX}/$(basename "$APK")" >> "$GITHUB_OUTPUT"
+          echo "aab=${PREFIX}/$(basename "$AAB")" >> "$GITHUB_OUTPUT"
+          {
+            echo "### Unsigned build stored privately"
+            echo '```'
+            echo "gs://${BUILD_BUCKET}/${PREFIX}/$(basename "$APK")"
+            echo "gs://${BUILD_BUCKET}/${PREFIX}/$(basename "$AAB")"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: State plainly that nothing was published
         run: |
           {
             echo "### Nothing was published"
-            echo "This lane uploads GitHub Actions artifacts only — no Play upload, no Firebase App"
-            echo "Distribution, no R2 copy, no GitHub Release. Artifacts require repo access to download."
+            echo "The build exists only in a private bucket readable by PCF operators. No GitHub Actions"
+            echo "artifact, no Play upload, no Firebase App Distribution, no R2 copy, no GitHub Release."
             echo ""
             echo "- application id: \`$PRODUCTION_APPLICATION_ID\` (devnet lane builds \`io.pcf.polkadotapp.dev\`)"
             echo "- signing input: \`${{ github.event.inputs.signing || 'none' }}\`"
@@ -254,6 +308,9 @@ jobs:
     if: ${{ github.event.inputs.signing == 'production' }}
     runs-on: ubuntu-latest
     environment: production-distribution
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - name: Set up JDK 21
         uses: actions/setup-java@v4
@@ -264,11 +321,24 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Download the unsigned artifacts
-        uses: actions/download-artifact@v4
+      - uses: google-github-actions/auth@v3
         with:
-          name: app-polkadot-production-unsigned
-          path: unsigned
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@v3
+
+      - name: Download the unsigned build from the private bucket
+        env:
+          BUILD_BUCKET: ${{ vars.BUILD_BUCKET }}
+          APK_OBJECT: ${{ needs.build.outputs.apk }}
+          AAB_OBJECT: ${{ needs.build.outputs.aab }}
+        run: |
+          set -euo pipefail
+          [ -n "$BUILD_BUCKET" ] || { echo "::error::BUILD_BUCKET is not set in the production-distribution environment"; exit 1; }
+          mkdir -p unsigned
+          gcloud storage cp "gs://${BUILD_BUCKET}/${APK_OBJECT}" unsigned/
+          gcloud storage cp "gs://${BUILD_BUCKET}/${AAB_OBJECT}" unsigned/
 
       - name: Require the production key material
         env:
@@ -362,19 +432,26 @@ jobs:
           Verify the fingerprint above against PCF's key inventory by hand."
           fi
 
-      - name: Upload signed production artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: app-polkadot-production-signed
-          path: |
-            unsigned/**/*.apk
-            unsigned/**/*.aab
-          if-no-files-found: error
+      - name: Upload the signed build to the private bucket
+        env:
+          BUILD_BUCKET: ${{ vars.BUILD_BUCKET }}
+        run: |
+          set -euo pipefail
+          PREFIX="android/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}/signed"
+          {
+            echo "### Signed build stored privately"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          for f in unsigned/*.apk unsigned/*.aab; do
+            gcloud storage cp --if-generation-match=0 "$f" "gs://${BUILD_BUCKET}/${PREFIX}/$(basename "$f")"
+            echo "gs://${BUILD_BUCKET}/${PREFIX}/$(basename "$f")" >> "$GITHUB_STEP_SUMMARY"
+          done
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
 
       - name: State plainly that nothing was published
         run: |
           {
             echo "### Nothing was published"
-            echo "A signed artifact exists only as a GitHub Actions artifact. No Play upload, no"
-            echo "Firebase App Distribution, no R2 copy, no GitHub Release."
+            echo "The signed build exists only in a private bucket readable by PCF operators. No GitHub"
+            echo "Actions artifact, no Play upload, no Firebase App Distribution, no R2 copy, no GitHub Release."
           } >> "$GITHUB_STEP_SUMMARY"
