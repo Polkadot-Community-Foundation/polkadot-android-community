@@ -42,6 +42,7 @@
     <string name="login_restoring_account_progress">Restoring your account</string>
 
     <string name="dim_switch_to_dim1_placeholder">You\’re joining Peers through the Unique Tattoo. Press \“Edit\” to switch to the Weekly Game option.</string>
+    <string name="weekly_game_no_scheduled_games">No games are scheduled right now. The next one will appear here as soon as it\’s announced.</string>
     <string name="dim_switch_to_dim1_sheet_title">Switch to the Unique Peer Tattoo Option?</string>
     <string name="dim_switch_to_dim1_sheet_description">Once you switch, you will need to add a new deposit.\nThe existing deposit will be returned to the original transfer address.</string>
 
@@ -1124,7 +1125,7 @@ I’m attaching PDF with more information and details regarding the Tattoo Stenc
     <string name="chat_peer_faq_i_have_other_questions_answer">Feel free to explore the chat options or reach out to our support team for any additional questions you may have about becoming a Polkadot Peer.</string>
 
     <string name="chat_bot_prizes_intro_message_1">Win cash prizes by playing a free, fun and quick game.</string>
-    <string name="chat_bot_prizes_intro_message_2">During the Web3 Summit, you jump into a two minute game with five other people. The game is easy, copy gestures from other players and make your own.</string>
+    <string name="chat_bot_prizes_intro_message_2">You jump into a two minute game with five other people. The game is easy, copy gestures from other players and make your own.</string>
     <string name="chat_bot_prizes_intro_message_3">Why gestures? Bots can’t copy them live. Playing proves you’re a real person.</string>
     <string name="chat_bot_prizes_intro_message_4">How to play in two simple steps:\n1. Copy the gesture</string>
     <string name="chat_bot_prizes_intro_message_5">2. Tap other players who also copy the gesture</string>

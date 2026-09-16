@@ -129,10 +129,13 @@ internal class WeeklyGameBotFooterViewModel @Inject constructor(
                 isMember = isMember,
                 isAirdropRegistrationReady = isAirdropRegistrationReady,
             ),
-            upgradeUsernameUiState = readyToUpgradeUsername.toBotUi()
+            upgradeUsernameUiState = readyToUpgradeUsername.toBotUi(),
+            // Reaching this lambda means the schedule flow has emitted, so a null
+            // upcomingGameStart here means "nothing scheduled" rather than "not known yet".
+            isScheduleKnown = true
         )
     }
-        .stateInBackground(SharingStarted.Eagerly, FooterUiState(null, null))
+        .stateInBackground(SharingStarted.Eagerly, FooterUiState(null, null, isScheduleKnown = false))
 
     override val footerState = interactor.subscribeFooterState()
         .stateInBackground(SharingStarted.Eagerly, WeeklyGameFooterState.Loading)
