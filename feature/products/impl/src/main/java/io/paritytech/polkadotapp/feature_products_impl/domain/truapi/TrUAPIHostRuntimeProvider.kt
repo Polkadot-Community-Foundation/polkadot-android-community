@@ -14,6 +14,8 @@ import io.paritytech.polkadotapp.common.presentation.AppLifecycleObserver
 import io.paritytech.polkadotapp.common.utils.CoroutineDispatchers
 import io.paritytech.polkadotapp.common.utils.logFailure
 import io.paritytech.polkadotapp.feature_account_api.data.repository.AccountRepository
+import io.paritytech.polkadotapp.feature_dotns_api.domain.DotNsTldProvider
+import io.paritytech.polkadotapp.feature_dotns_api.domain.getTldRetrying
 import io.paritytech.polkadotapp.feature_products_impl.di.TrUAPIChainHttpClient
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
@@ -56,6 +58,7 @@ class TrUAPIHostRuntimeProvider @Inject constructor(
     private val chainDirectory: TrUAPIChainDirectory,
     private val localSessionSource: TrUAPILocalSessionSource,
     private val accountRepository: AccountRepository,
+    private val dotNsTldProvider: DotNsTldProvider,
     private val encryptedPreferences: EncryptedPreferences,
     @param:TrUAPIChainHttpClient private val chainHttpClient: OkHttpClient,
     private val confirmationLauncher: TrUAPIConfirmationLauncher,
@@ -121,11 +124,16 @@ class TrUAPIHostRuntimeProvider @Inject constructor(
             .logFailure("TrUAPI local session unavailable; booting the host runtime without one")
             .getOrNull()
 
+        // The core derives the wallet's reserved identities under this TLD, so it has
+        // to be the one the app's own built-in accounts derive from. Retrying rather
+        // than guessing: a wrong suffix mints key material that belongs to no network.
+        val networkSuffix = dotNsTldProvider.getTldRetrying().value
+
         return HostRuntimeConfig(
             hostName = HOST_NAME,
             peopleChainGenesisHash = peopleGenesis,
             bulletinChainGenesisHash = bulletinGenesis,
-            networkSuffix = knownChains.networkSuffix,
+            networkSuffix = networkSuffix,
             localSessionSecret = localSession?.secret,
             localSessionLiteUsername = localSession?.liteUsername,
         )

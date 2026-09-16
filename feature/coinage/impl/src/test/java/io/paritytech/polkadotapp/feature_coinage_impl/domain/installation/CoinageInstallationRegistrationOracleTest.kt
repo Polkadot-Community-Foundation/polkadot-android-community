@@ -31,7 +31,7 @@ class CoinageInstallationRegistrationOracleTest {
     private val repository = mockk<AccountDataStoreRepository>()
 
     private val oracle = CoinageInstallationRegistrationOracle(
-        knownChains = KnownChains(people = "people", assetHub = "asset-hub", bulletIn = "bullet-in", hydration = null, networkSuffix = "paseo"),
+        knownChains = KnownChains(people = "people", assetHub = "asset-hub", bulletIn = "bullet-in", hydration = null),
         dataStoreRepository = repository,
     )
 

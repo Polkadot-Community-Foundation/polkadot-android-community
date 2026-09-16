@@ -264,7 +264,7 @@ class CoinageInstallationRegistrarTest {
             durableTransactionService = engine,
             submitter = submitter,
             chainConnectionRefCounter = mockk<ChainConnectionRefCounter>(relaxed = true),
-            knownChains = KnownChains(people = "people", assetHub = "asset-hub", bulletIn = "bullet-in", hydration = null, networkSuffix = "paseo"),
+            knownChains = KnownChains(people = "people", assetHub = "asset-hub", bulletIn = "bullet-in", hydration = null),
             dispatchers = testDispatchers(),
         )
 
