@@ -1,5 +1,6 @@
 package io.paritytech.polkadotapp.feature_wallet_impl.presentation.pocket
 
+import android.net.Uri
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.paritytech.polkadotapp.common.presentation.loading.dataOrNull
 import io.paritytech.polkadotapp.common.presentation.screens.BaseViewModel
@@ -13,10 +14,10 @@ import io.paritytech.polkadotapp.common.utils.stateInBackground
 import io.paritytech.polkadotapp.common.utils.withLoading
 import io.paritytech.polkadotapp.feature_coinage_api.domain.model.BackupProgress
 import io.paritytech.polkadotapp.feature_products_api.domain.pocket.PocketCard
-import android.net.Uri
 import io.paritytech.polkadotapp.feature_products_api.model.JsImageSource
 import io.paritytech.polkadotapp.feature_products_api.model.JsUiEvent
 import io.paritytech.polkadotapp.feature_products_api.model.JsWidget
+import io.paritytech.polkadotapp.feature_products_api.presentation.spaHost.SpaHost
 import io.paritytech.polkadotapp.feature_tokens_api.presentation.formatter.TokenAmountFormatter
 import io.paritytech.polkadotapp.feature_tokens_api.presentation.formatter.formatFiat
 import io.paritytech.polkadotapp.feature_tokens_api.presentation.mapper.TokenAmountMapper
@@ -26,6 +27,8 @@ import io.paritytech.polkadotapp.feature_wallet_impl.PocketRouter
 import io.paritytech.polkadotapp.feature_wallet_impl.domain.interactor.PocketInteractor
 import io.paritytech.polkadotapp.feature_wallet_impl.presentation.pocket.models.PocketCardUiModel
 import io.paritytech.polkadotapp.feature_wallet_impl.presentation.pocket.models.PocketScreenState
+import java.util.concurrent.ConcurrentHashMap
+import javax.inject.Inject
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.flow.Flow
@@ -36,8 +39,8 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChangedBy
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.stateIn
-import javax.inject.Inject
 
 @HiltViewModel
 class PocketViewModel @Inject constructor(
@@ -47,9 +50,11 @@ class PocketViewModel @Inject constructor(
     private val router: PocketRouter,
     private val collectiblesUrlResolver: CollectiblesUrlResolver,
     private val idShareImageRenderer: IdShareImageRenderer,
-    private val sharingManager: SharingManager
+    private val sharingManager: SharingManager,
+    spaHost: SpaHost
 ) : BaseViewModel() {
     private val selectedCardId = MutableStateFlow<String?>(null)
+    private val expandedProduct = ExpandedProductPage(this) { scope, url -> with(scope) { spaHost.createSession(url) } }
     private val collectiblesShown = MutableStateFlow(false)
     private val removalCandidateId = MutableStateFlow<String?>(null)
 
@@ -128,8 +133,16 @@ class PocketViewModel @Inject constructor(
             initialValue = PocketScreenState.List(collectiblesAvailable = false, removalCandidate = null)
         )
 
-    /** One collection per composed card item, so a face on screen is what keeps its worker running. */
-    fun faceOf(card: PocketCardUiModel.ProductCard): Flow<JsWidget> = interactor.observeFace(card.key)
+    private val faces = ConcurrentHashMap<String, Flow<JsWidget>>()
+
+    /**
+     * One stream per card, however many copies of it are drawn: expanding a card draws a second one
+     * over the first, and two streams would take two worker references and leave the new copy empty
+     * until the product drew again. The newest face is replayed to whichever copy asks next.
+     */
+    fun faceOf(card: PocketCardUiModel.ProductCard): Flow<JsWidget> = faces.getOrPut(card.id) {
+        interactor.observeFace(card.key).shareIn(this, SharingStarted.WhileSubscribed(), replay = 1)
+    }
 
     private fun cardDisplayKey(card: PocketCardUiModel): String = when (card) {
         is PocketCardUiModel.DigitalDollar -> {
@@ -157,11 +170,15 @@ class PocketViewModel @Inject constructor(
         pinned = privileged
     )
 
+    /** The product page under the expanded card, live only while that card is open. */
+    val expandedProductSession = expandedProduct.session
+
     fun selectCard(card: PocketCardUiModel) {
         selectedCardId.value = card.id
     }
 
     fun dismissCard() {
+        expandedProduct.close()
         selectedCardId.value = null
     }
 
@@ -177,8 +194,17 @@ class PocketViewModel @Inject constructor(
         router.openCollectibles()
     }
 
+    /** A card expands in place: it keeps its native face and the product fills the screen under it. */
     fun openProductCard(card: PocketCardUiModel.ProductCard) {
-        router.openSpaSheet(card.key.launchUrl())
+        selectedCardId.value = card.id
+    }
+
+    /**
+     * The product is loaded only once the card has finished travelling. Building a WebView while the
+     * card is still moving starves the animation, and the card is the part the user is watching.
+     */
+    fun hostExpandedProduct(card: PocketCardUiModel.ProductCard) {
+        expandedProduct.open(card.key.launchUrl())
     }
 
     /** A press or edit inside a face goes back to the product; a text edit carries the new value as UTF-8. */
@@ -190,10 +216,22 @@ class PocketViewModel @Inject constructor(
         interactor.sendFaceAction(card.key, actionId, payload)
     }
 
+    /**
+     * Kept for as long as the screen lives. A card expanding draws a second copy of itself, which
+     * would otherwise fetch the same image again and show nothing until it arrived.
+     */
+    private val resolvedFaceImages = ConcurrentHashMap<Pair<String, JsImageSource>, Uri>()
+
+    /** The image already held for this card, if any, so a redraw of its face does not wait. */
+    fun resolvedFaceImage(card: PocketCardUiModel.ProductCard, source: JsImageSource): Uri? =
+        resolvedFaceImages[card.id to source]
+
     suspend fun resolveFaceImage(card: PocketCardUiModel.ProductCard, source: JsImageSource): Uri? =
-        interactor.resolveFaceImage(card.key, source)
-            .logFailure("PocketViewModel: face image unavailable for ${card.id}")
-            .getOrNull()
+        resolvedFaceImage(card, source)
+            ?: interactor.resolveFaceImage(card.key, source)
+                .logFailure("PocketViewModel: face image unavailable for ${card.id}")
+                .getOrNull()
+                ?.also { resolvedFaceImages[card.id to source] = it }
 
     fun requestRemoval(card: PocketCardUiModel.ProductCard) {
         if (!card.pinned) removalCandidateId.value = card.id

@@ -20,6 +20,7 @@ import uniffi.truapi.HostRendererActionSubscribeItem
 import uniffi.truapi.ProductRendererRenderRequest
 import uniffi.truapi.RenderContext
 import javax.inject.Inject
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * Faces over the core: one worker reference is taken for the collection, the product's worker is
@@ -56,8 +57,14 @@ class TrUAPIPocketFaceStreams @Inject constructor(
 
     private fun TrUAPIProductExecution.faces(key: PocketCardKey): Flow<JsWidget> =
         render(ProductRendererRenderRequest(key.renderContext(), payload = ByteArray(0)))
+            .retryWhileConnecting(CONNECT_ATTEMPTS, CONNECT_RETRY_DELAY)
             .map { it.toJsWidget() }
             .catch { Timber.w(it, "Pocket face stream for %s ended", key.cardId.value) }
 
     private fun PocketCardKey.renderContext() = RenderContext.PocketCard(cardId.value)
+
+    private companion object {
+        const val CONNECT_ATTEMPTS = 40L
+        val CONNECT_RETRY_DELAY = 250.milliseconds
+    }
 }

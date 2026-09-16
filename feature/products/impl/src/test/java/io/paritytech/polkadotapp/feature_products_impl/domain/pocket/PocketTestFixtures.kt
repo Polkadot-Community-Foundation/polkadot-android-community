@@ -41,7 +41,9 @@ internal class InMemoryPocketCardRepository : PocketCardRepository {
         cards.value = cards.value.filterNot { it.card.key == card.card.key } + card
     }
 
-    override suspend fun delete(key: PocketCardKey) {
+    override suspend fun delete(key: PocketCardKey): Boolean {
+        val held = cards.value.any { it.card.key == key }
         cards.value = cards.value.filterNot { it.card.key == key }
+        return held
     }
 }

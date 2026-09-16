@@ -22,7 +22,8 @@ interface PocketCardRepository {
 
     suspend fun insert(card: CachedPocketCard)
 
-    suspend fun delete(key: PocketCardKey)
+    /** Whether a card was held under [key]. */
+    suspend fun delete(key: PocketCardKey): Boolean
 }
 
 @Singleton
@@ -39,7 +40,7 @@ class RealPocketCardRepository @Inject constructor(
 
     override suspend fun insert(card: CachedPocketCard) = dao.insert(card.toLocal())
 
-    override suspend fun delete(key: PocketCardKey) = dao.delete(key.productId.value, key.cardId.value)
+    override suspend fun delete(key: PocketCardKey): Boolean = dao.delete(key.productId.value, key.cardId.value) > 0
 
     private fun PocketCardLocal.toDomain() = CachedPocketCard(
         card = PocketCard(

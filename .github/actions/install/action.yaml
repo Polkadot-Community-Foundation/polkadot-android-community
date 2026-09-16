@@ -11,7 +11,7 @@ inputs:
       (`pocket-core-impl`, Pocket collection over the 0.12.0 core), which the
       Android Pocket modality needs; bump again once #706 is rebased and merged.
     required: false
-    default: "0b31705730d67ea9c9e1c5beaf3f119e4e3af259"
+    default: "b0d95f0d4d2526f7dd0a58b78452667e9b22b99d"
 
 runs:
   using: "composite"

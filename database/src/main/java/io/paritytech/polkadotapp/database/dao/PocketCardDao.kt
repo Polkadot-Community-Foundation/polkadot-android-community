@@ -19,5 +19,5 @@ interface PocketCardDao {
     suspend fun insert(card: PocketCardLocal)
 
     @Query("DELETE FROM pocket_cards WHERE productId = :productId AND cardId = :cardId")
-    suspend fun delete(productId: String, cardId: String)
+    suspend fun delete(productId: String, cardId: String): Int
 }

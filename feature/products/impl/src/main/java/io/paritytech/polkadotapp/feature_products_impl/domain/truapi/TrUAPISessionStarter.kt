@@ -5,7 +5,6 @@ import androidx.core.net.toUri
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
 import io.parity.truapi.ProductExecutionKind
-import io.paritytech.polkadotapp.common.utils.flatMap
 import io.paritytech.polkadotapp.common.utils.logFailure
 import io.paritytech.polkadotapp.feature_dotns_api.domain.DotNsTldProvider
 import io.paritytech.polkadotapp.feature_products_api.model.ProductId
@@ -47,11 +46,14 @@ class TrUAPISessionStarter @Inject constructor(
         productUrl: String,
         navigation: NavigationPolicy,
     ): Result<Unit> {
-        val sharedRuntime = runtimeProvider.runtime()
-        return dotNsTldProvider.getTld()
-            .flatMap { tld -> ProductId.fromUrl(productUrl.toUri(), tld) }
-            .flatMap { productId -> sharedRuntime.map { it to productId } }
-            .mapCatching { (runtime, productId) ->
+        val tld = dotNsTldProvider.getTld().getOrElse { return Result.failure(it) }
+        // A page that is not a product (the debug SPA browser opening any URL) has no bridge to
+        // attach, but it is still a page to show.
+        val productId = ProductId.fromUrl(productUrl.toUri(), tld).getOrNull()
+            ?: return runCatching { provider.loadInitialContent() }
+
+        return runtimeProvider.runtime()
+            .mapCatching { runtime ->
                 // Before attach(), which starts the loopback bridge and sets the
                 // execution before invoking the callback: failing in there would
                 // leave a live listener that the guard then blocks re-attaching.

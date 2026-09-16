@@ -16,8 +16,11 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.produceState
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -83,8 +86,10 @@ private fun JsImageRenderer(
     modifier: Modifier = Modifier,
 ) {
     val resolver = LocalJsImageResolver.current
-    val model by produceState<Any?>(initialValue = null, widget.source, resolver) {
-        value = resolver.resolve(widget.source)
+    // Kept across a re-resolve, so a face that redraws does not blink its images away.
+    var model by remember { mutableStateOf(resolver.resolved(widget.source)) }
+    LaunchedEffect(widget.source, resolver) {
+        resolver.resolve(widget.source)?.let { model = it }
     }
     val imageModifier = modifier.then(widget.modifiers.toComposeModifier())
 

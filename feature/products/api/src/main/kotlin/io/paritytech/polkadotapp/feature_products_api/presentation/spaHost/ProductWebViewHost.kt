@@ -1,4 +1,4 @@
-package io.paritytech.polkadotapp.feature_products_impl.presentation.compose
+package io.paritytech.polkadotapp.feature_products_api.presentation.spaHost
 
 import android.view.ViewGroup
 import android.webkit.WebView

@@ -18,6 +18,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import uniffi.truapi.PocketCard as NativePocketCard
+import uniffi.truapi_server.NativePocketRemoval
 
 class ProductPocketHostBridgeTest {
     private val humanity = pinnedCard(personhoodProduct, "humanity")
@@ -53,23 +54,26 @@ class ProductPocketHostBridgeTest {
         advanceUntilIdle()
 
         assertEquals(listOf(NativePocketCard("humanity", privileged = true)), bridge.listCards())
+        assertEquals(NativePocketRemoval.PRIVILEGED, bridge.removeCard("humanity"))
+        assertEquals(listOf(NativePocketCard("humanity", privileged = true)), bridge.listCards())
         scope.cancel()
     }
 
+    // The core reads listCards right after removeCard returns and republishes that answer, so a
+    // removal that is still in flight would hand the product its old collection back.
     @Test
-    fun `removeCard returns at once and the removal lands through the store`() = runTest {
+    fun `the card is gone from the store and the list by the time removeCard returns`() = runTest {
         val scope = executionScope()
         store.addCard(loyalty)
         val bridge = ProductPocketHostBridge(gameProduct, store, scope)
         bridge.start {}
         advanceUntilIdle()
 
-        bridge.removeCard("loyalty")
-        bridge.removeCard("never-added")
-        advanceUntilIdle()
+        assertEquals(NativePocketRemoval.REMOVED, bridge.removeCard("loyalty"))
+        assertEquals(NativePocketRemoval.ABSENT, bridge.removeCard("never-added"))
 
-        assertEquals(listOf(humanity.card), store.observeCards().first())
         assertEquals(emptyList<NativePocketCard>(), bridge.listCards())
+        assertEquals(listOf(humanity.card), store.observeCards().first())
         scope.cancel()
     }
 

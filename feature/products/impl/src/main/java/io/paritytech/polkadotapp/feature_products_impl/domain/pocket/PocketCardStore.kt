@@ -14,4 +14,7 @@ interface PocketCardStore : PocketCollection {
 
     /** Remembers the newest face the product streamed, so the card has it offline and at cold start. */
     suspend fun cacheFace(key: PocketCardKey, face: JsWidget)
+
+    /** [removeCard] that also tells a card taken out from one never held, as the core asks of a host. */
+    suspend fun remove(key: PocketCardKey): Result<PocketRemoval>
 }

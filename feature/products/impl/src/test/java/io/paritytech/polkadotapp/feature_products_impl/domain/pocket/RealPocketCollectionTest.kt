@@ -64,4 +64,38 @@ class RealPocketCollectionTest {
 
         assertTrue(outcome.exceptionOrNull() is IllegalArgumentException)
     }
+
+    // The core asks the host to tell a card it took out from one it never held, so the product's
+    // retry of a removal reads as already gone rather than as a second removal.
+    @Test
+    fun `a removal reports whether the card was there to remove`() = runTest {
+        collection.addCard(loyalty)
+
+        assertEquals(PocketRemoval.REMOVED, collection.remove(loyalty.card.key).getOrThrow())
+        assertEquals(PocketRemoval.ABSENT, collection.remove(loyalty.card.key).getOrThrow())
+        assertEquals(PocketRemoveError.Privileged, collection.remove(humanity.card.key).exceptionOrNull())
+    }
+
+    // The bundled face is what a privileged card shows before its product has ever drawn one. Once it
+    // has, that is the face the card wears at the next cold start, rather than reverting to the stub.
+    @Test
+    fun `a pinned card keeps the newest face its product drew across a restart`() = runTest {
+        collection.cacheFace(humanity.card.key, faceOf("live"))
+
+        val afterRestart = RealPocketCollection(FakePinnedPocketCards(listOf(humanity)), repository)
+
+        assertEquals(faceOf("live"), afterRestart.cachedFace(humanity.card.key))
+    }
+
+    @Test
+    fun `the face kept for a pinned card does not turn it into one the user added`() = runTest {
+        collection.cacheFace(humanity.card.key, faceOf("live"))
+
+        assertEquals(listOf(humanity.card), collection.observeCards().first())
+    }
+
+    @Test
+    fun `a pinned card with nothing drawn yet still shows the face bundled with the app`() = runTest {
+        assertEquals(humanity.face, collection.cachedFace(humanity.card.key))
+    }
 }

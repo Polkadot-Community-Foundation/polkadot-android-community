@@ -22,8 +22,8 @@ interface PinnedPocketCards {
 }
 
 /**
- * Humanity, Balance and Scarcity, backed by the governance-reserved products and drawn from faces
- * bundled with the app until the backing products stream their own.
+ * Humanity, backed by the governance-reserved personhood product and drawn from a face bundled with
+ * the app until that product streams its own.
  */
 @Singleton
 class AssetPinnedPocketCards @Inject constructor(
@@ -39,8 +39,6 @@ class AssetPinnedPocketCards @Inject constructor(
 
     private val definitions = listOf(
         Definition("humanity", RCommon.string.pocket_pinned_card_humanity, ReservedProductIds::personhood),
-        Definition("balance", RCommon.string.pocket_pinned_card_balance, ReservedProductIds::funding),
-        Definition("scarcity", RCommon.string.pocket_pinned_card_scarcity, ReservedProductIds::funding),
     )
 
     private val loading = Mutex()
