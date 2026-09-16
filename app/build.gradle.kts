@@ -11,6 +11,12 @@ plugins {
 
 val localProperties = gradleLocalProperties(rootDir, providers)
 
+// Release signing material is optional. It exists only when the gated
+// `production-distribution` environment supplies it; absent, the release variant is built
+// deliberately UNSIGNED rather than falling back to the dev keystore or to a path that does
+// not exist on the builder.
+val releaseKeystoreFile: String? = localProperties.readSecretOrNull("RELEASE_KEYSTORE_FILE")
+
 android {
     namespace = "io.paritytech.polkadotapp.app"
 
@@ -47,8 +53,10 @@ android {
             storePassword = localProperties.readSecretOrDefault("CI_KEYSTORE_PASS", "")
         }
 
+        // Upstream defaulted storeFile to `../release_key.jks`, a file no builder holds, so a
+        // release build broke at packaging time. Point at a keystore only when there is one.
         create("release") {
-            storeFile = file(localProperties.readSecretOrNull("RELEASE_KEYSTORE_FILE") ?: "../release_key.jks")
+            releaseKeystoreFile?.let { storeFile = file(it) }
             keyPassword = localProperties.readSecretOrDefault("RELEASE_KEYSTORE_KEY_PASS", "")
             keyAlias = localProperties.readSecretOrDefault("RELEASE_KEYSTORE_KEY_ALIAS", "")
             storePassword = localProperties.readSecretOrDefault("RELEASE_KEYSTORE_PASS", "")
@@ -57,7 +65,9 @@ android {
 
     buildTypes {
         getByName("release") {
-            signingConfig = signingConfigs.getByName("release")
+            // Unsigned when no release keystore was supplied (see signingConfigs above). This is
+            // what lets `signing: none` configure AND build without production key material.
+            signingConfig = releaseKeystoreFile?.let { signingConfigs.getByName("release") }
 
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
@@ -113,6 +123,21 @@ android {
 androidComponents {
     onVariants(selector().withBuildType("dev")) { variant ->
         variant.applicationId.set("io.pcf.polkadotapp.dev")
+    }
+
+    // Pin the PRODUCTION build to the PCF application id the same way the dev build is pinned.
+    // defaultConfig.applicationId comes from the APPLICATION_ID build variable, so without this
+    // a release build silently inherits whatever that variable happens to hold (upstream's value
+    // is a paritytech id). Driven by PRODUCTION_APPLICATION_ID so it is configuration, not a
+    // hardcoded constant, and defaults to the id on PCF's Play record.
+    //
+    // `namespace` (io.paritytech.polkadotapp.app, above) is intentionally NOT changed: it is the
+    // compile-time package for the generated R/BuildConfig classes, not the installed identity.
+    // The store, the launcher and Firebase all key off applicationId.
+    onVariants(selector().withBuildType("release")) { variant ->
+        variant.applicationId.set(
+            localProperties.readSecretOrDefault("PRODUCTION_APPLICATION_ID", "io.pcf.polkadotapp")
+        )
     }
 }
 
