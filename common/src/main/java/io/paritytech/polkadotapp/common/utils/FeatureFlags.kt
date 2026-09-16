@@ -60,8 +60,8 @@ enum class FeatureOption {
     ID_CARD_RANK,
 
     // The "Debug features" card under the balance card: the holdings breakdown, the faucet top-up and
-    // log sharing. Carried by its own BuildConfig field because COINAGE_WIDGETS_ENABLED, which used to
-    // gate it, now ships enabled on release for the Coinage Balance card.
+    // log sharing. Off on release alone — hence its own BuildConfig field rather than SAFETY_MODE, which
+    // is also set on safetynet builds, where the card is wanted.
     COINAGE_DEBUG_FEATURES,
     ALL_CHAT_EXTENSIONS,
     LINKED_DEVICES,

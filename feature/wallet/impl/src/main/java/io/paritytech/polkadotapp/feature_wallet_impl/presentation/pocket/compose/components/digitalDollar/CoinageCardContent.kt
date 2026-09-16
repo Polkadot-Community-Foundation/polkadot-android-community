@@ -28,16 +28,14 @@ fun CoinageCardContent(
     onShareLogsClick: () -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(PolkadotTheme.spacings.mediumIncreased)) {
-        if (state.coinageWidgetsEnabled) {
-            CoinageStateCard(
-                modifier = Modifier.fillMaxWidth(),
-                state = state.tokensState,
-                detailsVisible = state.detailsVisible,
-                keyVisible = state.keyVisible,
-                onDetailsToggled = onDetailsToggled,
-                onKeyToggled = onKeyToggled
-            )
-        }
+        CoinageStateCard(
+            modifier = Modifier.fillMaxWidth(),
+            state = state.tokensState,
+            detailsVisible = state.detailsVisible,
+            keyVisible = state.keyVisible,
+            onDetailsToggled = onDetailsToggled,
+            onKeyToggled = onKeyToggled
+        )
 
         if (FeatureOption.COINAGE_DEBUG_FEATURES.isEnabled) {
             DebugFeaturesCard(
@@ -62,9 +60,7 @@ private fun DebugFeaturesCard(
         title = stringResource(RCommon.string.pocket_debug_features_title),
         subtitle = stringResource(RCommon.string.pocket_debug_features_subtitle)
     ) {
-        if (state.coinageWidgetsEnabled) {
-            BalanceBreakdownTable(breakdown = state.tokensState.breakdown)
-        }
+        BalanceBreakdownTable(breakdown = state.tokensState.breakdown)
 
         if (state.autoFundAvailable) {
             PolkadotTextButton(

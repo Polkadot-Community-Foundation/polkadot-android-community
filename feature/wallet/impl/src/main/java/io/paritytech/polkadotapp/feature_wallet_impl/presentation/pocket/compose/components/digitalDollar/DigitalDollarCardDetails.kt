@@ -288,7 +288,6 @@ private fun DigitalDollarCardDetailsPreview() {
                         autoFundAvailable = true,
                         fundInProgress = false,
                         actionsEnabled = true,
-                        coinageWidgetsEnabled = true,
                         shareLogsEnabled = true,
                         detailsVisible = false,
                         keyVisible = false
