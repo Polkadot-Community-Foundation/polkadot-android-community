@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import io.paritytech.polkadotapp.common.utils.FeatureOption
+import io.paritytech.polkadotapp.common.utils.isEnabled
 import io.paritytech.polkadotapp.design.components.button.common.PolkadotButtonStyle
 import io.paritytech.polkadotapp.design.components.button.default.PolkadotTextButton
 import io.paritytech.polkadotapp.design.components.text.NovaText
@@ -37,7 +39,7 @@ fun CoinageCardContent(
             )
         }
 
-        if (state.coinageWidgetsEnabled || state.autoFundAvailable || state.shareLogsEnabled) {
+        if (FeatureOption.COINAGE_DEBUG_FEATURES.isEnabled) {
             DebugFeaturesCard(
                 modifier = Modifier.fillMaxWidth(),
                 state = state,
