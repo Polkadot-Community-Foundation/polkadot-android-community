@@ -19,19 +19,21 @@ import io.paritytech.polkadotapp.feature_wallet_impl.domain.interactor.PocketInt
 import io.paritytech.polkadotapp.feature_wallet_impl.domain.model.PocketRank
 import io.paritytech.polkadotapp.feature_wallet_impl.presentation.pocket.models.PocketCardUiModel
 import io.paritytech.polkadotapp.feature_wallet_impl.presentation.pocket.models.PocketScreenState
+import io.paritytech.polkadotapp.test_shared.TestCoroutineDispatchers
 import io.paritytech.polkadotapp.test_shared.whenever
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emptyFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
-import kotlinx.coroutines.withTimeout
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -61,6 +63,13 @@ class PocketViewModelTest {
     private val hostedSession = FakeSpaHostSession()
     private val spaHost: SpaHost = mock(SpaHost::class.java, Answer { hostedSession })
 
+    // One dispatcher for the screen's own scope and for the pool its card list is assembled on, so
+    // the whole pipeline runs on this test's clock. Given a real background dispatcher the list
+    // would be assembled on threads the test cannot advance, leaving it to wait on wall-clock time
+    // and to lose that wait on a loaded machine.
+    private val testDispatcher = StandardTestDispatcher()
+    private val dispatchers = TestCoroutineDispatchers(testDispatcher)
+
     private class FakeSpaHostSession : SpaHostSession {
         override val webView = MutableStateFlow<WebView?>(null)
         override val currentUrl = MutableStateFlow("")
@@ -70,14 +79,11 @@ class PocketViewModelTest {
         override fun resumeConnections() = Unit
     }
 
-    // The card list is assembled eagerly in the view model's own scope, which outlives the test
-    // unless it is cancelled: work left running on Dispatchers.Default reaches for a Main
-    // dispatcher that no longer exists and fails whichever test is running by then.
+    // The card list is shared eagerly in the view model's own scope, which outlives the test unless
+    // it is cancelled.
     private val created = mutableListOf<PocketViewModel>()
 
-    private fun createViewModel() = viewModel().also { created += it }
-
-    private fun viewModel() = PocketViewModel(
+    private fun createViewModel() = PocketViewModel(
         interactor = interactor,
         tokenAmountMapper = mock(TokenAmountMapper::class.java),
         tokenAmountFormatter = mock(TokenAmountFormatter::class.java),
@@ -85,22 +91,20 @@ class PocketViewModelTest {
         collectiblesUrlResolver = mock(CollectiblesUrlResolver::class.java),
         idShareImageRenderer = mock(IdShareImageRenderer::class.java),
         sharingManager = mock(SharingManager::class.java),
+        dispatchers = dispatchers,
         spaHost = spaHost,
-    )
+    ).also { created += it }
 
-    // The card list is assembled off the main thread, so the tests wait on it rather than driving a
-    // virtual clock that the background dispatcher does not share.
-    private fun PocketViewModel.awaitCards(count: Int) = runBlocking {
-        withTimeout(AWAIT_MILLIS) { cards.first { it.size == count } }
-    }
+    /** The cards the screen holds once everything the view model started has run. */
+    private fun TestScope.settledCards(viewModel: PocketViewModel): List<PocketCardUiModel> {
+        advanceUntilIdle()
 
-    private fun PocketViewModel.awaitState(matching: (PocketScreenState) -> Boolean) = runBlocking {
-        withTimeout(AWAIT_MILLIS) { state.first(matching) }
+        return viewModel.cards.value
     }
 
     @Before
     fun setUp() {
-        Dispatchers.setMain(Dispatchers.Default)
+        Dispatchers.setMain(testDispatcher)
         whenever(interactor.observeUsername()).thenReturn(flowOf("alicent"))
         whenever(interactor.observeAddress()).thenReturn(flowOf("15oF4u"))
         whenever(interactor.observeBackupProgress()).thenReturn(flowOf(BackupProgress.Unknown))
@@ -123,19 +127,19 @@ class PocketViewModelTest {
     // the balance and identity cards do not share. Before the product cards joined this screen
     // nothing product-side could empty it; that must stay true.
     @Test
-    fun `a failing product collection costs the product cards alone, not the native ones`() {
+    fun `a failing product collection costs the product cards alone, not the native ones`() = runTest(testDispatcher) {
         whenever(interactor.observeProductCards()).thenReturn(flow { throw IllegalStateException("unreadable") })
 
-        val cards = createViewModel().awaitCards(count = 2)
+        val cards = settledCards(createViewModel())
 
         assertEquals(listOf("digital_dollar_card", "id_card"), cards.map { it.id })
     }
 
     @Test
-    fun `product cards follow the native ones once the collection loads`() {
+    fun `product cards follow the native ones once the collection loads`() = runTest(testDispatcher) {
         whenever(interactor.observeProductCards()).thenReturn(flowOf(listOf(productCard("loyalty"))))
 
-        val cards = createViewModel().awaitCards(count = 3)
+        val cards = settledCards(createViewModel())
 
         assertEquals(
             listOf("digital_dollar_card", "id_card", "product_card:game.dot:loyalty"),
@@ -150,25 +154,24 @@ class PocketViewModelTest {
     // product hosted under it was never taken down. Releasing that product is
     // ExpandedProductPageTest's half of this.
     @Test
-    fun `a card that leaves the collection is no longer the selected one`() {
+    fun `a card that leaves the collection is no longer the selected one`() = runTest(testDispatcher) {
         val collection = MutableStateFlow(listOf(productCard("loyalty")))
         whenever(interactor.observeProductCards()).thenReturn(collection)
 
         val viewModel = createViewModel()
-        val card = viewModel.awaitCards(count = 3).filterIsInstance<PocketCardUiModel.ProductCard>().single()
+        val card = settledCards(viewModel).filterIsInstance<PocketCardUiModel.ProductCard>().single()
         viewModel.selectCard(card)
-        viewModel.awaitState { it is PocketScreenState.CardDetails }
+        advanceUntilIdle()
+        assertTrue(viewModel.state.value is PocketScreenState.CardDetails)
 
         collection.value = emptyList()
-        viewModel.awaitState { it is PocketScreenState.List }
+        advanceUntilIdle()
+        assertTrue(viewModel.state.value is PocketScreenState.List)
+
         collection.value = listOf(productCard("loyalty"))
-        viewModel.awaitCards(count = 3)
+        advanceUntilIdle()
 
         assertTrue("the card came back selected", viewModel.state.value is PocketScreenState.List)
         assertNull(viewModel.expandedProductSession.value)
-    }
-
-    private companion object {
-        const val AWAIT_MILLIS = 5_000L
     }
 }

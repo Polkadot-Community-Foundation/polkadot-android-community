@@ -6,11 +6,10 @@ import io.paritytech.polkadotapp.common.presentation.loading.dataOrNull
 import io.paritytech.polkadotapp.common.presentation.screens.BaseViewModel
 import io.paritytech.polkadotapp.common.presentation.sharing.SharingManager
 import io.paritytech.polkadotapp.common.utils.ContentSharing
+import io.paritytech.polkadotapp.common.utils.CoroutineDispatchers
 import io.paritytech.polkadotapp.common.utils.flowOf
-import io.paritytech.polkadotapp.common.utils.inBackground
 import io.paritytech.polkadotapp.common.utils.launchUnit
 import io.paritytech.polkadotapp.common.utils.logFailure
-import io.paritytech.polkadotapp.common.utils.stateInBackground
 import io.paritytech.polkadotapp.common.utils.withLoading
 import io.paritytech.polkadotapp.feature_coinage_api.domain.model.BackupProgress
 import io.paritytech.polkadotapp.feature_products_api.domain.pocket.PocketCard
@@ -38,6 +37,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChangedBy
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.onStart
@@ -57,6 +57,7 @@ class PocketViewModel @Inject constructor(
     private val collectiblesUrlResolver: CollectiblesUrlResolver,
     private val idShareImageRenderer: IdShareImageRenderer,
     private val sharingManager: SharingManager,
+    private val dispatchers: CoroutineDispatchers,
     spaHost: SpaHost
 ) : BaseViewModel() {
     private val selectedCardId = MutableStateFlow<String?>(null)
@@ -111,7 +112,7 @@ class PocketViewModel @Inject constructor(
     }
         .distinctUntilChangedBy { cards -> cards.map(::cardDisplayKey) }
         .onEach(::forgetCardsNoLongerHeld)
-        .inBackground()
+        .flowOn(dispatchers.computation)
         .stateIn(
             scope = this,
             started = SharingStarted.Eagerly,
@@ -121,7 +122,8 @@ class PocketViewModel @Inject constructor(
     val collectiblesAvailable = flowOf {
         collectiblesUrlResolver.resolveUrl() != null
     }
-        .stateInBackground(initialValue = false)
+        .flowOn(dispatchers.computation)
+        .stateIn(scope = this, started = SharingStarted.Eagerly, initialValue = false)
 
     val state: StateFlow<PocketScreenState> = combine(
         cards,
