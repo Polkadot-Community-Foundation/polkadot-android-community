@@ -141,23 +141,28 @@ private fun RawPayload.toContent(): RawPayloadContent = when (this) {
     is RawPayload.Payload -> RawPayloadContent.Payload(payload)
 }
 
-// `watermarked` is not consumed here: the domain model carries no flag for
-// it, and adding one reaches the SSO SCALE mappers, which encode a wire message to
-// the paired wallet. The core's contract is that a host displays the payload
-// according to it and warns that an unwatermarked signature can authorize a
-// transaction, so the confirmation screen still owes that warning.
+/**
+ * An unwatermarked payload carries no `<Bytes>` protection, so a signature over it can authorize a
+ * transaction; the core requires a host to say so. This sheet shows a raw payload as an ordinary
+ * message and has nowhere to put that warning, and carrying the flag into the domain model would
+ * reach the SSO SCALE mappers, which encode a wire message to the paired wallet. So the request is
+ * refused rather than presented as the harmless thing it is not; a sheet that can warn lifts this.
+ */
 private fun SignRawReview.toSigningRequestBody(): SigningRequestBody = when (this) {
-    is SignRawReview.Product ->
-        SigningRequestBody.Raw(
-            SigningRawPayload(request.account.toDomain(), request.payload.toContent()),
-        )
-    is SignRawReview.LegacyAccount ->
+    is SignRawReview.Product -> {
+        requireWatermark(watermarked)
+        SigningRequestBody.Raw(SigningRawPayload(request.account.toDomain(), request.payload.toContent()))
+    }
+    is SignRawReview.LegacyAccount -> {
+        requireWatermark(watermarked)
         SigningRequestBody.RawLegacy(
-            SigningRawLegacyPayload(
-                request.signer.parseLegacySigner().toDataByteArray(),
-                request.payload.toContent(),
-            ),
+            SigningRawLegacyPayload(request.signer.parseLegacySigner().toDataByteArray(), request.payload.toContent()),
         )
+    }
+}
+
+private fun requireWatermark(watermarked: Boolean) {
+    if (!watermarked) throw UnsupportedReviewException("raw payload without transaction-payload protection")
 }
 
 private fun TxPayloadExtension.toDomain() = EncodedTransactionExtensionValue(

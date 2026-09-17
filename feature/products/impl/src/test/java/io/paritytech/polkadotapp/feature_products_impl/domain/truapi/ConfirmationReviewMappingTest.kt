@@ -120,7 +120,7 @@ class ConfirmationReviewMappingTest {
                     signer = "0x0102",
                     payload = RawPayload.Payload("hello"),
                 ),
-                watermarked = false,
+                watermarked = true,
             ),
         )
 
@@ -128,6 +128,28 @@ class ConfirmationReviewMappingTest {
 
         assertArrayEquals(byteArrayOf(1, 2), body.payload.account.value)
         assertEquals("hello", (body.payload.type as RawPayloadContent.Payload).data)
+    }
+
+    // The core says a host must warn that a signature over an unwatermarked payload can authorize a
+    // transaction. This sheet shows a raw payload as a message and cannot say that, so the request is
+    // refused instead of being shown as a harmless one.
+    @Test
+    fun `a raw payload with no transaction-payload protection is refused, not shown as a message`() {
+        val product = UserConfirmationReview.SignRaw(
+            SignRawReview.Product(
+                request = HostSignRawRequest(account = nativeAccount(), payload = RawPayload.Payload("hello")),
+                watermarked = false,
+            ),
+        )
+        val legacy = UserConfirmationReview.SignRaw(
+            SignRawReview.LegacyAccount(
+                request = HostSignRawWithLegacyAccountRequest(signer = "0x0102", payload = RawPayload.Payload("hello")),
+                watermarked = false,
+            ),
+        )
+
+        assertThrows(UnsupportedReviewException::class.java) { product.signingRequest() }
+        assertThrows(UnsupportedReviewException::class.java) { legacy.signingRequest() }
     }
 
     @Test

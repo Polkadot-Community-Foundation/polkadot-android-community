@@ -29,6 +29,7 @@ import io.paritytech.polkadotapp.feature_products_impl.domain.hostApi.navigation
 import io.paritytech.polkadotapp.feature_products_impl.domain.notifications.NotificationId
 import io.paritytech.polkadotapp.feature_products_impl.domain.permissions.models.DeviceCapabilityType
 import io.paritytech.polkadotapp.feature_products_impl.domain.permissions.models.RemotePermissionRequest
+import io.paritytech.polkadotapp.feature_products_impl.domain.pocket.PocketCardStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.job
@@ -75,6 +76,7 @@ class ProductTrUAPIHostBridge @AssistedInject constructor(
     private val confirmationLauncher: TrUAPIConfirmationLauncher,
     private val appLifecycleObserver: AppLifecycleObserver,
     private val dotNsTldProvider: DotNsTldProvider,
+    private val pocketCardStore: PocketCardStore,
     @Assisted private val scope: CoroutineScope,
 ) {
     @AssistedFactory
@@ -102,6 +104,7 @@ class ProductTrUAPIHostBridge @AssistedInject constructor(
     )
 
     private var execution: TrUAPIProductExecution? = null
+    private var pocketBridge: ProductPocketHostBridge? = null
 
     init {
         // Tear the execution down with the owning scope: otherwise a closed
@@ -222,29 +225,37 @@ class ProductTrUAPIHostBridge @AssistedInject constructor(
      * the bootstrap script. It must be injected before the product page loads
      * or the client never connects.
      *
-     * A second call is ignored: opening another execution would leak the
-     * first, along with its loopback listener and chain sockets.
+     * A second call opens nothing and answers with the execution already
+     * running: opening another would leak the first, along with its loopback
+     * listener and chain sockets.
      */
     suspend fun attach(
         runtime: TrUAPIHostRuntime,
         productId: ProductId,
         chains: TrUAPIChains,
         navigationPolicy: NavigationPolicy,
+        kind: ProductExecutionKind,
         onReadyToInject: (bootstrap: String) -> Unit,
-    ) {
-        if (execution != null) {
+    ): Result<TrUAPIProductExecution> {
+        execution?.let {
             Timber.w("truapi.attach: already attached to %s, ignoring", productId.value)
-            return
+            return Result.success(it)
         }
-        cachedChains.set(chains)
-        val opened = runtime.openProductExecution(
-            bridge = buildBridge(productId, navigationPolicy),
-            configuration = ProductExecutionConfig(productId.value, ProductExecutionKind.APP),
-        )
-        execution = opened
-        // Anything failing past this point leaves a live execution behind, and
-        // `execution != null` would then block every re-attach; tear it down.
-        runCatching {
+        // Opening the execution is inside the Result too: it reaches the core and can be refused,
+        // and the callers launch this into scopes that have no handler for a throw.
+        return runCatching {
+            cachedChains.set(chains)
+            val pocket = ProductPocketHostBridge(productId, pocketCardStore, scope)
+            val opened = runtime.openProductExecution(
+                bridge = buildBridge(productId, navigationPolicy),
+                configuration = ProductExecutionConfig(productId.value, kind),
+                pocket = pocket,
+            )
+            execution = opened
+            pocketBridge = pocket
+            // Anything failing past this point leaves a live execution behind, and
+            // `execution != null` would then block every re-attach; tear it down.
+            pocket.start(opened::notifyPocketCardsChanged)
             chainProvider.attach(
                 onResponse = opened::notifyChainResponse,
                 onClosed = opened::notifyChainClosed,
@@ -253,10 +264,8 @@ class ProductTrUAPIHostBridge @AssistedInject constructor(
             observeAppTheme()
             observeAppLifecycle()
             onReadyToInject(LocalhostBridgeBootstrap.script(endpoint.port, endpoint.token, opened.webRtcAllowed()))
-        }.onFailure {
-            stop()
-            throw it
-        }
+            opened
+        }.onFailure { stop() }
     }
 
     // A peek at the stored decision, never a prompt: the bootstrap bakes it in
@@ -299,6 +308,10 @@ class ProductTrUAPIHostBridge @AssistedInject constructor(
     fun stop() {
         val opened = execution ?: return
         execution = null
+        // Before the execution closes: a card change arriving afterwards would republish through a
+        // handle that no longer exists.
+        pocketBridge?.stop()
+        pocketBridge = null
         chainProvider.detach()
         chainProvider.closeAll()
         opened.stopWsBridge()

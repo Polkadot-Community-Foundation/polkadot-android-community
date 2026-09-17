@@ -101,6 +101,11 @@ cargo {
     }
 }
 
+// The nightly rustdoc the core's codegen runs on, pinned by date in
+// gradle.properties: its JSON format moves with the toolchain, so an unpinned
+// nightly turns every build red the day truapi-codegen stops accepting it.
+val rustNightly: String = providers.gradleProperty("truapi.rustNightly").get()
+
 // Host cdylib uniffi-bindgen reads to extract the interface: .dylib on macOS,
 // .so on Linux, .dll on Windows. Built with truapi's `codegen` profile, which
 // that repo designates for binding generation because `[profile.release]` sets
@@ -139,6 +144,7 @@ val installCoreNodeDeps by tasks.registering(Exec::class) {
 val generateCoreDispatcher by tasks.registering(Exec::class) {
     dependsOn(installCoreNodeDeps)
     workingDir = file(truapiDir)
+    environment("TRUAPI_NIGHTLY_TOOLCHAIN", rustNightly)
     commandLine("./scripts/codegen.sh")
     inputs.files(
         fileTree("$truapiDir/rust/crates/truapi") { include("**/*.rs", "**/Cargo.toml") },

@@ -88,6 +88,7 @@ dependencies {
     implementation(project(":feature:pgas:api"))
     implementation(project(":feature:balances:api"))
     implementation(project(":feature:people:api"))
+    implementation(project(":feature:scan:api"))
     implementation(project(":feature:usernames:api"))
     implementation(project(":feature:dotns:api"))
     implementation(project(":feature:coinage:api"))

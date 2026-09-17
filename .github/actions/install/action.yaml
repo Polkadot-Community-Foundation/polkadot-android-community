@@ -7,10 +7,12 @@ inputs:
       SHA so an unrelated merge there cannot turn this build red; bump it
       deliberately.
       The app's HostCallbacks implementation must match the native API surface
-      at this commit. Currently the 0.16.0 release tag, which is what
-      polkadot-app-ios-v2 pins.
+      at this commit. Currently seven commits past the 0.16.0 release tag that
+      polkadot-app-ios-v2 pins, for the Pocket collection (#706) the Android
+      Pocket modality needs. Drop back to the tag once Pocket ships in a
+      release; iOS pins its own ref and the two are bumped independently.
     required: false
-    default: "1b01dd0dc61d58b5ffafb060eb3dcd4ecb4f34b4"
+    default: "b0d95f0d4d2526f7dd0a58b78452667e9b22b99d"
 
 runs:
   using: "composite"
@@ -124,10 +126,9 @@ runs:
     - name: 🦀 Install Rust
       uses: actions-rust-lang/setup-rust-toolchain@v1
       with:
-        # nightly alongside stable: the core's codegen script drives
-        # `cargo +nightly rustdoc --output-format json`, and the generated wire
-        # dispatcher it writes is not tracked in host-rust-core.
-        toolchain: stable,nightly
+        # The nightly the codegen needs is installed by date in the step below,
+        # rather than as whatever `nightly` resolves to on the day.
+        toolchain: stable
         override: true
         components: rustfmt, clippy
         # truapi is a separate cargo workspace outside this repo's tree, so
@@ -135,6 +136,16 @@ runs:
         cache-workspaces: |
           .
           .truapi -> target
+
+    # :bindings:truapi-host runs the core's own codegen script, whose rustdoc JSON
+    # only a nightly emits and whose output it formats with that toolchain's
+    # rustfmt. Dated, because the JSON format moves with the toolchain; Gradle
+    # passes the same property to the script as TRUAPI_NIGHTLY_TOOLCHAIN.
+    - name: Add nightly for the core codegen
+      run: |
+        nightly="$(sed -n 's/^truapi.rustNightly=//p' gradle.properties)"
+        rustup toolchain install "$nightly" --profile minimal --component rustfmt
+      shell: bash
 
     - name: Add targets
       run: |

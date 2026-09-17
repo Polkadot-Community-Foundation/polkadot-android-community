@@ -10,6 +10,7 @@ import dagger.hilt.components.SingletonComponent
 import dagger.multibindings.IntoSet
 import io.paritytech.polkadotapp.common.BuildConfig
 import io.paritytech.polkadotapp.common.presentation.AppInitializer
+import io.paritytech.polkadotapp.common.presentation.deeplink.DeepLinkHandler
 import io.paritytech.polkadotapp.common.utils.FeatureOption
 import io.paritytech.polkadotapp.common.utils.isEnabled
 import io.paritytech.polkadotapp.feature_chats_api.domain.extension.ExternalExtensionProvider
@@ -22,12 +23,18 @@ import io.paritytech.polkadotapp.feature_products_api.domain.accountsProtocol.Ac
 import io.paritytech.polkadotapp.feature_products_api.domain.accountsProtocol.MembersRingLocator
 import io.paritytech.polkadotapp.feature_products_api.domain.browser.ProductSessionController
 import io.paritytech.polkadotapp.feature_products_api.domain.deriveEntropy.DeriveEntropyUseCase
+import io.paritytech.polkadotapp.feature_products_api.domain.pocket.PocketCollection
+import io.paritytech.polkadotapp.feature_products_api.domain.pocket.PocketFaceSource
+import io.paritytech.polkadotapp.feature_products_api.domain.product.ProductContentWarmUp
 import io.paritytech.polkadotapp.feature_products_api.domain.runtime.ProductRuntimeSettings
 import io.paritytech.polkadotapp.feature_products_api.domain.sponsoring.PreimageSubmitSponsoring
 import io.paritytech.polkadotapp.feature_products_api.domain.sponsoring.StatementStoreSubmissionSponsoring
 import io.paritytech.polkadotapp.feature_products_api.domain.sponsoring.TransactionSponsoring
+import io.paritytech.polkadotapp.feature_products_api.presentation.deeplink.ProductDeepLinkGate
 import io.paritytech.polkadotapp.feature_products_api.presentation.spaHost.SpaHost
 import io.paritytech.polkadotapp.feature_products_impl.data.config.RemoteConfigFundingDomainProvider
+import io.paritytech.polkadotapp.feature_products_impl.data.pocket.PocketCardRepository
+import io.paritytech.polkadotapp.feature_products_impl.data.pocket.RealPocketCardRepository
 import io.paritytech.polkadotapp.feature_products_impl.data.repository.BrowserTabRepository
 import io.paritytech.polkadotapp.feature_products_impl.data.repository.ProductFundingOperationRepository
 import io.paritytech.polkadotapp.feature_products_impl.data.repository.ProductIntegrationRepository
@@ -92,8 +99,17 @@ import io.paritytech.polkadotapp.feature_products_impl.domain.permissions.handle
 import io.paritytech.polkadotapp.feature_products_impl.domain.permissions.handlers.RemotePermissionHandler
 import io.paritytech.polkadotapp.feature_products_impl.domain.permissions.handlers.UserIdentityAccessPermissionHandler
 import io.paritytech.polkadotapp.feature_products_impl.domain.permissions.models.ProductPermission
+import io.paritytech.polkadotapp.feature_products_impl.domain.pocket.AssetPinnedPocketCards
+import io.paritytech.polkadotapp.feature_products_impl.domain.pocket.PinnedPocketCards
+import io.paritytech.polkadotapp.feature_products_impl.domain.pocket.PocketCardStore
+import io.paritytech.polkadotapp.feature_products_impl.domain.pocket.PocketFaceStreams
+import io.paritytech.polkadotapp.feature_products_impl.domain.pocket.PocketImageResolver
+import io.paritytech.polkadotapp.feature_products_impl.domain.pocket.RealPocketCollection
+import io.paritytech.polkadotapp.feature_products_impl.domain.pocket.RealPocketFaceSource
+import io.paritytech.polkadotapp.feature_products_impl.domain.pocket.RealPocketImageResolver
 import io.paritytech.polkadotapp.feature_products_impl.domain.product.ProductRegistrar
 import io.paritytech.polkadotapp.feature_products_impl.domain.product.ProductScriptResolver
+import io.paritytech.polkadotapp.feature_products_impl.domain.product.RealProductContentWarmUp
 import io.paritytech.polkadotapp.feature_products_impl.domain.product.RealProductRegistrar
 import io.paritytech.polkadotapp.feature_products_impl.domain.product.RealProductScriptResolver
 import io.paritytech.polkadotapp.feature_products_impl.domain.productBotManagement.ProductBotManagementInteractor
@@ -108,6 +124,7 @@ import io.paritytech.polkadotapp.feature_products_impl.domain.topUpRequest.Execu
 import io.paritytech.polkadotapp.feature_products_impl.domain.topUpRequest.RealExecuteTopUpUseCase
 import io.paritytech.polkadotapp.feature_products_impl.domain.topUpRequest.RealTopUpService
 import io.paritytech.polkadotapp.feature_products_impl.domain.topUpRequest.TopUpService
+import io.paritytech.polkadotapp.feature_products_impl.domain.truapi.worker.TrUAPIPocketFaceStreams
 import io.paritytech.polkadotapp.feature_products_impl.domain.usecase.RealResolveProductUseCase
 import io.paritytech.polkadotapp.feature_products_impl.domain.usecase.ResolveProductUseCase
 import io.paritytech.polkadotapp.feature_products_impl.domain.webView.ProductServingHostResolver
@@ -115,10 +132,13 @@ import io.paritytech.polkadotapp.feature_products_impl.domain.worker.ProductWork
 import io.paritytech.polkadotapp.feature_products_impl.domain.worker.RealProductWorkerRefCounter
 import io.paritytech.polkadotapp.feature_products_impl.domain.worker.RealWorkerBootFactory
 import io.paritytech.polkadotapp.feature_products_impl.domain.worker.WorkerBootFactory
+import io.paritytech.polkadotapp.feature_products_impl.presentation.deeplink.PocketDeepLinkHandler
+import io.paritytech.polkadotapp.feature_products_impl.presentation.deeplink.PocketScanContentParser
 import io.paritytech.polkadotapp.feature_products_impl.presentation.initialization.ProductWorkerInitializer
 import io.paritytech.polkadotapp.feature_products_impl.presentation.initialization.TopUpResumeInitializer
 import io.paritytech.polkadotapp.feature_products_impl.presentation.productBotManagement.ProductsRouter
 import io.paritytech.polkadotapp.feature_products_impl.presentation.spaHost.RuntimeSelectingSpaHost
+import io.paritytech.polkadotapp.feature_scan_api.domain.ScanContentParser
 import okhttp3.OkHttpClient
 import java.util.concurrent.TimeUnit
 import javax.inject.Singleton
@@ -156,7 +176,35 @@ internal interface ProductsModule {
 
     @Binds
     @Singleton
+    fun bindPocketCardRepository(impl: RealPocketCardRepository): PocketCardRepository
+
+    @Binds
+    @Singleton
+    fun bindPinnedPocketCards(impl: AssetPinnedPocketCards): PinnedPocketCards
+
+    @Binds
+    @Singleton
+    fun bindPocketCardStore(impl: RealPocketCollection): PocketCardStore
+
+    @Binds
+    fun bindPocketCollection(impl: PocketCardStore): PocketCollection
+
+    @Binds
+    fun bindPocketFaceSource(impl: RealPocketFaceSource): PocketFaceSource
+
+    @Binds
+    fun bindPocketFaceStreams(impl: TrUAPIPocketFaceStreams): PocketFaceStreams
+
+    @Binds
+    fun bindPocketImageResolver(impl: RealPocketImageResolver): PocketImageResolver
+
+    @Binds
+    @Singleton
     fun bindServingHostResolver(impl: ProductServingHostResolver): DotNsServingHostResolver
+
+    @Binds
+    @Singleton
+    fun bindProductContentWarmUp(impl: RealProductContentWarmUp): ProductContentWarmUp
 
     @Binds
     @Singleton
@@ -169,6 +217,10 @@ internal interface ProductsModule {
     @Binds
     @IntoSet
     fun bindProductExternalExtensionProvider(impl: ProductExternalExtensionProvider): ExternalExtensionProvider
+
+    @Binds
+    @IntoSet
+    fun bindPocketDeepLinkHandler(impl: PocketDeepLinkHandler): DeepLinkHandler
 
     @Binds
     fun bindProductLocalStorage(impl: RealProductLocalStorage): ProductLocalStorage
@@ -352,6 +404,19 @@ internal interface ProductsModule {
         ): ProductPermissionRequester {
             return AutoAllowProductPermissionRequester(whitelistedProductsProvider, real)
         }
+
+        @Provides
+        @IntoSet
+        fun providePocketScanContentParser(handler: PocketDeepLinkHandler): ScanContentParser =
+            PocketScanContentParser(handler)
+
+        @Provides
+        @Singleton
+        fun provideProductDeepLinkGate(fundingDomainProvider: FundingDomainProvider): ProductDeepLinkGate =
+            ProductDeepLinkGate(
+                arbitraryProductsEnabled = FeatureOption.ARBITRARY_PRODUCTS.isEnabled,
+                fundingDomainProvider = fundingDomainProvider,
+            )
 
         @Provides
         @IntoSet

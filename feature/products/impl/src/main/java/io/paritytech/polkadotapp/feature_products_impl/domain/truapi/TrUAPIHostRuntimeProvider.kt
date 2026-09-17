@@ -1,5 +1,6 @@
 package io.paritytech.polkadotapp.feature_products_impl.domain.truapi
 
+import dagger.Lazy
 import io.parity.truapi.HostBridge
 import io.parity.truapi.HostCoreStorage
 import io.parity.truapi.HostRuntimeConfig
@@ -16,7 +17,10 @@ import io.paritytech.polkadotapp.common.utils.logFailure
 import io.paritytech.polkadotapp.feature_account_api.data.repository.AccountRepository
 import io.paritytech.polkadotapp.feature_dotns_api.domain.DotNsTldProvider
 import io.paritytech.polkadotapp.feature_dotns_api.domain.getTldRetrying
+import io.paritytech.polkadotapp.feature_products_api.model.ProductId
 import io.paritytech.polkadotapp.feature_products_impl.di.TrUAPIChainHttpClient
+import io.paritytech.polkadotapp.feature_products_impl.domain.truapi.worker.TrUAPIWorkerSupervisor
+import io.paritytech.polkadotapp.feature_products_impl.domain.truapi.worker.WorkerDemand
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.SupervisorJob
@@ -43,6 +47,7 @@ import uniffi.truapi_platform.HostChainSet
 import uniffi.truapi_platform.UserConfirmationReview
 import uniffi.truapi_server.HostNavigateRejection
 import uniffi.truapi_server.HostStorageException
+import uniffi.truapi_server.WorkerTransition
 import java.util.concurrent.atomic.AtomicReference
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -64,6 +69,8 @@ class TrUAPIHostRuntimeProvider @Inject constructor(
     @param:TrUAPIChainHttpClient private val chainHttpClient: OkHttpClient,
     private val confirmationLauncher: TrUAPIConfirmationLauncher,
     private val appLifecycleObserver: AppLifecycleObserver,
+    // Lazy: the supervisor boots workers on this runtime, and reports back through this bridge.
+    private val workerSupervisor: Lazy<TrUAPIWorkerSupervisor>,
     dispatchers: CoroutineDispatchers,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + dispatchers.computation)
@@ -124,7 +131,6 @@ class TrUAPIHostRuntimeProvider @Inject constructor(
         val localSession = localSessionSource.resolve()
             .logFailure("TrUAPI local session unavailable; booting the host runtime without one")
             .getOrNull()
-
         // The core derives the wallet's reserved identities under this TLD, so it has
         // to be the one the app's own built-in accounts derive from. A wrong suffix
         // mints key material that belongs to no network, so this resolves the value
@@ -183,6 +189,15 @@ class TrUAPIHostRuntimeProvider @Inject constructor(
 
         override fun onCoreLog(marker: String, detail: String) {
             Timber.tag("truapi.core").d("%s: %s", marker, detail)
+        }
+
+        // Runtime-wide demand from the core's worker ledger; the supervisor marshals it off this thread.
+        override fun workerDemandChanged(productId: String, transition: WorkerTransition) {
+            val demand = when (transition) {
+                WorkerTransition.START -> WorkerDemand.START
+                WorkerTransition.STOP -> WorkerDemand.STOP
+            }
+            workerSupervisor.get().onDemandChanged(ProductId.fromStoredValue(productId), demand)
         }
 
         override suspend fun navigateTo(url: String) {

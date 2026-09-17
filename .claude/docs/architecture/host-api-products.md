@@ -316,6 +316,51 @@ Native runtime: `StorageHostCalls` provides a per-product key-value store namesp
 
 ---
 
+## Pocket — the host-owned card collection
+
+Spec: host-rust-core RFC "Pocket modality" (#609), core implementation #706, on top of Unified Renderer (#633) and
+Worker Lifecycle (#632). The host owns the collection and is its only writer; a product observes its own cards over
+the wire (`Pocket::list_subscribe`) and may remove one (`Pocket::remove_card`). There is no add call: a card enters
+when the user follows a `polkadotapp://<product>.<tld>/-/pocket/add?card=<id>` deeplink and approves the sheet. The
+first path segment `-` is reserved for host-handled targets; `ProductSpaDeepLinkHandler` declines it.
+
+Seams, all in `feature/products/api/.../domain/pocket/`:
+- `PocketCollection` — `observeCards()` and user removal. One pinned card, Humanity on the personhood product
+  (`AssetPinnedPocketCards`), is a constant with a bundled face; added cards live in Room (`pocket_cards`) with the
+  face they were approved with. Balance and Scarcity are not pinned: the products behind them publish no Pocket
+  cards, and the host already draws its own native cards for that ground. The newest face a product streams is kept
+  for every card,
+  pinned ones included, so a card wears what its product last drew rather than the bundled stub at cold start.
+- `PocketFaceSource.observeFace(key)` — the cached face first, then every tree the product streams; `sendAction`
+  carries a press back; `resolveImage` fetches `Image` sources from the archive or the Bulletin gateway.
+- The face vocabulary is the renderer's: `RendererNodeJsonDecoder` reads a `{ tag, value }` preview into the core's
+  `RendererNode`, `RendererNodeMapping` turns that (or a streamed tree) into `JsWidget`, `JsWidgetRenderer`
+  (`api/presentation/widget`) draws it. Trees deeper than 32 levels are rejected.
+- A card expands in place rather than into a sheet: the wallet's Pocket screen moves the same card element to the top
+  of a full-screen page with the shared-element transition the native cards use, and hosts the product under it through
+  `SpaHost` (`api/presentation/spaHost`, with `ProductWebViewHost`). `ExpandedProductPage` keeps one session at a time
+  and cancels its scope when the card collapses. The RFC expands into the `widget` executable; Android has no widget
+  host, so the launch URL is the product's app with `?card=<id>`.
+
+Core side (`feature/products/impl/.../domain/truapi/`):
+- Pocket is core-only, whatever `ProductRuntimeSettings` says: the native runtime has no Pocket surface.
+- `TrUAPIWorkerSupervisor` starts a product's worker on the core's `Start` transition (runtime bridge
+  `workerDemandChanged`): hidden `ChatWebViewProvider` WebView, `openProductExecution(WORKER, pocket = ...)` through
+  `ProductTrUAPIHostBridge.attach(kind = WORKER)`, bootstrap at document start, entry module by URL. `Stop` tears it
+  down. Chat is not served on this path; chat products keep the native worker, so a product with both runs two.
+- `TrUAPIPocketFaceStreams` takes one `acquireWorker` reference per collected face, opens `render` on
+  `RenderContext.PocketCard`, retries the first `render` while the worker's client is still connecting, and publishes
+  renderer actions. Both callbacks of `ProductPocketHostBridge` run on the core's dispatcher thread: the list is a
+  snapshot, and a removal completes inline and answers `Removed`, `Absent` or `Privileged`, because the core reads the
+  list again right after and republishes it.
+- Deeplinks are classified by the core's `parse_navigate` behind `PocketDeeplinkParser`; card ids are screened at
+  manifest load with the chat identifier rules (`PocketCardIdentifier`).
+
+Demo: `feature/products/product-sample/pocket-worker`, a worker on the core's own client that publishes one card,
+draws its face live and gives it up on its Remove button.
+
+---
+
 ## Where new things live
 
 | Concept | Goes in |
