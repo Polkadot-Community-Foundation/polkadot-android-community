@@ -14,6 +14,8 @@ import io.paritytech.polkadotapp.common.presentation.AppLifecycleObserver
 import io.paritytech.polkadotapp.common.utils.CoroutineDispatchers
 import io.paritytech.polkadotapp.common.utils.logFailure
 import io.paritytech.polkadotapp.feature_account_api.data.repository.AccountRepository
+import io.paritytech.polkadotapp.feature_dotns_api.domain.DotNsTldProvider
+import io.paritytech.polkadotapp.feature_dotns_api.domain.getTldRetrying
 import io.paritytech.polkadotapp.feature_products_impl.di.TrUAPIChainHttpClient
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
@@ -28,6 +30,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.OkHttpClient
 import timber.log.Timber
 import uniffi.truapi.HostDevicePermissionRequest
@@ -56,6 +59,7 @@ class TrUAPIHostRuntimeProvider @Inject constructor(
     private val chainDirectory: TrUAPIChainDirectory,
     private val localSessionSource: TrUAPILocalSessionSource,
     private val accountRepository: AccountRepository,
+    private val dotNsTldProvider: DotNsTldProvider,
     private val encryptedPreferences: EncryptedPreferences,
     @param:TrUAPIChainHttpClient private val chainHttpClient: OkHttpClient,
     private val confirmationLauncher: TrUAPIConfirmationLauncher,
@@ -121,10 +125,20 @@ class TrUAPIHostRuntimeProvider @Inject constructor(
             .logFailure("TrUAPI local session unavailable; booting the host runtime without one")
             .getOrNull()
 
+        // The core derives the wallet's reserved identities under this TLD, so it has
+        // to be the one the app's own built-in accounts derive from. A wrong suffix
+        // mints key material that belongs to no network, so this resolves the value
+        // rather than guessing it, and fails the boot when the network cannot answer.
+        // Failing releases the memoised boot so the next product load tries again.
+        val networkSuffix = withTimeoutOrNull(TLD_RESOLVE_TIMEOUT_MS) {
+            dotNsTldProvider.getTldRetrying()
+        }?.value ?: error("dotNS TLD unresolved after ${TLD_RESOLVE_TIMEOUT_MS}ms")
+
         return HostRuntimeConfig(
             hostName = HOST_NAME,
             peopleChainGenesisHash = peopleGenesis,
             bulletinChainGenesisHash = bulletinGenesis,
+            networkSuffix = networkSuffix,
             localSessionSecret = localSession?.secret,
             localSessionLiteUsername = localSession?.liteUsername,
         )
@@ -213,6 +227,12 @@ class TrUAPIHostRuntimeProvider @Inject constructor(
     private companion object {
         const val HOST_NAME = "Polkadot"
         const val HOST_REQUESTER = "host"
+
+        /**
+         * Ceiling on resolving the network's dotNS TLD while booting the runtime.
+         * `getTldRetrying` polls until it succeeds, so the boot needs its own bound.
+         */
+        const val TLD_RESOLVE_TIMEOUT_MS = 30_000L
     }
 }
 
