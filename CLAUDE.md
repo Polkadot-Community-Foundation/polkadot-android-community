@@ -8,7 +8,7 @@ The build **fails at configuration time** until the TrUAPI Rust core checkout re
 
 `FIRESTORE_DATABASE_ID` must also be in `local.properties`, or configuration fails before anything compiles. It is a CI secret, so ask for the value.
 
-The core generates part of its Rust sources at build time from rustdoc JSON, which needs a nightly toolchain: `rustup toolchain install nightly --profile minimal` once. Gradle runs the codegen itself.
+The core generates part of its Rust sources at build time from rustdoc JSON, which needs the nightly toolchain pinned as `truapi.rustNightly` in `gradle.properties`: `rustup toolchain install "$(sed -n 's/^truapi.rustNightly=//p' gradle.properties)" --profile minimal` once. Gradle runs the codegen itself.
 
 JDK 21. `export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"` if `java` is not on PATH.
 

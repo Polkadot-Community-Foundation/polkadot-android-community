@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 66,
-    "identityHash": "8040121f72b8a42e0b1476b3214aee8c",
+    "identityHash": "c9f0def3e18657b0c6d24c2bd2c3b79f",
     "entities": [
       {
         "tableName": "product_funding_operations",
@@ -3121,7 +3121,7 @@
       },
       {
         "tableName": "pocket_cards",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`productId` TEXT NOT NULL, `cardId` TEXT NOT NULL, `title` TEXT NOT NULL, `faceJson` TEXT NOT NULL, PRIMARY KEY(`productId`, `cardId`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`productId` TEXT NOT NULL, `cardId` TEXT NOT NULL, `title` TEXT NOT NULL, PRIMARY KEY(`productId`, `cardId`))",
         "fields": [
           {
             "fieldPath": "productId",
@@ -3138,6 +3138,31 @@
           {
             "fieldPath": "title",
             "columnName": "title",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "productId",
+            "cardId"
+          ]
+        }
+      },
+      {
+        "tableName": "pocket_card_faces",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`productId` TEXT NOT NULL, `cardId` TEXT NOT NULL, `faceJson` TEXT NOT NULL, PRIMARY KEY(`productId`, `cardId`))",
+        "fields": [
+          {
+            "fieldPath": "productId",
+            "columnName": "productId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "cardId",
+            "columnName": "cardId",
             "affinity": "TEXT",
             "notNull": true
           },
@@ -3159,7 +3184,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '8040121f72b8a42e0b1476b3214aee8c')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'c9f0def3e18657b0c6d24c2bd2c3b79f')"
     ]
   }
 }

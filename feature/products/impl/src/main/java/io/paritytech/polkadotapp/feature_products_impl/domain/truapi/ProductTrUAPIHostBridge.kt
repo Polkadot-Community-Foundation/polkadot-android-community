@@ -103,8 +103,8 @@ class ProductTrUAPIHostBridge @AssistedInject constructor(
         onLog = { Timber.tag("truapi.chain").d("%s", it) },
     )
 
-    var execution: TrUAPIProductExecution? = null
-        private set
+    private var execution: TrUAPIProductExecution? = null
+    private var pocketBridge: ProductPocketHostBridge? = null
 
     init {
         // Tear the execution down with the owning scope: otherwise a closed
@@ -225,8 +225,9 @@ class ProductTrUAPIHostBridge @AssistedInject constructor(
      * the bootstrap script. It must be injected before the product page loads
      * or the client never connects.
      *
-     * A second call is ignored: opening another execution would leak the
-     * first, along with its loopback listener and chain sockets.
+     * A second call opens nothing and answers with the execution already
+     * running: opening another would leak the first, along with its loopback
+     * listener and chain sockets.
      */
     suspend fun attach(
         runtime: TrUAPIHostRuntime,
@@ -235,23 +236,24 @@ class ProductTrUAPIHostBridge @AssistedInject constructor(
         navigationPolicy: NavigationPolicy,
         kind: ProductExecutionKind,
         onReadyToInject: (bootstrap: String) -> Unit,
-    ) {
-        if (execution != null) {
+    ): Result<TrUAPIProductExecution> {
+        execution?.let {
             Timber.w("truapi.attach: already attached to %s, ignoring", productId.value)
-            return
+            return Result.success(it)
         }
         cachedChains.set(chains)
-        val pocketBridge = ProductPocketHostBridge(productId, pocketCardStore, scope)
+        val pocket = ProductPocketHostBridge(productId, pocketCardStore, scope)
         val opened = runtime.openProductExecution(
             bridge = buildBridge(productId, navigationPolicy),
             configuration = ProductExecutionConfig(productId.value, kind),
-            pocket = pocketBridge,
+            pocket = pocket,
         )
         execution = opened
+        pocketBridge = pocket
         // Anything failing past this point leaves a live execution behind, and
         // `execution != null` would then block every re-attach; tear it down.
-        runCatching {
-            pocketBridge.start(opened::notifyPocketCardsChanged)
+        return runCatching {
+            pocket.start(opened::notifyPocketCardsChanged)
             chainProvider.attach(
                 onResponse = opened::notifyChainResponse,
                 onClosed = opened::notifyChainClosed,
@@ -260,10 +262,8 @@ class ProductTrUAPIHostBridge @AssistedInject constructor(
             observeAppTheme()
             observeAppLifecycle()
             onReadyToInject(LocalhostBridgeBootstrap.script(endpoint.port, endpoint.token, opened.webRtcAllowed()))
-        }.onFailure {
-            stop()
-            throw it
-        }
+            opened
+        }.onFailure { stop() }
     }
 
     // A peek at the stored decision, never a prompt: the bootstrap bakes it in
@@ -306,6 +306,10 @@ class ProductTrUAPIHostBridge @AssistedInject constructor(
     fun stop() {
         val opened = execution ?: return
         execution = null
+        // Before the execution closes: a card change arriving afterwards would republish through a
+        // handle that no longer exists.
+        pocketBridge?.stop()
+        pocketBridge = null
         chainProvider.detach()
         chainProvider.closeAll()
         opened.stopWsBridge()

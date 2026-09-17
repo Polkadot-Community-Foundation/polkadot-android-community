@@ -87,7 +87,7 @@ private fun JsImageRenderer(
 ) {
     val resolver = LocalJsImageResolver.current
     // Kept across a re-resolve, so a face that redraws does not blink its images away.
-    var model by remember { mutableStateOf(resolver.resolved(widget.source)) }
+    var model by remember(widget.source) { mutableStateOf(resolver.resolved(widget.source)) }
     LaunchedEffect(widget.source, resolver) {
         resolver.resolve(widget.source)?.let { model = it }
     }

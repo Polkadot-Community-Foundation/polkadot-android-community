@@ -49,7 +49,10 @@ class PocketAddCardViewModel @Inject constructor(
     override fun onAddClicked() = launchUnit {
         if (!adding.compareAndSet(expect = false, update = true)) return@launchUnit
 
-        val loaded = offer.value?.getOrNull() ?: return@launchUnit
+        val loaded = offer.value?.getOrNull() ?: run {
+            adding.value = false
+            return@launchUnit
+        }
         interactor.approve(loaded)
             .logFailure("PocketAddCard: failed to add the card")
             .onSuccess { router.back() }

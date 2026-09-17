@@ -1,5 +1,6 @@
 package io.paritytech.polkadotapp.feature_products_impl.domain.pocket
 
+import io.paritytech.polkadotapp.feature_products_api.domain.pocket.PocketRemoval
 import io.paritytech.polkadotapp.feature_products_api.domain.pocket.PocketRemoveError
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
@@ -71,9 +72,9 @@ class RealPocketCollectionTest {
     fun `a removal reports whether the card was there to remove`() = runTest {
         collection.addCard(loyalty)
 
-        assertEquals(PocketRemoval.REMOVED, collection.remove(loyalty.card.key).getOrThrow())
-        assertEquals(PocketRemoval.ABSENT, collection.remove(loyalty.card.key).getOrThrow())
-        assertEquals(PocketRemoveError.Privileged, collection.remove(humanity.card.key).exceptionOrNull())
+        assertEquals(PocketRemoval.REMOVED, collection.removeCard(loyalty.card.key).getOrThrow())
+        assertEquals(PocketRemoval.ABSENT, collection.removeCard(loyalty.card.key).getOrThrow())
+        assertEquals(PocketRemoveError.Privileged, collection.removeCard(humanity.card.key).exceptionOrNull())
     }
 
     // The bundled face is what a privileged card shows before its product has ever drawn one. Once it
@@ -90,6 +91,18 @@ class RealPocketCollectionTest {
     @Test
     fun `the face kept for a pinned card does not turn it into one the user added`() = runTest {
         collection.cacheFace(humanity.card.key, faceOf("live"))
+
+        assertEquals(listOf(humanity.card), collection.observeCards().first())
+    }
+
+    // A product redraws whenever it likes, including between the user pressing Remove and the row
+    // going. A face kept then must not put the card back in the collection.
+    @Test
+    fun `a face arriving after a removal does not bring the card back`() = runTest {
+        collection.addCard(loyalty)
+        collection.removeCard(loyalty.card.key)
+
+        collection.cacheFace(loyalty.card.key, faceOf("late"))
 
         assertEquals(listOf(humanity.card), collection.observeCards().first())
     }

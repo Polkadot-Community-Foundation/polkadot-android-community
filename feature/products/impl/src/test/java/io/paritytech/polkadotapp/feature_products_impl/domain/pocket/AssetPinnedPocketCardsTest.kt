@@ -4,19 +4,17 @@ import android.content.Context
 import android.content.res.AssetManager
 import io.paritytech.polkadotapp.feature_dotns_api.domain.DotNsTld
 import io.paritytech.polkadotapp.feature_dotns_api.domain.DotNsTldProvider
+import io.paritytech.polkadotapp.feature_products_api.model.JsWidget
 import io.paritytech.polkadotapp.feature_products_api.model.derivation.ReservedProductIds
 import io.paritytech.polkadotapp.feature_products_impl.domain.truapi.renderer.RendererNodeJsonDecoder
-import org.mockito.ArgumentMatchers.anyInt
 import io.paritytech.polkadotapp.test_shared.whenever
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.mockito.ArgumentMatchers.anyInt
 import org.mockito.Mockito.mock
-import java.io.ByteArrayInputStream
-
-private const val FACE = """{"tag":"Text","value":{"modifiers":[],"props":{"style":"TitleMediumRegular",
-    "color":"FgPrimary"},"children":[{"tag":"String","value":{"text":"Humanity"}}]}}"""
+import java.io.File
 
 class AssetPinnedPocketCardsTest {
     private val tld = requireNotNull(DotNsTld.parse("testnet"))
@@ -24,9 +22,13 @@ class AssetPinnedPocketCardsTest {
     private val assets: AssetManager = mock()
     private val tldProvider: DotNsTldProvider = mock()
 
+    // The real bundled file, not a stand-in: a face that stopped decoding against the renderer
+    // vocabulary would otherwise be found by the user at their first launch, never by a test.
+    private val bundledHumanityFace = File("src/main/assets/pocket/humanity.json")
+
     private suspend fun pinnedCards(): List<CachedPocketCard> {
         whenever(context.assets).thenReturn(assets)
-        whenever(assets.open("pocket/humanity.json")).thenReturn(ByteArrayInputStream(FACE.toByteArray()))
+        whenever(assets.open("pocket/humanity.json")).thenReturn(bundledHumanityFace.inputStream())
         whenever(context.getString(anyInt())).thenReturn("Humanity")
         whenever(tldProvider.getTld()).thenReturn(Result.success(tld))
 
@@ -47,5 +49,12 @@ class AssetPinnedPocketCardsTest {
     @Test
     fun `a host-placed card is privileged, so nothing can remove it`() = runBlocking {
         assertTrue(pinnedCards().single().card.privileged)
+    }
+
+    @Test
+    fun `the face bundled for Humanity decodes against the vocabulary the app ships`() = runBlocking {
+        assertTrue("missing ${'$'}bundledHumanityFace", bundledHumanityFace.exists())
+
+        assertTrue(pinnedCards().single().face is JsWidget.Column)
     }
 }

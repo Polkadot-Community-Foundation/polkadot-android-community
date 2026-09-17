@@ -29,6 +29,10 @@ interface ProductsRouter : ReturnableRouter, SigningRouter {
     /** Approval sheet for a card the user was offered through a Pocket deeplink. */
     fun openPocketAddCard(payload: PocketAddCardPayload)
 
-    /** Expands a Pocket card: the product opens with the card named in its launch URL. */
+    /**
+     * Opens the product behind a card the user followed a link to, in a sheet, with the card named
+     * in its launch URL. Tapping the same card on the Pocket tab expands it in place instead; a
+     * deeplink has no card on screen to expand, and lands on the product's page directly.
+     */
     fun openPocketCard(key: PocketCardKey)
 }

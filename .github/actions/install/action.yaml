@@ -7,9 +7,10 @@ inputs:
       SHA so an unrelated merge there cannot turn this build red; bump it
       deliberately.
       The app's HostCallbacks implementation must match the native API surface
-      at this commit. Currently the head of host-rust-core #706 rebased on main (Unified Renderer #633, Worker Lifecycle #632, wire envelope #357)
-      (`pocket-core-impl`, Pocket collection over the 0.12.0 core), which the
-      Android Pocket modality needs; bump again once #706 is rebased and merged.
+      at this commit. Currently host-rust-core `main` with the Pocket collection
+      (#706) merged, over the Unified Renderer (#633), Worker Lifecycle (#632)
+      and wire envelope (#357) work that the Android Pocket modality needs.
+      iOS pins its own ref; the two are bumped independently.
     required: false
     default: "b0d95f0d4d2526f7dd0a58b78452667e9b22b99d"
 
@@ -135,9 +136,10 @@ runs:
           .truapi -> target
 
     # :bindings:truapi-host regenerates the core's gitignored Rust sources from
-    # rustdoc JSON, which only a nightly rustdoc emits.
+    # rustdoc JSON, which only a nightly rustdoc emits. Dated, because the JSON
+    # format moves with the toolchain; Gradle reads the same property.
     - name: Add nightly for the core codegen
-      run: rustup toolchain install nightly --profile minimal
+      run: rustup toolchain install "$(sed -n 's/^truapi.rustNightly=//p' gradle.properties)" --profile minimal
       shell: bash
 
     - name: Add targets

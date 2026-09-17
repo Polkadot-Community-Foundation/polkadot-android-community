@@ -1,5 +1,6 @@
 package io.paritytech.polkadotapp.feature_wallet_impl.domain.interactor
 
+import android.net.Uri
 import io.paritytech.polkadotapp.chains.multiNetwork.ChainRegistry
 import io.paritytech.polkadotapp.chains.multiNetwork.KnownChains
 import io.paritytech.polkadotapp.chains.multiNetwork.chain.model.withAmount
@@ -18,7 +19,6 @@ import io.paritytech.polkadotapp.feature_products_api.domain.pocket.PocketCard
 import io.paritytech.polkadotapp.feature_products_api.domain.pocket.PocketCardKey
 import io.paritytech.polkadotapp.feature_products_api.domain.pocket.PocketCollection
 import io.paritytech.polkadotapp.feature_products_api.domain.pocket.PocketFaceSource
-import android.net.Uri
 import io.paritytech.polkadotapp.feature_products_api.model.JsImageSource
 import io.paritytech.polkadotapp.feature_products_api.model.JsWidget
 import io.paritytech.polkadotapp.feature_tokens_api.di.DigitalDollarChainAssetProvider
@@ -86,7 +86,8 @@ class PocketInteractor @Inject constructor(
     /** Collect only while the face is on screen: collecting keeps the backing product's worker running. */
     fun observeFace(key: PocketCardKey): Flow<JsWidget> = pocketFaceSource.observeFace(key)
 
-    suspend fun removeProductCard(key: PocketCardKey): Result<Unit> = pocketCollection.removeCard(key)
+    // Whether the card was there to remove is the core's concern, not the screen's.
+    suspend fun removeProductCard(key: PocketCardKey): Result<Unit> = pocketCollection.removeCard(key).map {}
 
     fun sendFaceAction(key: PocketCardKey, actionId: String, payload: ByteArray) =
         pocketFaceSource.sendAction(key, actionId, payload)

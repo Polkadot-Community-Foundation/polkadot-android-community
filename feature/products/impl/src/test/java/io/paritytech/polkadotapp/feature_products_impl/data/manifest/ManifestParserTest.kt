@@ -1,8 +1,8 @@
 package io.paritytech.polkadotapp.feature_products_impl.data.manifest
 
 import com.google.gson.Gson
-import io.paritytech.polkadotapp.feature_products_api.model.ExecutableHost
 import io.paritytech.polkadotapp.feature_products_api.domain.pocket.PocketCardId
+import io.paritytech.polkadotapp.feature_products_api.model.ExecutableHost
 import io.paritytech.polkadotapp.feature_products_api.model.ExecutableKind
 import io.paritytech.polkadotapp.feature_products_api.model.PocketCardDefinition
 import io.paritytech.polkadotapp.feature_products_api.model.ProductExecutable

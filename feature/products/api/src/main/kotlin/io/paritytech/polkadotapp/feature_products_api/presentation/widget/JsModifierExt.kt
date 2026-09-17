@@ -30,28 +30,34 @@ import io.paritytech.polkadotapp.feature_products_api.model.JsModifier
 import io.paritytech.polkadotapp.feature_products_api.model.JsShape
 
 @Composable
-fun List<JsModifier>.toComposeModifier(): Modifier {
-    // In Compose, modifier order matters (outside-in):
-    // margin → background/border → padding → size/fill
-    val ordered = sortedWith(compareBy {
-        when (it) {
-            is JsModifier.Margin -> 0
-            is JsModifier.Background -> 1
-            is JsModifier.Border -> 2
-            is JsModifier.Clip -> 3
-            is JsModifier.Padding -> 4
-            is JsModifier.Size -> 5
-            is JsModifier.FillMaxWidth -> 6
-            is JsModifier.FillMaxHeight -> 7
-            is JsModifier.Opacity -> 8
-            is JsModifier.BlendingMode -> 9
-        }
-    })
-
-    return ordered.fold(Modifier as Modifier) { acc, modifier ->
+fun List<JsModifier>.toComposeModifier(): Modifier =
+    orderedForCompose().fold(Modifier as Modifier) { acc, modifier ->
         acc.then(modifier.toComposeModifier())
     }
-}
+
+/**
+ * Compose applies modifiers outside-in, and each one covers only what the ones after it draw.
+ * Opacity and blending therefore have to come before the background and border, or a faded node
+ * keeps an opaque background and a blended one never blends the surface it paints.
+ *
+ * The rest follows the frame: margin outside, then the surface, then the content's padding and size.
+ */
+internal fun List<JsModifier>.orderedForCompose(): List<JsModifier> = sortedWith(
+    compareBy {
+        when (it) {
+            is JsModifier.Margin -> 0
+            is JsModifier.Opacity -> 1
+            is JsModifier.BlendingMode -> 2
+            is JsModifier.Background -> 3
+            is JsModifier.Border -> 4
+            is JsModifier.Clip -> 5
+            is JsModifier.Padding -> 6
+            is JsModifier.Size -> 7
+            is JsModifier.FillMaxWidth -> 8
+            is JsModifier.FillMaxHeight -> 9
+        }
+    }
+)
 
 @Composable
 fun JsModifier.toComposeModifier(): Modifier = when (this) {

@@ -14,7 +14,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.paritytech.polkadotapp.common.presentation.loading.LoadingState
 import io.paritytech.polkadotapp.design.components.bottomsheet.NovaBottomSheetSurface
@@ -28,13 +27,13 @@ import io.paritytech.polkadotapp.design.theme.PolkadotTheme
 import io.paritytech.polkadotapp.feature_products_api.model.JsTypographyStyle
 import io.paritytech.polkadotapp.feature_products_api.model.JsWidget
 import io.paritytech.polkadotapp.feature_products_api.presentation.widget.JsWidgetRenderer
+import io.paritytech.polkadotapp.feature_products_api.presentation.widget.PocketCardSize
 import io.paritytech.polkadotapp.feature_products_impl.presentation.pocketAddCard.PocketAddCardContract
 import io.paritytech.polkadotapp.feature_products_impl.presentation.pocketAddCard.PocketAddCardTestTags
 import io.paritytech.polkadotapp.feature_products_impl.presentation.pocketAddCard.PocketAddCardUiState
 import io.paritytech.polkadotapp.common.R as RCommon
 
 // Matches the card frame on the Pocket screen, so the preview is the size the face will have.
-private val PreviewHeight = 234.dp
 
 @Composable
 fun PocketAddCardScreen(contract: PocketAddCardContract) {
@@ -74,7 +73,7 @@ private fun PocketAddCardScreenInternal(
                 is LoadingState.Loading -> LoadingScreenState(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(PreviewHeight),
+                        .height(PocketCardSize.HEIGHT),
                 )
 
                 is LoadingState.Error -> NovaText(
@@ -127,7 +126,7 @@ private fun OfferContent(offer: PocketAddCardUiState) {
     PolkadotSurface(
         modifier = Modifier
             .fillMaxWidth()
-            .height(PreviewHeight)
+            .height(PocketCardSize.HEIGHT)
             .testTag(PocketAddCardTestTags.PREVIEW),
         shape = PolkadotTheme.shapes.large,
         color = PolkadotTheme.colors.bg.surface.container,

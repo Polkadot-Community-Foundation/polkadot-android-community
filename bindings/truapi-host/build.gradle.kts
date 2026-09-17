@@ -106,12 +106,14 @@ cargo {
 // JSON of the protocol crates. Only the Rust half of that script is needed to
 // compile the cdylib, so it is reproduced here rather than requiring node and
 // npm on every machine that builds the app. rustdoc's JSON output is nightly
-// only, hence `cargo +nightly`; `rustup toolchain install nightly` once.
+// only, and its format moves with the toolchain, so the date is pinned in
+// gradle.properties; `rustup toolchain install $rustNightly` once.
+val rustNightly: String = providers.gradleProperty("truapi.rustNightly").get()
 val rustdocJsonDir = "$truapiDir/target/doc"
 
 fun registerRustdocJson(taskName: String, crate: String) = tasks.register<Exec>(taskName) {
     workingDir = file(truapiDir)
-    commandLine("cargo", "+nightly", "rustdoc", "-p", crate, "--", "-Z", "unstable-options", "--output-format", "json")
+    commandLine("cargo", "+$rustNightly", "rustdoc", "-p", crate, "--", "-Z", "unstable-options", "--output-format", "json")
     inputs.files(fileTree("$truapiDir/rust/crates/$crate") { include("**/*.rs", "Cargo.toml") })
         .withPropertyName("crateSources")
     outputs.file("$rustdocJsonDir/${crate.replace('-', '_')}.json").withPropertyName("rustdocJson")

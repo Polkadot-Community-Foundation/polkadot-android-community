@@ -2,8 +2,6 @@ package io.paritytech.polkadotapp.feature_products_impl.domain.truapi
 
 import android.net.Uri
 import androidx.core.net.toUri
-import androidx.webkit.WebViewCompat
-import androidx.webkit.WebViewFeature
 import io.parity.truapi.ProductExecutionKind
 import io.paritytech.polkadotapp.common.utils.logFailure
 import io.paritytech.polkadotapp.feature_dotns_api.domain.DotNsTldProvider
@@ -12,6 +10,7 @@ import io.paritytech.polkadotapp.feature_products_impl.domain.hostApi.navigation
 import io.paritytech.polkadotapp.feature_products_impl.domain.webView.BrowserWebViewProvider
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import timber.log.Timber
 import javax.inject.Inject
 
 /**
@@ -25,6 +24,7 @@ class TrUAPISessionStarter @Inject constructor(
     private val runtimeProvider: TrUAPIHostRuntimeProvider,
     private val chainDirectory: TrUAPIChainDirectory,
     private val dotNsTldProvider: DotNsTldProvider,
+    private val bootstrapInstaller: TrUAPIBootstrapInstaller,
 ) {
     fun start(
         provider: BrowserWebViewProvider,
@@ -49,31 +49,22 @@ class TrUAPISessionStarter @Inject constructor(
         val tld = dotNsTldProvider.getTld().getOrElse { return Result.failure(it) }
         // A page that is not a product (the debug SPA browser opening any URL) has no bridge to
         // attach, but it is still a page to show.
-        val productId = ProductId.fromUrl(productUrl.toUri(), tld).getOrNull()
-            ?: return runCatching { provider.loadInitialContent() }
+        val productId = ProductId.fromUrl(productUrl.toUri(), tld).getOrNull() ?: run {
+            Timber.d("Loading %s without a TrUAPI bridge: not a product URL", productUrl)
+            return runCatching { provider.loadInitialContent() }
+        }
 
-        return runtimeProvider.runtime()
-            .mapCatching { runtime ->
-                // Before attach(), which starts the loopback bridge and sets the
-                // execution before invoking the callback: failing in there would
-                // leave a live listener that the guard then blocks re-attaching.
-                check(WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
-                    "WebView lacks DOCUMENT_START_SCRIPT; cannot run a TrUAPI product"
-                }
+        val runtime = runtimeProvider.runtime().getOrElse { return Result.failure(it) }
+        // The bootstrap publishes the loopback port and its bearer token, so it goes to the
+        // product's own origin only. A wildcard would hand the bridge endpoint to any page the
+        // WebView is ever pointed at.
+        val installBootstrap = runCatching {
+            bootstrapInstaller.installerFor(provider.getWebView(), setOf(productUrl.toUri().origin()))
+        }.getOrElse { return Result.failure(it) }
 
-                val chains = chainDirectory.resolve()
-                val webView = provider.getWebView()
-                // The bootstrap publishes the loopback port and its bearer token, so it
-                // goes to the product's own origin only. A wildcard would hand the
-                // bridge endpoint to any page the WebView is ever pointed at.
-                val origins = setOf(productUrl.toUri().origin())
-
-                bridge.attach(runtime, productId, chains, navigation, ProductExecutionKind.APP) { bootstrap ->
-                    WebViewCompat.addDocumentStartJavaScript(webView, bootstrap, origins)
-                }
-
-                provider.loadInitialContent()
-            }
+        return bridge
+            .attach(runtime, productId, chainDirectory.resolve(), navigation, ProductExecutionKind.APP, installBootstrap)
+            .mapCatching { provider.loadInitialContent() }
     }
 
     private fun Uri.origin(): String = buildString {

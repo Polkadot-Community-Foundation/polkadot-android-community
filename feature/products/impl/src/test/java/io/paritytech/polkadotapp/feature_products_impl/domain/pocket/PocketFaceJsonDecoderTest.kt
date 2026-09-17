@@ -124,6 +124,25 @@ class PocketFaceJsonDecoderTest {
         assertTrue(decoder.decode(nested).isSuccess)
     }
 
+    // A size is read back as an Int when the face is drawn, where a negative padding throws at
+    // composition of the card or the approval sheet, taking the screen rather than the one preview.
+    @Test
+    fun `a size the host cannot draw is refused instead of wrapping into a huge or negative one`() {
+        assertTrue(decoder.decode(sizedSpacer("""{"tag":"Padding","value":{"top":-1,"end":0}}""")).isFailure)
+        assertTrue(decoder.decode(sizedSpacer("""{"tag":"Width","value":4294967297}""")).isFailure)
+        assertTrue(decoder.decode(sizedSpacer("""{"tag":"Width","value":40}""")).isSuccess)
+    }
+
+    // 256 wraps to 0, which draws nothing at all rather than reporting a bad preview.
+    @Test
+    fun `an opacity outside the byte it is carried in is refused`() {
+        assertTrue(decoder.decode(sizedSpacer("""{"tag":"Opacity","value":256}""")).isFailure)
+        assertTrue(decoder.decode(sizedSpacer("""{"tag":"Opacity","value":-1}""")).isFailure)
+        assertTrue(decoder.decode(sizedSpacer("""{"tag":"Opacity","value":255}""")).isSuccess)
+    }
+
+    private fun sizedSpacer(modifier: String) = """{"tag":"Spacer","value":{"modifiers":[$modifier]}}"""
+
     @Test
     fun `unknown nodes, modifiers and enum names are rejected rather than drawn as something else`() {
         assertTrue(decoder.decode("""{"tag":"Video","value":{}}""").isFailure)

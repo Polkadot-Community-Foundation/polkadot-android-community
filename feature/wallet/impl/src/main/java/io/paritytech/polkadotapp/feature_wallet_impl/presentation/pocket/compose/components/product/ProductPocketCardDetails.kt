@@ -17,7 +17,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import io.paritytech.polkadotapp.common.R as RCommon
 import io.paritytech.polkadotapp.design.components.spacer.VerticalSpacer
 import io.paritytech.polkadotapp.design.components.text.NovaText
 import io.paritytech.polkadotapp.design.components.topbar.PolkadotTopBar
@@ -25,15 +24,13 @@ import io.paritytech.polkadotapp.design.components.topbar.TopBarTitleAlignment
 import io.paritytech.polkadotapp.design.components.topbar.rememberTopBarAction
 import io.paritytech.polkadotapp.design.theme.PolkadotTheme
 import io.paritytech.polkadotapp.feature_dotns_api.domain.DotNsLoadProgress
-import io.paritytech.polkadotapp.feature_products_api.model.JsWidget
 import io.paritytech.polkadotapp.feature_products_api.presentation.spaHost.ProductWebViewHost
 import io.paritytech.polkadotapp.feature_products_api.presentation.spaHost.SpaHostSession
-import io.paritytech.polkadotapp.feature_products_api.presentation.widget.JsImageResolver
-import io.paritytech.polkadotapp.feature_products_api.presentation.widget.JsUiEventHandler
+import io.paritytech.polkadotapp.feature_wallet_impl.presentation.pocket.ProductFaceBindings
 import io.paritytech.polkadotapp.feature_wallet_impl.presentation.pocket.compose.LocalNavAnimatedVisibilityScope
 import io.paritytech.polkadotapp.feature_wallet_impl.presentation.pocket.compose.pocketCardSharedElement
 import io.paritytech.polkadotapp.feature_wallet_impl.presentation.pocket.models.PocketCardUiModel
-import kotlinx.coroutines.flow.Flow
+import io.paritytech.polkadotapp.common.R as RCommon
 
 /**
  * The expanded card: the same card element the list drew, moved to the top, with the product filling
@@ -43,9 +40,7 @@ import kotlinx.coroutines.flow.Flow
 fun ProductPocketCardDetails(
     modifier: Modifier = Modifier,
     card: PocketCardUiModel.ProductCard,
-    face: Flow<JsWidget>,
-    onFaceAction: JsUiEventHandler,
-    imageResolver: JsImageResolver,
+    bindings: ProductFaceBindings,
     session: SpaHostSession?,
     cardIndex: Int,
     onSettled: () -> Unit,
@@ -73,11 +68,9 @@ fun ProductPocketCardDetails(
                 .padding(horizontal = PolkadotTheme.spacings.mediumIncreased)
                 .pocketCardSharedElement(cardIndex),
             card = card,
-            face = face,
-            onFaceAction = onFaceAction,
-            imageResolver = imageResolver,
-            onOpen = {},
-            onRemoveRequested = {}
+            bindings = bindings,
+            onOpen = null,
+            onRemoveRequested = null
         )
 
         VerticalSpacer { mediumIncreased }
@@ -106,7 +99,9 @@ private fun ExpandedProductContent(
 
             // Once the product has painted once it owns the space; its own navigations must not blank it.
             var productShowing by remember(session) { mutableStateOf(false) }
-            if (loadProgress == DotNsLoadProgress.Completed) productShowing = true
+            LaunchedEffect(loadProgress) {
+                if (loadProgress == DotNsLoadProgress.Completed) productShowing = true
+            }
 
             when {
                 loadProgress is DotNsLoadProgress.Failed -> NovaText(

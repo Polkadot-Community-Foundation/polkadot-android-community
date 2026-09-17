@@ -141,14 +141,27 @@ private fun RawPayload.toContent(): RawPayloadContent = when (this) {
     is RawPayload.Payload -> RawPayloadContent.Payload(payload)
 }
 
-// `watermarked` is not surfaced yet: the native raw-signing sheet shows the payload bytes as they are.
+/**
+ * An unwatermarked payload carries no `<Bytes>` protection, so a signature over it can authorize a
+ * transaction; the core requires a host to say so. The raw-signing sheet shows a payload as an
+ * ordinary message and has nowhere to put that warning, so such a request is refused rather than
+ * presented as the harmless thing it is not. Surfacing the warning is what lifts this.
+ */
 private fun SignRawReview.toSigningRequestBody(): SigningRequestBody = when (this) {
-    is SignRawReview.Product ->
+    is SignRawReview.Product -> {
+        requireWatermark(watermarked)
         SigningRequestBody.Raw(SigningRawPayload(request.account.toDomain(), request.payload.toContent()))
-    is SignRawReview.LegacyAccount ->
+    }
+    is SignRawReview.LegacyAccount -> {
+        requireWatermark(watermarked)
         SigningRequestBody.RawLegacy(
             SigningRawLegacyPayload(request.signer.parseLegacySigner().toDataByteArray(), request.payload.toContent()),
         )
+    }
+}
+
+private fun requireWatermark(watermarked: Boolean) {
+    if (!watermarked) throw UnsupportedReviewException("raw payload without transaction-payload protection")
 }
 
 private fun TxPayloadExtension.toDomain() = EncodedTransactionExtensionValue(

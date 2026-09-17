@@ -25,15 +25,14 @@ import io.paritytech.polkadotapp.feature_products_api.model.JsTypographyStyle
 import io.paritytech.polkadotapp.feature_products_api.model.JsWidget
 import io.paritytech.polkadotapp.feature_products_api.model.ProductId
 import io.paritytech.polkadotapp.feature_products_api.presentation.widget.JsImageResolver
-import io.paritytech.polkadotapp.feature_products_api.presentation.widget.JsUiEventHandler
 import io.paritytech.polkadotapp.feature_products_api.presentation.widget.JsWidgetRenderer
 import io.paritytech.polkadotapp.feature_products_api.presentation.widget.LocalJsImageResolver
 import io.paritytech.polkadotapp.feature_wallet_impl.R
 import io.paritytech.polkadotapp.feature_wallet_impl.presentation.pocket.PocketTestTags
+import io.paritytech.polkadotapp.feature_wallet_impl.presentation.pocket.ProductFaceBindings
 import io.paritytech.polkadotapp.feature_wallet_impl.presentation.pocket.compose.components.CardSizes
 import io.paritytech.polkadotapp.feature_wallet_impl.presentation.pocket.compose.components.PocketCardColors
 import io.paritytech.polkadotapp.feature_wallet_impl.presentation.pocket.models.PocketCardUiModel
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 
 /**
@@ -45,13 +44,11 @@ import kotlinx.coroutines.flow.flowOf
 fun ProductPocketCard(
     modifier: Modifier = Modifier,
     card: PocketCardUiModel.ProductCard,
-    face: Flow<JsWidget>,
-    onFaceAction: JsUiEventHandler,
-    imageResolver: JsImageResolver,
-    onOpen: (PocketCardUiModel.ProductCard) -> Unit,
-    onRemoveRequested: (PocketCardUiModel.ProductCard) -> Unit,
+    bindings: ProductFaceBindings,
+    onOpen: ((PocketCardUiModel.ProductCard) -> Unit)?,
+    onRemoveRequested: ((PocketCardUiModel.ProductCard) -> Unit)?,
 ) {
-    val currentFace by face.collectAsStateWithLifecycle(initialValue = null)
+    val currentFace by bindings.face.collectAsStateWithLifecycle(initialValue = null)
 
     PolkadotSurface(
         modifier = modifier.testTag(PocketTestTags.PRODUCT_CARD),
@@ -63,10 +60,13 @@ fun ProductPocketCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(CardSizes.HEIGHT)
+                // The expanded copy is the card the user is already looking at: it takes no presses
+                // of its own, so it does not ripple under the finger either.
                 .combinedClickable(
-                    onClick = { onOpen(card) },
+                    enabled = onOpen != null || onRemoveRequested != null,
+                    onClick = { onOpen?.invoke(card) },
                     // A pinned card is never offered for removal, so long-press does nothing on it.
-                    onLongClick = if (card.pinned) null else ({ onRemoveRequested(card) }),
+                    onLongClick = if (card.pinned) null else onRemoveRequested?.let { { it(card) } },
                 )
         ) {
             Image(
@@ -77,11 +77,11 @@ fun ProductPocketCard(
             )
 
             currentFace?.let { widget ->
-                CompositionLocalProvider(LocalJsImageResolver provides imageResolver) {
+                CompositionLocalProvider(LocalJsImageResolver provides bindings.imageResolver) {
                     JsWidgetRenderer(
                         widget = widget,
                         modifier = Modifier.matchParentSize(),
-                        jsEventHandler = onFaceAction,
+                        jsEventHandler = bindings.onFaceAction,
                     )
                 }
             }
@@ -99,9 +99,11 @@ private fun ProductPocketCardPreview() {
                 title = "Loyalty",
                 pinned = false
             ),
-            face = flowOf(JsWidget.Text(text = "Loyalty", style = JsTypographyStyle.HEADLINE_LARGE)),
-            onFaceAction = { _, _ -> },
-            imageResolver = JsImageResolver { null },
+            bindings = ProductFaceBindings(
+                face = flowOf(JsWidget.Text(text = "Loyalty", style = JsTypographyStyle.HEADLINE_LARGE)),
+                onFaceAction = { _, _ -> },
+                imageResolver = JsImageResolver { null },
+            ),
             onOpen = {},
             onRemoveRequested = {}
         )

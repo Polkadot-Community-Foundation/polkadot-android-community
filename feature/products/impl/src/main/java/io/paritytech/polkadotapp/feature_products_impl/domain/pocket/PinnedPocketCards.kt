@@ -1,6 +1,7 @@
 package io.paritytech.polkadotapp.feature_products_impl.domain.pocket
 
 import android.content.Context
+import androidx.annotation.StringRes
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.paritytech.polkadotapp.feature_dotns_api.domain.DotNsTld
 import io.paritytech.polkadotapp.feature_dotns_api.domain.DotNsTldProvider
@@ -33,7 +34,7 @@ class AssetPinnedPocketCards @Inject constructor(
 ) : PinnedPocketCards {
     private class Definition(
         val cardId: String,
-        val titleRes: Int,
+        @StringRes val titleRes: Int,
         val backingProduct: (DotNsTld) -> ProductId,
     )
 

@@ -16,8 +16,8 @@ import io.paritytech.polkadotapp.feature_coinage_api.domain.model.BackupProgress
 import io.paritytech.polkadotapp.feature_products_api.domain.pocket.PocketCard
 import io.paritytech.polkadotapp.feature_products_api.model.JsImageSource
 import io.paritytech.polkadotapp.feature_products_api.model.JsUiEvent
-import io.paritytech.polkadotapp.feature_products_api.model.JsWidget
 import io.paritytech.polkadotapp.feature_products_api.presentation.spaHost.SpaHost
+import io.paritytech.polkadotapp.feature_products_api.presentation.widget.JsImageResolver
 import io.paritytech.polkadotapp.feature_tokens_api.presentation.formatter.TokenAmountFormatter
 import io.paritytech.polkadotapp.feature_tokens_api.presentation.formatter.formatFiat
 import io.paritytech.polkadotapp.feature_tokens_api.presentation.mapper.TokenAmountMapper
@@ -27,20 +27,22 @@ import io.paritytech.polkadotapp.feature_wallet_impl.PocketRouter
 import io.paritytech.polkadotapp.feature_wallet_impl.domain.interactor.PocketInteractor
 import io.paritytech.polkadotapp.feature_wallet_impl.presentation.pocket.models.PocketCardUiModel
 import io.paritytech.polkadotapp.feature_wallet_impl.presentation.pocket.models.PocketScreenState
-import java.util.concurrent.ConcurrentHashMap
-import javax.inject.Inject
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChangedBy
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.stateIn
+import timber.log.Timber
+import java.util.concurrent.ConcurrentHashMap
+import javax.inject.Inject
 
 @HiltViewModel
 class PocketViewModel @Inject constructor(
@@ -90,14 +92,21 @@ class PocketViewModel @Inject constructor(
     }.onStart { emit(null) }
 
     // Native cards keep their place; the product-backed collection follows, pinned cards first.
+    // A collection the host cannot read costs the user their product cards, never the balance and
+    // identity cards standing beside them.
     private val productCards = interactor.observeProductCards()
         .map { cards -> cards.map { it.toUiModel() } }
+        .catch { failure ->
+            Timber.e(failure, "PocketViewModel: the product card collection is unavailable")
+            emit(emptyList())
+        }
         .onStart { emit(emptyList()) }
 
     val cards = combine(balanceCard, addressCard, productCards) { balance, address, products ->
         (listOfNotNull(balance, address) + products).toImmutableList()
     }
         .distinctUntilChangedBy { cards -> cards.map(::cardDisplayKey) }
+        .onEach(::forgetCardsNoLongerHeld)
         .inBackground()
         .stateIn(
             scope = this,
@@ -133,15 +142,27 @@ class PocketViewModel @Inject constructor(
             initialValue = PocketScreenState.List(collectiblesAvailable = false, removalCandidate = null)
         )
 
-    private val faces = ConcurrentHashMap<String, Flow<JsWidget>>()
+    private val bindings = ConcurrentHashMap<String, ProductFaceBindings>()
 
     /**
-     * One stream per card, however many copies of it are drawn: expanding a card draws a second one
-     * over the first, and two streams would take two worker references and leave the new copy empty
-     * until the product drew again. The newest face is replayed to whichever copy asks next.
+     * One set of bindings per card, however many copies of it are drawn: expanding a card draws a
+     * second one over the first, and two streams would take two worker references and leave the new
+     * copy empty until the product drew again. The newest face is replayed to whichever copy asks next.
+     *
+     * The stream outlives a short gap in subscribers, so scrolling the card off screen or leaving the
+     * app for a moment does not tear the product's worker down and boot it again on the way back.
      */
-    fun faceOf(card: PocketCardUiModel.ProductCard): Flow<JsWidget> = faces.getOrPut(card.id) {
-        interactor.observeFace(card.key).shareIn(this, SharingStarted.WhileSubscribed(), replay = 1)
+    fun bindingsOf(card: PocketCardUiModel.ProductCard): ProductFaceBindings = bindings.getOrPut(card.id) {
+        ProductFaceBindings(
+            face = interactor.observeFace(card.key)
+                .shareIn(this, SharingStarted.WhileSubscribed(WORKER_KEEP_ALIVE_MILLIS), replay = 1),
+            onFaceAction = { actionId, type -> onFaceAction(card, actionId, type) },
+            imageResolver = object : JsImageResolver {
+                override suspend fun resolve(source: JsImageSource) = resolveFaceImage(card, source)
+
+                override fun resolved(source: JsImageSource) = resolvedFaceImages[card.id to source]
+            },
+        )
     }
 
     private fun cardDisplayKey(card: PocketCardUiModel): String = when (card) {
@@ -194,11 +215,6 @@ class PocketViewModel @Inject constructor(
         router.openCollectibles()
     }
 
-    /** A card expands in place: it keeps its native face and the product fills the screen under it. */
-    fun openProductCard(card: PocketCardUiModel.ProductCard) {
-        selectedCardId.value = card.id
-    }
-
     /**
      * The product is loaded only once the card has finished travelling. Building a WebView while the
      * card is still moving starves the animation, and the card is the part the user is watching.
@@ -208,7 +224,7 @@ class PocketViewModel @Inject constructor(
     }
 
     /** A press or edit inside a face goes back to the product; a text edit carries the new value as UTF-8. */
-    fun onFaceAction(card: PocketCardUiModel.ProductCard, actionId: String, type: JsUiEvent.Type) {
+    private fun onFaceAction(card: PocketCardUiModel.ProductCard, actionId: String, type: JsUiEvent.Type) {
         val payload = when (type) {
             JsUiEvent.Type.ButtonClick -> ByteArray(0)
             is JsUiEvent.Type.InputFieldValueChange -> type.newValue.toByteArray()
@@ -222,12 +238,8 @@ class PocketViewModel @Inject constructor(
      */
     private val resolvedFaceImages = ConcurrentHashMap<Pair<String, JsImageSource>, Uri>()
 
-    /** The image already held for this card, if any, so a redraw of its face does not wait. */
-    fun resolvedFaceImage(card: PocketCardUiModel.ProductCard, source: JsImageSource): Uri? =
+    private suspend fun resolveFaceImage(card: PocketCardUiModel.ProductCard, source: JsImageSource): Uri? =
         resolvedFaceImages[card.id to source]
-
-    suspend fun resolveFaceImage(card: PocketCardUiModel.ProductCard, source: JsImageSource): Uri? =
-        resolvedFaceImage(card, source)
             ?: interactor.resolveFaceImage(card.key, source)
                 .logFailure("PocketViewModel: face image unavailable for ${card.id}")
                 .getOrNull()
@@ -250,6 +262,12 @@ class PocketViewModel @Inject constructor(
         interactor.removeProductCard(candidate.key).logFailure("PocketViewModel: failed to remove ${candidate.id}")
     }
 
+    private fun forgetCardsNoLongerHeld(held: List<PocketCardUiModel>) {
+        val ids = held.map { it.id }.toSet()
+        bindings.keys.retainAll(ids)
+        resolvedFaceImages.keys.removeAll { (cardId, _) -> cardId !in ids }
+    }
+
     fun onShareId() = launchUnit {
         val idCard = cards.value.filterIsInstance<PocketCardUiModel.IdCard>().firstOrNull() ?: return@launchUnit
         val text = "${idCard.username}\n${idCard.address}"
@@ -266,5 +284,10 @@ class PocketViewModel @Inject constructor(
                 )
             }
             .onFailure { sharingManager.shareText(text) }
+    }
+
+    private companion object {
+        // Long enough to cover a scroll away and back, or a glance at another app.
+        const val WORKER_KEEP_ALIVE_MILLIS = 5_000L
     }
 }

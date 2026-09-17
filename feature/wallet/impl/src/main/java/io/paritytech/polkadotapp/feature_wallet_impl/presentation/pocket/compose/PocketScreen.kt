@@ -17,7 +17,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.layout
@@ -27,7 +26,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import io.paritytech.polkadotapp.common.R as RCommon
 import io.paritytech.polkadotapp.common.presentation.loading.LoadingState
 import io.paritytech.polkadotapp.design.components.dialog.NovaAlertDialog
 import io.paritytech.polkadotapp.design.components.navigationbar.LocalAppNavigationBarInsets
@@ -37,18 +35,17 @@ import io.paritytech.polkadotapp.design.components.topbar.TopBarTitleSize
 import io.paritytech.polkadotapp.design.theme.PolkadotTheme
 import io.paritytech.polkadotapp.feature_products_api.domain.pocket.PocketCardId
 import io.paritytech.polkadotapp.feature_products_api.domain.pocket.PocketCardKey
-import io.paritytech.polkadotapp.feature_products_api.model.JsImageSource
 import io.paritytech.polkadotapp.feature_products_api.model.JsWidget
 import io.paritytech.polkadotapp.feature_products_api.model.ProductId
 import io.paritytech.polkadotapp.feature_products_api.presentation.spaHost.SpaHostSession
 import io.paritytech.polkadotapp.feature_products_api.presentation.widget.JsImageResolver
-import io.paritytech.polkadotapp.feature_products_api.presentation.widget.JsUiEventHandler
 import io.paritytech.polkadotapp.feature_tokens_api.presentation.formatter.LocalTokenAmountFormatter
 import io.paritytech.polkadotapp.feature_tokens_api.presentation.formatter.TokenAmountFormatter
 import io.paritytech.polkadotapp.feature_tokens_api.presentation.model.TokenAmountModel
 import io.paritytech.polkadotapp.feature_wallet_impl.domain.model.PocketRank
 import io.paritytech.polkadotapp.feature_wallet_impl.presentation.pocket.PocketTestTags
 import io.paritytech.polkadotapp.feature_wallet_impl.presentation.pocket.PocketViewModel
+import io.paritytech.polkadotapp.feature_wallet_impl.presentation.pocket.ProductFaceBindings
 import io.paritytech.polkadotapp.feature_wallet_impl.presentation.pocket.compose.animation.LocalCardTilt
 import io.paritytech.polkadotapp.feature_wallet_impl.presentation.pocket.compose.animation.rememberCardTilt
 import io.paritytech.polkadotapp.feature_wallet_impl.presentation.pocket.compose.components.*
@@ -62,8 +59,8 @@ import io.paritytech.polkadotapp.feature_wallet_impl.presentation.pocket.models.
 import io.paritytech.polkadotapp.feature_wallet_impl.presentation.pocket.models.PocketScreenState
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
+import io.paritytech.polkadotapp.common.R as RCommon
 
 private val CollectiblesSketchbookPeek = 80.dp
 
@@ -79,22 +76,13 @@ fun PocketScreen() {
         screenState = screenState,
         cards = cards,
         expandedProductSession = expandedProductSession,
-        faceOf = viewModel::faceOf,
-        faceActionsOf = { card -> { actionId, type -> viewModel.onFaceAction(card, actionId, type) } },
-        faceImagesOf = { card ->
-            object : JsImageResolver {
-                override suspend fun resolve(source: JsImageSource) = viewModel.resolveFaceImage(card, source)
-
-                override fun resolved(source: JsImageSource) = viewModel.resolvedFaceImage(card, source)
-            }
-        },
+        bindingsOf = viewModel::bindingsOf,
         onCardSelected = viewModel::selectCard,
         onCardDismissed = viewModel::dismissCard,
         onShareId = viewModel::onShareId,
         onSketchbookSelected = viewModel::showCollectiblesSketchbook,
         onSketchbookDismissed = viewModel::hideCollectiblesSketchbook,
         onOpenCollectibles = viewModel::openCollectibles,
-        onProductCardOpened = viewModel::openProductCard,
         onExpandedCardSettled = viewModel::hostExpandedProduct,
         onProductCardRemovalRequested = viewModel::requestRemoval,
         onRemovalConfirmed = viewModel::confirmRemoval,
@@ -107,16 +95,13 @@ private fun PocketScreenInternal(
     screenState: PocketScreenState,
     cards: ImmutableList<PocketCardUiModel>,
     expandedProductSession: SpaHostSession?,
-    faceOf: (PocketCardUiModel.ProductCard) -> Flow<JsWidget>,
-    faceActionsOf: (PocketCardUiModel.ProductCard) -> JsUiEventHandler,
-    faceImagesOf: (PocketCardUiModel.ProductCard) -> JsImageResolver,
+    bindingsOf: (PocketCardUiModel.ProductCard) -> ProductFaceBindings,
     onCardSelected: (PocketCardUiModel) -> Unit,
     onCardDismissed: () -> Unit,
     onShareId: () -> Unit,
     onSketchbookSelected: () -> Unit,
     onSketchbookDismissed: () -> Unit,
     onOpenCollectibles: () -> Unit,
-    onProductCardOpened: (PocketCardUiModel.ProductCard) -> Unit,
     onExpandedCardSettled: (PocketCardUiModel.ProductCard) -> Unit,
     onProductCardRemovalRequested: (PocketCardUiModel.ProductCard) -> Unit,
     onRemovalConfirmed: () -> Unit,
@@ -144,12 +129,9 @@ private fun PocketScreenInternal(
                                     anchorCard = transition.extractAnchorCard(),
                                     listState = listState,
                                     collectiblesAvailable = current.collectiblesAvailable,
-                                    faceOf = faceOf,
-                                    faceActionsOf = faceActionsOf,
-                                    faceImagesOf = faceImagesOf,
+                                    bindingsOf = bindingsOf,
                                     onCardSelected = onCardSelected,
                                     onCollectiblesSelected = onSketchbookSelected,
-                                    onProductCardOpened = onProductCardOpened,
                                     onProductCardRemovalRequested = onProductCardRemovalRequested
                                 )
 
@@ -167,9 +149,7 @@ private fun PocketScreenInternal(
                                     selectedCard = current.selectedCard,
                                     allCards = cards,
                                     expandedProductSession = expandedProductSession,
-                                    faceOf = faceOf,
-                                    faceActionsOf = faceActionsOf,
-                                    faceImagesOf = faceImagesOf,
+                                    bindingsOf = bindingsOf,
                                     onSettled = onExpandedCardSettled,
                                     onBack = onCardDismissed,
                                     onShareId = onShareId,
@@ -195,9 +175,7 @@ private fun SelectedCardDetails(
     selectedCard: PocketCardUiModel,
     allCards: ImmutableList<PocketCardUiModel>,
     expandedProductSession: SpaHostSession?,
-    faceOf: (PocketCardUiModel.ProductCard) -> Flow<JsWidget>,
-    faceActionsOf: (PocketCardUiModel.ProductCard) -> JsUiEventHandler,
-    faceImagesOf: (PocketCardUiModel.ProductCard) -> JsImageResolver,
+    bindingsOf: (PocketCardUiModel.ProductCard) -> ProductFaceBindings,
     onSettled: (PocketCardUiModel.ProductCard) -> Unit,
     onBack: () -> Unit,
     onShareId: () -> Unit,
@@ -219,9 +197,7 @@ private fun SelectedCardDetails(
 
         is PocketCardUiModel.ProductCard -> ProductPocketCardDetails(
             card = selectedCard,
-            face = remember(selectedCard.id) { faceOf(selectedCard) },
-            onFaceAction = remember(selectedCard.id) { faceActionsOf(selectedCard) },
-            imageResolver = remember(selectedCard.id) { faceImagesOf(selectedCard) },
+            bindings = bindingsOf(selectedCard),
             session = expandedProductSession,
             cardIndex = cardIndex,
             onSettled = { onSettled(selectedCard) },
@@ -254,12 +230,9 @@ private fun PocketList(
     anchorCard: PocketCardUiModel?,
     listState: LazyListState,
     collectiblesAvailable: Boolean,
-    faceOf: (PocketCardUiModel.ProductCard) -> Flow<JsWidget>,
-    faceActionsOf: (PocketCardUiModel.ProductCard) -> JsUiEventHandler,
-    faceImagesOf: (PocketCardUiModel.ProductCard) -> JsImageResolver,
+    bindingsOf: (PocketCardUiModel.ProductCard) -> ProductFaceBindings,
     onCardSelected: (PocketCardUiModel) -> Unit,
     onCollectiblesSelected: () -> Unit,
-    onProductCardOpened: (PocketCardUiModel.ProductCard) -> Unit,
     onProductCardRemovalRequested: (PocketCardUiModel.ProductCard) -> Unit
 ) {
     val anchorIndex = cards.indexOfFirst { it.id == anchorCard?.id }
@@ -317,10 +290,8 @@ private fun PocketList(
                             ProductPocketCard(
                                 modifier = cardModifier,
                                 card = card,
-                                face = remember(card.id) { faceOf(card) },
-                                onFaceAction = remember(card.id) { faceActionsOf(card) },
-                                imageResolver = remember(card.id) { faceImagesOf(card) },
-                                onOpen = onProductCardOpened,
+                                bindings = bindingsOf(card),
+                                onOpen = onCardSelected,
                                 onRemoveRequested = onProductCardRemovalRequested
                             )
                         }
@@ -385,9 +356,13 @@ private fun PocketScreenPreview() {
                     )
                 ),
                 expandedProductSession = null,
-                faceOf = { flowOf(JsWidget.Text(text = it.title)) },
-                faceActionsOf = { { _, _ -> } },
-                faceImagesOf = { JsImageResolver { null } },
+                bindingsOf = { card ->
+                    ProductFaceBindings(
+                        face = flowOf(JsWidget.Text(text = card.title)),
+                        onFaceAction = { _, _ -> },
+                        imageResolver = JsImageResolver { null },
+                    )
+                },
                 onExpandedCardSettled = {},
                 onCardSelected = {},
                 onCardDismissed = {},
@@ -395,7 +370,6 @@ private fun PocketScreenPreview() {
                 onSketchbookSelected = {},
                 onSketchbookDismissed = {},
                 onOpenCollectibles = {},
-                onProductCardOpened = {},
                 onProductCardRemovalRequested = {},
                 onRemovalConfirmed = {},
                 onRemovalDismissed = {}

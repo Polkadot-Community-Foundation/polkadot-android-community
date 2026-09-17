@@ -1,6 +1,5 @@
 package io.paritytech.polkadotapp.feature_products_impl.domain.truapi.worker
 
-import androidx.webkit.WebViewCompat
 import dagger.Lazy
 import io.parity.truapi.ProductExecutionKind
 import io.parity.truapi.TrUAPIProductExecution
@@ -14,6 +13,7 @@ import io.paritytech.polkadotapp.feature_products_impl.domain.jsRuntime.WebViewR
 import io.paritytech.polkadotapp.feature_products_impl.domain.product.ProductScriptResolver
 import io.paritytech.polkadotapp.feature_products_impl.domain.scriptExecutor.WorkerScript
 import io.paritytech.polkadotapp.feature_products_impl.domain.truapi.ProductTrUAPIHostBridge
+import io.paritytech.polkadotapp.feature_products_impl.domain.truapi.TrUAPIBootstrapInstaller
 import io.paritytech.polkadotapp.feature_products_impl.domain.truapi.TrUAPIChainDirectory
 import io.paritytech.polkadotapp.feature_products_impl.domain.truapi.TrUAPIHostRuntimeProvider
 import io.paritytech.polkadotapp.feature_products_impl.domain.webView.ChatWebViewConfig
@@ -48,6 +48,7 @@ class TrUAPIWorkerSupervisor @Inject constructor(
     private val chainDirectory: TrUAPIChainDirectory,
     private val scriptResolver: ProductScriptResolver,
     private val webViewProviderFactory: ChatWebViewProvider.Factory,
+    private val bootstrapInstaller: TrUAPIBootstrapInstaller,
     dispatchers: CoroutineDispatchers,
 ) {
     private class RunningWorker(val scope: CoroutineScope) {
@@ -94,25 +95,34 @@ class TrUAPIWorkerSupervisor @Inject constructor(
         val runtime = runtimeProvider.get().runtime().getOrElse { return Result.failure(it) }
         val workerScript = WorkerScript.of(script.scriptUrl)
 
-        return runCatching {
-            val provider = webViewProviderFactory.create(ChatWebViewConfig(productId, workerScript), worker.scope)
-            val webViewRuntime = WebViewRuntime(provider).also { worker.webViewRuntime = it }
+        val provider = webViewProviderFactory.create(ChatWebViewConfig(productId, workerScript), worker.scope)
+        val webViewRuntime = WebViewRuntime(provider).also { worker.webViewRuntime = it }
+        // The bootstrap publishes the loopback port and token, so it goes to the worker's own origin only.
+        val installBootstrap = runCatching {
             webViewRuntime.initialize()
-            val webView = provider.getWebView()
-            val bridge = hostBridgeFactory.create(worker.scope)
-            // The bootstrap publishes the loopback port and token, so it goes to the worker's own origin only.
-            bridge.attach(runtime, productId, chainDirectory.resolve(), ignoredNavigation(), ProductExecutionKind.WORKER) {
-                WebViewCompat.addDocumentStartJavaScript(webView, it, setOf(workerScript.baseUrl))
+            bootstrapInstaller.installerFor(provider.getWebView(), setOf(workerScript.baseUrl))
+        }.getOrElse { return Result.failure(it) }
+
+        return hostBridgeFactory.create(worker.scope)
+            .attach(
+                runtime,
+                productId,
+                chainDirectory.resolve(),
+                ignoredNavigation(),
+                ProductExecutionKind.WORKER,
+                installBootstrap,
+            )
+            .flatMap { execution ->
+                runCatching {
+                    webViewRuntime.loadInitialPage()
+                    webViewRuntime.waitForReady()
+                }
+                    // The bootstrap runs at document start; the entry module loads once the page
+                    // exists, so it connects.
+                    .flatMap { webViewRuntime.loadEntryModule(workerScript.entrypoint) }
+                    .map { execution }
             }
-            webViewRuntime.loadInitialPage()
-            webViewRuntime.waitForReady()
-            bridge to webViewRuntime
-        }.flatMap { (bridge, webViewRuntime) ->
-            // The bootstrap runs at document start; the entry module loads once the page exists, so it connects.
-            webViewRuntime.loadEntryModule(workerScript.entrypoint).map { requireNotNull(bridge.execution) }
-        }.onSuccess { execution ->
-            executions.update { it + (productId to execution) }
-        }
+            .onSuccess { execution -> executions.update { it + (productId to execution) } }
     }
 
     private fun stop(productId: ProductId) {

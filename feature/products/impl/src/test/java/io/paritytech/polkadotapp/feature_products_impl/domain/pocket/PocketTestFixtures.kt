@@ -31,19 +31,26 @@ internal class FakePinnedPocketCards(private val cards: List<CachedPocketCard>) 
 }
 
 internal class InMemoryPocketCardRepository : PocketCardRepository {
-    private val cards = MutableStateFlow<List<CachedPocketCard>>(emptyList())
+    private val cards = MutableStateFlow<List<PocketCard>>(emptyList())
+    private val faces = mutableMapOf<PocketCardKey, JsWidget>()
 
-    override fun observeCards(): Flow<List<CachedPocketCard>> = cards
-
-    override suspend fun get(key: PocketCardKey): CachedPocketCard? = cards.value.firstOrNull { it.card.key == key }
+    override fun observeCards(): Flow<List<PocketCard>> = cards
 
     override suspend fun insert(card: CachedPocketCard) {
-        cards.value = cards.value.filterNot { it.card.key == card.card.key } + card
+        cards.value = cards.value.filterNot { it.key == card.card.key } + card.card
+        saveFace(card.card.key, card.face)
     }
 
     override suspend fun delete(key: PocketCardKey): Boolean {
-        val held = cards.value.any { it.card.key == key }
-        cards.value = cards.value.filterNot { it.card.key == key }
+        val held = cards.value.any { it.key == key }
+        cards.value = cards.value.filterNot { it.key == key }
+        faces -= key
         return held
+    }
+
+    override suspend fun face(key: PocketCardKey): JsWidget? = faces[key]
+
+    override suspend fun saveFace(key: PocketCardKey, face: JsWidget) {
+        faces[key] = face
     }
 }

@@ -33,6 +33,7 @@ import uniffi.truapi.TextFieldProps
 import uniffi.truapi.TextProps
 import uniffi.truapi.TypographyStyle
 import uniffi.truapi.VerticalAlignment
+import java.math.BigInteger
 import javax.inject.Inject
 
 /**
@@ -156,7 +157,7 @@ class RendererNodeJsonDecoder @Inject constructor() {
             "MinHeight" -> Modifier.MinHeight(value.toSize())
             "FillWidth" -> Modifier.FillWidth(value.jsonPrimitive.content.toBooleanStrict())
             "FillHeight" -> Modifier.FillHeight(value.jsonPrimitive.content.toBooleanStrict())
-            "Opacity" -> Modifier.Opacity(value.jsonPrimitive.content.toInt().toUByte())
+            "Opacity" -> Modifier.Opacity(value.toOpacity())
             "BlendingMode" -> Modifier.BlendingMode(value.toEnum<BlendingMode>())
             else -> throw IllegalArgumentException("unknown renderer modifier '$tag'")
         }
@@ -189,32 +190,47 @@ class RendererNodeJsonDecoder @Inject constructor() {
         start = present("start")?.toSize(),
     )
 
-    private fun JsonObject.tag(): kotlin.String = string("tag")
+    private fun JsonObject.tag(): String = string("tag")
 
     // Unit variants carry no `value`; every field read off an absent one then fails as missing.
     private fun JsonObject.variantValue(): JsonObject = present("value")?.jsonObject ?: JsonObject(emptyMap())
 
     private fun JsonObject.props(): JsonObject = present("props")?.jsonObject ?: JsonObject(emptyMap())
 
-    private fun JsonObject.present(key: kotlin.String): JsonElement? = this[key]?.takeUnless { it is JsonNull }
+    private fun JsonObject.present(key: String): JsonElement? = this[key]?.takeUnless { it is JsonNull }
 
-    private fun JsonObject.required(key: kotlin.String): JsonElement =
+    private fun JsonObject.required(key: String): JsonElement =
         requireNotNull(present(key)) { "renderer node missing '$key'" }
 
-    private fun JsonObject.string(key: kotlin.String): kotlin.String = required(key).jsonPrimitive.content
+    private fun JsonObject.string(key: String): String = required(key).jsonPrimitive.content
 
-    private fun JsonObject.stringOrNull(key: kotlin.String): kotlin.String? = present(key)?.jsonPrimitive?.content
+    private fun JsonObject.stringOrNull(key: String): String? = present(key)?.jsonPrimitive?.content
 
-    private fun JsonObject.booleanOrNull(key: kotlin.String): Boolean? =
+    private fun JsonObject.booleanOrNull(key: String): Boolean? =
         present(key)?.jsonPrimitive?.content?.toBooleanStrict()
 
-    private fun JsonObject.size(key: kotlin.String): Size = required(key).toSize()
+    private fun JsonObject.size(key: String): Size = required(key).toSize()
 
-    private fun JsonElement.toSize(): Size = jsonPrimitive.content.toBigDecimal().toBigIntegerExact().toLong().toULong()
+    /**
+     * A size the host cannot draw is refused here rather than carried on. The mapping to Compose
+     * reads it back as an Int, where a negative padding throws at composition of whatever shows the
+     * face, and anything past Int.MAX silently truncates into a different number.
+     */
+    private fun JsonElement.toSize(): Size {
+        val value = jsonPrimitive.content.toBigDecimal().toBigIntegerExact()
+        require(value >= BigInteger.ZERO && value <= MAX_SIZE) { "renderer size out of range: $value" }
 
-    private inline fun <reified E : Enum<E>> JsonObject.enum(key: kotlin.String): E = required(key).toEnum()
+        return value.toLong().toULong()
+    }
 
-    private inline fun <reified E : Enum<E>> JsonObject.enumOrNull(key: kotlin.String): E? =
+    // Anything outside 0..255 wraps into a different opacity, 256 into fully transparent.
+    private fun JsonElement.toOpacity(): UByte = requireNotNull(jsonPrimitive.content.toUByteOrNull()) {
+        "renderer opacity out of range: ${'$'}{jsonPrimitive.content}"
+    }
+
+    private inline fun <reified E : Enum<E>> JsonObject.enum(key: String): E = required(key).toEnum()
+
+    private inline fun <reified E : Enum<E>> JsonObject.enumOrNull(key: String): E? =
         present(key)?.let { it.toEnum<E>() }
 
     // "BgSurfaceMain" names the Kotlin constant BG_SURFACE_MAIN.
@@ -223,6 +239,7 @@ class RendererNodeJsonDecoder @Inject constructor() {
 
     private companion object {
         const val MAX_DEPTH = 32
+        val MAX_SIZE: BigInteger = BigInteger.valueOf(Int.MAX_VALUE.toLong())
         val WORD_BOUNDARY = Regex("(?<=[a-z0-9])(?=[A-Z])")
     }
 }

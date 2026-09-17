@@ -5,17 +5,18 @@ import android.net.Uri
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.paritytech.polkadotapp.common.data.memory.ComputationalScope
 import io.paritytech.polkadotapp.common.presentation.deeplink.DeepLinkHandler
-import io.paritytech.polkadotapp.common.presentation.deeplink.DeepLinkHandler.Companion.WEB_HTTPS_SCHEME
 import io.paritytech.polkadotapp.common.presentation.deeplink.DeeplinkProcessingOutcome
+import io.paritytech.polkadotapp.common.presentation.deeplink.asWebUri
 import io.paritytech.polkadotapp.common.utils.CoroutineDispatchers
 import io.paritytech.polkadotapp.common.utils.flatMap
-import io.paritytech.polkadotapp.feature_dotns_api.domain.DotNsTld
 import io.paritytech.polkadotapp.feature_dotns_api.domain.DotNsTldProvider
 import io.paritytech.polkadotapp.feature_dotns_api.domain.DotNsUtils
 import io.paritytech.polkadotapp.feature_products_api.domain.pocket.PocketCardKey
 import io.paritytech.polkadotapp.feature_products_api.domain.pocket.PocketCollection
 import io.paritytech.polkadotapp.feature_products_api.model.ProductId
 import io.paritytech.polkadotapp.feature_products_api.presentation.PocketAddCardPayload
+import io.paritytech.polkadotapp.feature_products_api.presentation.deeplink.ProductDeepLinkGate
+import io.paritytech.polkadotapp.feature_products_api.presentation.deeplink.isPocketTarget
 import io.paritytech.polkadotapp.feature_products_impl.domain.pocket.PocketCardIdentifier
 import io.paritytech.polkadotapp.feature_products_impl.domain.pocket.PocketPublishError
 import io.paritytech.polkadotapp.feature_products_impl.domain.pocket.PublishedPocketCards
@@ -38,13 +39,17 @@ internal class PocketDeepLinkHandler @Inject constructor(
     private val parser: PocketDeeplinkParser,
     private val publishedCards: PublishedPocketCards,
     private val collection: PocketCollection,
+    private val gate: ProductDeepLinkGate,
     private val router: ProductsRouter,
     @param:ApplicationContext private val context: Context,
 ) : DeepLinkHandler {
     override suspend fun canHandle(data: Uri): Boolean {
         val tld = dotNsTldProvider.currentTldOrNull() ?: return false
-        return DotNsUtils.isDotDomain(data.asWebUri(), tld) &&
-            data.pathSegments.take(2) == listOf(RESERVED_SEGMENT, POCKET_SEGMENT)
+        if (!DotNsUtils.isDotDomain(data.asWebUri(), tld) || !data.isPocketTarget()) return false
+
+        // Adding a card runs the product's worker and hosts its pages, so the same products are
+        // reachable here as through any other dotNS link.
+        return gate.opens(ProductId.fromUrl(data.asWebUri(), tld).getOrNull())
     }
 
     context(scope: ComputationalScope)
@@ -91,12 +96,4 @@ internal class PocketDeepLinkHandler @Inject constructor(
             },
         ),
     )
-
-    // Swaps the scheme rather than prefixing it: ensureHttpsProtocol would mangle a polkadotapp:// deeplink.
-    private fun Uri.asWebUri(): Uri = buildUpon().scheme(WEB_HTTPS_SCHEME).build()
-
-    private companion object {
-        const val RESERVED_SEGMENT = "-"
-        const val POCKET_SEGMENT = "pocket"
-    }
 }

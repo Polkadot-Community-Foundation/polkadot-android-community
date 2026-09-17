@@ -1,5 +1,6 @@
 package io.paritytech.polkadotapp.feature_products_impl.domain.truapi
 
+import io.paritytech.polkadotapp.feature_products_api.model.ProductId
 import io.paritytech.polkadotapp.feature_products_impl.domain.pocket.FakePinnedPocketCards
 import io.paritytech.polkadotapp.feature_products_impl.domain.pocket.InMemoryPocketCardRepository
 import io.paritytech.polkadotapp.feature_products_impl.domain.pocket.RealPocketCollection
@@ -7,7 +8,6 @@ import io.paritytech.polkadotapp.feature_products_impl.domain.pocket.addedCard
 import io.paritytech.polkadotapp.feature_products_impl.domain.pocket.gameProduct
 import io.paritytech.polkadotapp.feature_products_impl.domain.pocket.personhoodProduct
 import io.paritytech.polkadotapp.feature_products_impl.domain.pocket.pinnedCard
-import io.paritytech.polkadotapp.feature_products_api.model.ProductId
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
@@ -17,8 +17,8 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Test
-import uniffi.truapi.PocketCard as NativePocketCard
 import uniffi.truapi_server.NativePocketRemoval
+import uniffi.truapi.PocketCard as NativePocketCard
 
 class ProductPocketHostBridgeTest {
     private val humanity = pinnedCard(personhoodProduct, "humanity")
@@ -74,6 +74,25 @@ class ProductPocketHostBridgeTest {
 
         assertEquals(emptyList<NativePocketCard>(), bridge.listCards())
         assertEquals(listOf(humanity.card), store.observeCards().first())
+        scope.cancel()
+    }
+
+    // The execution the republish lands on is a native handle the bridge's owner closes. A collector
+    // outliving that close calls into freed memory from a scope with no handler, taking the process
+    // with it; a re-attach would then leave two collectors on one product.
+    @Test
+    fun `nothing is republished once the bridge is stopped`() = runTest {
+        val scope = executionScope()
+        val published = mutableListOf<List<NativePocketCard>>()
+        val bridge = ProductPocketHostBridge(gameProduct, store, scope)
+        bridge.start { published += it }
+        advanceUntilIdle()
+
+        bridge.stop()
+        store.addCard(loyalty)
+        advanceUntilIdle()
+
+        assertEquals(listOf(emptyList<NativePocketCard>()), published)
         scope.cancel()
     }
 

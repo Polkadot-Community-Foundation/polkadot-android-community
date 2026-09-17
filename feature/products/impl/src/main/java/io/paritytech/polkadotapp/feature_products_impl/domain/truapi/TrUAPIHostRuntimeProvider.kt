@@ -1,12 +1,12 @@
 package io.paritytech.polkadotapp.feature_products_impl.domain.truapi
 
+import dagger.Lazy
 import io.parity.truapi.HostBridge
 import io.parity.truapi.HostCoreStorage
 import io.parity.truapi.HostRuntimeConfig
 import io.parity.truapi.HostStorage
 import io.parity.truapi.TrUAPIHostRuntime
 import io.parity.truapi.WebSocketChainProvider
-import dagger.Lazy
 import io.paritytech.polkadotapp.chains.multiNetwork.ChainRegistry
 import io.paritytech.polkadotapp.chains.multiNetwork.KnownChains
 import io.paritytech.polkadotapp.common.data.app.AppLifecycleState
