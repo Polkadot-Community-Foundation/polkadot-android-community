@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -26,7 +27,9 @@ import io.paritytech.polkadotapp.design.components.text.NovaText
 import io.paritytech.polkadotapp.design.theme.PolkadotTheme
 import io.paritytech.polkadotapp.feature_products_api.model.JsTypographyStyle
 import io.paritytech.polkadotapp.feature_products_api.model.JsWidget
+import io.paritytech.polkadotapp.feature_products_api.presentation.widget.JsImageResolver
 import io.paritytech.polkadotapp.feature_products_api.presentation.widget.JsWidgetRenderer
+import io.paritytech.polkadotapp.feature_products_api.presentation.widget.LocalJsImageResolver
 import io.paritytech.polkadotapp.feature_products_api.presentation.widget.PocketCardSize
 import io.paritytech.polkadotapp.feature_products_impl.presentation.pocketAddCard.PocketAddCardContract
 import io.paritytech.polkadotapp.feature_products_impl.presentation.pocketAddCard.PocketAddCardTestTags
@@ -130,7 +133,9 @@ private fun OfferContent(offer: PocketAddCardUiState) {
         color = PolkadotTheme.colors.bg.surface.container,
     ) {
         // The face is product-authored and inert here: the card is not in the collection yet.
-        JsWidgetRenderer(widget = offer.face, jsEventHandler = { _, _ -> })
+        CompositionLocalProvider(LocalJsImageResolver provides offer.imageResolver) {
+            JsWidgetRenderer(widget = offer.face, jsEventHandler = { _, _ -> })
+        }
     }
 
     VerticalSpacer { small }
@@ -153,6 +158,7 @@ private fun PocketAddCardPreview() {
                     productName = "Coinflip",
                     title = "Loyalty",
                     face = JsWidget.Text(text = "Loyalty", style = JsTypographyStyle.HEADLINE_LARGE),
+                    imageResolver = JsImageResolver { null },
                     adding = false,
                 ),
             ),

@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -20,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import io.paritytech.polkadotapp.design.components.navigationbar.LocalAppNavigationBarInsets
 import io.paritytech.polkadotapp.design.components.progress.NovaCircularProgressIndicator
 import io.paritytech.polkadotapp.design.components.spacer.VerticalSpacer
 import io.paritytech.polkadotapp.design.components.text.NovaText
@@ -113,13 +115,21 @@ private fun ExpandedProductContent(
         contentAlignment = Alignment.Center,
     ) {
         when {
+            // The product lays itself out into the viewport it is given. Left running under the app's
+            // navigation bar, a page built to fit `100vh` hides its last rows behind it with nothing
+            // to scroll, since the page is the size of the viewport by construction.
+            productShowing -> ProductWebViewHost(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .windowInsetsPadding(LocalAppNavigationBarInsets.current),
+                webView = webView,
+            )
+
             loadProgress is DotNsLoadProgress.Failed -> NovaText(
                 text = stringResource(RCommon.string.product_resolution_error_unknown),
                 style = PolkadotTheme.typography.body.medium,
                 color = PolkadotTheme.colors.fg.secondary
             )
-
-            productShowing -> ProductWebViewHost(modifier = Modifier.fillMaxSize(), webView = webView)
 
             else -> ProductLoadProgress(progress = loadProgress)
         }

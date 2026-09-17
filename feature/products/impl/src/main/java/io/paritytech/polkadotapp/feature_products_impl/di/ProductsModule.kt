@@ -133,11 +133,11 @@ import io.paritytech.polkadotapp.feature_products_impl.domain.worker.RealProduct
 import io.paritytech.polkadotapp.feature_products_impl.domain.worker.RealWorkerBootFactory
 import io.paritytech.polkadotapp.feature_products_impl.domain.worker.WorkerBootFactory
 import io.paritytech.polkadotapp.feature_products_impl.presentation.deeplink.PocketDeepLinkHandler
+import io.paritytech.polkadotapp.feature_products_impl.presentation.deeplink.PocketScanContentParser
 import io.paritytech.polkadotapp.feature_products_impl.presentation.initialization.ProductWorkerInitializer
 import io.paritytech.polkadotapp.feature_products_impl.presentation.initialization.TopUpResumeInitializer
 import io.paritytech.polkadotapp.feature_products_impl.presentation.productBotManagement.ProductsRouter
 import io.paritytech.polkadotapp.feature_products_impl.presentation.spaHost.RuntimeSelectingSpaHost
-import io.paritytech.polkadotapp.feature_scan_api.domain.DeeplinkScanContentParser
 import io.paritytech.polkadotapp.feature_scan_api.domain.ScanContentParser
 import okhttp3.OkHttpClient
 import java.util.concurrent.TimeUnit
@@ -405,15 +405,10 @@ internal interface ProductsModule {
             return AutoAllowProductPermissionRequester(whitelistedProductsProvider, real)
         }
 
-        /**
-         * A Pocket link is as likely to arrive as a QR code as it is to be tapped, and the scanner
-         * reads a different set than the deeplink router. Without this the same URL is claimed when
-         * tapped and reported as an invalid code when scanned.
-         */
         @Provides
         @IntoSet
         fun providePocketScanContentParser(handler: PocketDeepLinkHandler): ScanContentParser =
-            DeeplinkScanContentParser(handler)
+            PocketScanContentParser(handler)
 
         @Provides
         @Singleton

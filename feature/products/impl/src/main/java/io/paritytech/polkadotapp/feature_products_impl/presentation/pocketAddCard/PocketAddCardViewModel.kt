@@ -11,6 +11,7 @@ import io.paritytech.polkadotapp.common.utils.withLoading
 import io.paritytech.polkadotapp.feature_products_api.domain.pocket.PocketCardId
 import io.paritytech.polkadotapp.feature_products_api.model.ProductId
 import io.paritytech.polkadotapp.feature_products_api.presentation.PocketAddCardPayload
+import io.paritytech.polkadotapp.feature_products_api.presentation.widget.JsImageResolver
 import io.paritytech.polkadotapp.feature_products_impl.domain.pocketAddCard.PocketAddCardInteractor
 import io.paritytech.polkadotapp.feature_products_impl.domain.pocketAddCard.PocketAddCardOffer
 import io.paritytech.polkadotapp.feature_products_impl.presentation.productBotManagement.ProductsRouter
@@ -30,12 +31,21 @@ class PocketAddCardViewModel @Inject constructor(
     private val router: ProductsRouter,
 ) : BaseViewModel(), PocketAddCardContract {
     private val payload = savedStateHandle.getPayload<PocketAddCardPayload>()
+    private val productId = ProductId.fromStoredValue(payload.productId)
 
     private val adding = MutableStateFlow(false)
 
+    // The sheet promises the user this is how the card will look, so its images have to be the
+    // product's own. One per screen: the renderer resolves again whenever the resolver changes.
+    private val imageResolver = JsImageResolver { source ->
+        interactor.resolveFaceImage(productId, source)
+            .logFailure("PocketAddCard: face image unavailable")
+            .getOrNull()
+    }
+
     // Loaded once: the face the user approves must be the one that is stored.
     private val offer: StateFlow<Result<PocketAddCardOffer>?> = flowOf {
-        interactor.loadOffer(ProductId.fromStoredValue(payload.productId), PocketCardId(payload.cardId))
+        interactor.loadOffer(productId, PocketCardId(payload.cardId))
     }
         .stateIn(this, SharingStarted.Eagerly, null)
 
@@ -70,6 +80,7 @@ class PocketAddCardViewModel @Inject constructor(
         productName = productName,
         title = title,
         face = face,
+        imageResolver = imageResolver,
         adding = adding,
     )
 }
