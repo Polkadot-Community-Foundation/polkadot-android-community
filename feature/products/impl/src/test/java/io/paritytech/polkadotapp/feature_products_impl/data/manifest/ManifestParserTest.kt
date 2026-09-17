@@ -29,6 +29,17 @@ class ManifestParserTest {
         parser.parseExecutable(rawText, kind, host("${kind.manifestKind}.coinflip.dot")).isFailure,
     )
 
+    /**
+     * A card the core would screen out is not published here either, but the worker record still
+     * loads: failing it would take the product's chat down over a defect in its Pocket block.
+     */
+    private fun publishesNoCards(rawText: String) {
+        val worker = parser.parseExecutable(rawText, ExecutableKind.WORKER, host("worker.coinflip.dot"))
+            .getOrNull() as? ProductExecutable.Worker
+
+        assertEquals("expected a worker with no cards for $rawText", emptyList<PocketCardDefinition>(), worker?.pocketCards)
+    }
+
     @Test
     fun `parses valid root manifest`() {
         val root = parser.parseRoot(
@@ -153,18 +164,18 @@ class ManifestParserTest {
     }
 
     @Test
-    fun `pocket cards that a stricter host would reject do not load here either`() {
+    fun `pocket cards that a stricter host would reject publish no cards here either`() {
         fun worker(pocket: String, includesPocket: Boolean = true) =
             """{"${'$'}v":1,"kind":"worker","appVersion":[1,0,0],"entrypoint":"i.js","includes":{"chat":false,"pocket":$includesPocket},"pocket":$pocket}"""
 
         // Cards without the include, a bad id (screened as a chat identifier), duplicate ids, and missing fields.
-        rejectsExecutable(worker("""{"cards":[{"id":"a","title":"A","preview":"a.json"}]}""", includesPocket = false), ExecutableKind.WORKER)
-        rejectsExecutable(worker("""{"cards":[{"id":"loy\u200dalty","title":"A","preview":"a.json"}]}"""), ExecutableKind.WORKER)
-        rejectsExecutable(worker("""{"cards":[{"id":"a","title":"A","preview":"a.json"},{"id":"a","title":"B","preview":"b.json"}]}"""), ExecutableKind.WORKER)
-        rejectsExecutable(worker("""{"cards":[{"id":"a","preview":"a.json"}]}"""), ExecutableKind.WORKER)
-        rejectsExecutable(worker("""{"cards":[{"id":"a","title":"A"}]}"""), ExecutableKind.WORKER)
-        rejectsExecutable(worker("""{"cards":[{"id":"a","title":"","preview":"a.json"}]}"""), ExecutableKind.WORKER)
-        rejectsExecutable(worker("""{}"""), ExecutableKind.WORKER)
+        publishesNoCards(worker("""{"cards":[{"id":"a","title":"A","preview":"a.json"}]}""", includesPocket = false))
+        publishesNoCards(worker("""{"cards":[{"id":"loy\u200dalty","title":"A","preview":"a.json"}]}"""))
+        publishesNoCards(worker("""{"cards":[{"id":"a","title":"A","preview":"a.json"},{"id":"a","title":"B","preview":"b.json"}]}"""))
+        publishesNoCards(worker("""{"cards":[{"id":"a","preview":"a.json"}]}"""))
+        publishesNoCards(worker("""{"cards":[{"id":"a","title":"A"}]}"""))
+        publishesNoCards(worker("""{"cards":[{"id":"a","title":"","preview":"a.json"}]}"""))
+        publishesNoCards(worker("""{}"""))
     }
 
     @Test
@@ -178,5 +189,20 @@ class ManifestParserTest {
         rejectsExecutable("""{"${'$'}v":1,"kind":"app","appVersion":[1,2,3,4,5]}""", ExecutableKind.APP)
         rejectsExecutable("""{"${'$'}v":1,"kind":"app"}""", ExecutableKind.APP)
         rejectsExecutable("""{"${'$'}v":1,"kind":"widget","appVersion":[1,0,0],"dimensions":{"height":[]}}""", ExecutableKind.WIDGET)
+    }
+
+    // The worker record carries chat and Pocket together. A product that publishes a bad card must
+    // not lose the chat it was already serving.
+    @Test
+    fun `a worker with a malformed pocket block still serves its other modalities`() {
+        val worker = parser.parseExecutable(
+            """{"${'$'}v":1,"kind":"worker","appVersion":[1,0,0],"entrypoint":"i.js","includes":{"chat":true,"pocket":true},
+               "pocket":{"cards":[{"id":"a","title":"","preview":"a.json"}]}}""",
+            ExecutableKind.WORKER,
+            host("worker.coinflip.dot"),
+        ).getOrNull() as? ProductExecutable.Worker
+
+        assertEquals(true, worker?.includesChat)
+        assertEquals(emptyList<PocketCardDefinition>(), worker?.pocketCards)
     }
 }

@@ -225,7 +225,7 @@ class RendererNodeJsonDecoder @Inject constructor() {
 
     // Anything outside 0..255 wraps into a different opacity, 256 into fully transparent.
     private fun JsonElement.toOpacity(): UByte = requireNotNull(jsonPrimitive.content.toUByteOrNull()) {
-        "renderer opacity out of range: ${'$'}{jsonPrimitive.content}"
+        "renderer opacity out of range: ${jsonPrimitive.content}"
     }
 
     private inline fun <reified E : Enum<E>> JsonObject.enum(key: String): E = required(key).toEnum()

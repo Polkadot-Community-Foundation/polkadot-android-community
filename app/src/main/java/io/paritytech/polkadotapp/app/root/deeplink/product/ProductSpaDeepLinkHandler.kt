@@ -28,7 +28,7 @@ internal class ProductSpaDeepLinkHandler @Inject constructor(
 ) : DeepLinkHandler {
     override suspend fun canHandle(data: Uri): Boolean {
         val tld = dotNsTldProvider.currentTldOrNull() ?: return false
-        if (!DotNsUtils.isDotDomain(data, tld)) return false
+        if (!DotNsUtils.isDotDomain(data.asWebUri(), tld)) return false
         // Pocket is the host's own target and is answered elsewhere; every other route under the
         // reserved segment still opens as an App page, as it did before Pocket claimed one.
         if (data.isPocketTarget()) return false

@@ -33,8 +33,6 @@ import io.paritytech.polkadotapp.feature_products_impl.presentation.pocketAddCar
 import io.paritytech.polkadotapp.feature_products_impl.presentation.pocketAddCard.PocketAddCardUiState
 import io.paritytech.polkadotapp.common.R as RCommon
 
-// Matches the card frame on the Pocket screen, so the preview is the size the face will have.
-
 @Composable
 fun PocketAddCardScreen(contract: PocketAddCardContract) {
     val state by contract.state.collectAsStateWithLifecycle()

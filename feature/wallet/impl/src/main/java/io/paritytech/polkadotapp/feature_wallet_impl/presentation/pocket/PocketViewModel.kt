@@ -29,6 +29,9 @@ import io.paritytech.polkadotapp.feature_wallet_impl.presentation.pocket.models.
 import io.paritytech.polkadotapp.feature_wallet_impl.presentation.pocket.models.PocketScreenState
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -40,6 +43,7 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.job
 import timber.log.Timber
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
@@ -58,7 +62,7 @@ class PocketViewModel @Inject constructor(
     private val selectedCardId = MutableStateFlow<String?>(null)
     private val expandedProduct = ExpandedProductPage(this) { scope, url -> with(scope) { spaHost.createSession(url) } }
     private val collectiblesShown = MutableStateFlow(false)
-    private val removalCandidateId = MutableStateFlow<String?>(null)
+    private val removalCandidate = MutableStateFlow<PocketCardUiModel.ProductCard?>(null)
 
     private val digitalDollarAmounts = interactor.observeDigitalDollarBalance()
         .map { balance ->
@@ -124,15 +128,15 @@ class PocketViewModel @Inject constructor(
         selectedCardId,
         collectiblesShown,
         collectiblesAvailable,
-        removalCandidateId
-    ) { cards, selectedId, collectiblesShown, collectiblesAvailable, removalId ->
+        removalCandidate
+    ) { cards, selectedId, collectiblesShown, collectiblesAvailable, candidate ->
         val selectedCard = cards.firstOrNull { it.id == selectedId }
         when {
             selectedCard != null -> PocketScreenState.CardDetails(selectedCard = selectedCard)
             collectiblesShown -> PocketScreenState.Collectibles
             else -> PocketScreenState.List(
                 collectiblesAvailable = collectiblesAvailable,
-                removalCandidate = cards.filterIsInstance<PocketCardUiModel.ProductCard>().firstOrNull { it.id == removalId }
+                removalCandidate = candidate
             )
         }
     }
@@ -142,7 +146,9 @@ class PocketViewModel @Inject constructor(
             initialValue = PocketScreenState.List(collectiblesAvailable = false, removalCandidate = null)
         )
 
-    private val bindings = ConcurrentHashMap<String, ProductFaceBindings>()
+    private class CardBinding(val scope: CoroutineScope, val bindings: ProductFaceBindings)
+
+    private val bindings = ConcurrentHashMap<String, CardBinding>()
 
     /**
      * One set of bindings per card, however many copies of it are drawn: expanding a card draws a
@@ -152,16 +158,27 @@ class PocketViewModel @Inject constructor(
      * The stream outlives a short gap in subscribers, so scrolling the card off screen or leaving the
      * app for a moment does not tear the product's worker down and boot it again on the way back.
      */
-    fun bindingsOf(card: PocketCardUiModel.ProductCard): ProductFaceBindings = bindings.getOrPut(card.id) {
-        ProductFaceBindings(
-            face = interactor.observeFace(card.key)
-                .shareIn(this, SharingStarted.WhileSubscribed(WORKER_KEEP_ALIVE_MILLIS), replay = 1),
-            onFaceAction = { actionId, type -> onFaceAction(card, actionId, type) },
-            imageResolver = object : JsImageResolver {
-                override suspend fun resolve(source: JsImageSource) = resolveFaceImage(card, source)
+    fun bindingsOf(card: PocketCardUiModel.ProductCard): ProductFaceBindings =
+        bindings.getOrPut(card.id) { bindingFor(card) }.bindings
 
-                override fun resolved(source: JsImageSource) = resolvedFaceImages[card.id to source]
-            },
+    private fun bindingFor(card: PocketCardUiModel.ProductCard): CardBinding {
+        // Its own child of the screen: sharing runs until its scope ends, whatever the subscriber
+        // count, so a card that leaves the collection would otherwise leave a coroutine parked here
+        // with a whole face tree in its replay buffer.
+        val scope = CoroutineScope(coroutineContext + SupervisorJob(coroutineContext.job))
+
+        return CardBinding(
+            scope = scope,
+            bindings = ProductFaceBindings(
+                face = interactor.observeFace(card.key)
+                    .shareIn(scope, SharingStarted.WhileSubscribed(WORKER_KEEP_ALIVE_MILLIS), replay = 1),
+                onFaceAction = { actionId, type -> onFaceAction(card, actionId, type) },
+                imageResolver = object : JsImageResolver {
+                    override suspend fun resolve(source: JsImageSource) = resolveFaceImage(card, source)
+
+                    override fun resolved(source: JsImageSource) = resolvedFaceImages[card.id to source]
+                },
+            ),
         )
     }
 
@@ -196,6 +213,16 @@ class PocketViewModel @Inject constructor(
 
     fun selectCard(card: PocketCardUiModel) {
         selectedCardId.value = card.id
+        if (card is PocketCardUiModel.ProductCard) warmUpProduct(card)
+    }
+
+    /**
+     * The card travels for half a second before its product is asked for. Fetching the product's
+     * pages now spends that half second on the chain read and the download rather than in front of
+     * them, and the load that follows joins this fetch instead of starting a second one.
+     */
+    private fun warmUpProduct(card: PocketCardUiModel.ProductCard) = launchUnit {
+        interactor.warmUpProduct(card.key).logFailure("PocketViewModel: failed to warm up ${card.id}")
     }
 
     fun dismissCard() {
@@ -246,26 +273,39 @@ class PocketViewModel @Inject constructor(
                 ?.also { resolvedFaceImages[card.id to source] = it }
 
     fun requestRemoval(card: PocketCardUiModel.ProductCard) {
-        if (!card.pinned) removalCandidateId.value = card.id
+        if (!card.pinned) removalCandidate.value = card
     }
 
     fun dismissRemoval() {
-        removalCandidateId.value = null
+        removalCandidate.value = null
     }
 
     fun confirmRemoval() = launchUnit {
-        val candidate = cards.value.filterIsInstance<PocketCardUiModel.ProductCard>()
-            .firstOrNull { it.id == removalCandidateId.value }
-            ?: return@launchUnit
-        removalCandidateId.value = null
+        val candidate = removalCandidate.value ?: return@launchUnit
+        removalCandidate.value = null
 
         interactor.removeProductCard(candidate.key).logFailure("PocketViewModel: failed to remove ${candidate.id}")
     }
 
+    /**
+     * A card can leave the collection while the user is looking at it: its product removes it, or
+     * the collection itself becomes unreadable. The screen falls back to the list on its own, so
+     * everything the card was holding open has to go with it.
+     */
     private fun forgetCardsNoLongerHeld(held: List<PocketCardUiModel>) {
         val ids = held.map { it.id }.toSet()
-        bindings.keys.retainAll(ids)
+        selectedCardId.value?.takeIf { it !in ids }?.let { closeExpandedCard() }
+        expandedProduct.keepOnly { url -> held.holdsProductAt(url) }
+        bindings.keys.filterNot { it in ids }.forEach { bindings.remove(it)?.scope?.cancel() }
         resolvedFaceImages.keys.removeAll { (cardId, _) -> cardId !in ids }
+    }
+
+    private fun List<PocketCardUiModel>.holdsProductAt(url: String): Boolean =
+        filterIsInstance<PocketCardUiModel.ProductCard>().any { it.key.launchUrl() == url }
+
+    private fun closeExpandedCard() {
+        expandedProduct.release()
+        selectedCardId.value = null
     }
 
     fun onShareId() = launchUnit {

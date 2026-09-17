@@ -29,9 +29,11 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withTimeout
 import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.time.Duration.Companion.seconds
 
 enum class WorkerDemand { START, STOP }
 
@@ -86,6 +88,10 @@ class TrUAPIWorkerSupervisor @Inject constructor(
         worker.scope.launch {
             boot(productId, worker)
                 .logFailure("TrUAPI worker for ${productId.value} failed to start")
+                // A half-booted worker left in the map swallows every later start, and the core
+                // keeps counting the reference the card holds, so no stop ever arrives to clear it.
+                // Only this one: a stop and a new start may have overtaken the failure.
+                .onFailure { transitions.withLock { if (workers[productId] === worker) stop(productId) } }
                 .onSuccess { Timber.d("TrUAPI worker for %s is running", productId.value) }
         }
     }
@@ -115,7 +121,9 @@ class TrUAPIWorkerSupervisor @Inject constructor(
             .flatMap { execution ->
                 runCatching {
                     webViewRuntime.loadInitialPage()
-                    webViewRuntime.waitForReady()
+                    // A page that never reports ready would otherwise hold the boot open forever,
+                    // and with it the execution, the WebView and the card's static face.
+                    withTimeout(READY_TIMEOUT) { webViewRuntime.waitForReady() }
                 }
                     // The bootstrap runs at document start; the entry module loads once the page
                     // exists, so it connects.
@@ -136,4 +144,9 @@ class TrUAPIWorkerSupervisor @Inject constructor(
     private fun ignoredNavigation() = NavigationPolicy.DeeplinkNavigation(
         onDeeplinkNavigation = { Timber.d("Ignored navigation from a Pocket worker: %s", it) },
     )
+
+    private companion object {
+        // Generous: a cold WebView on a slow device fetching a worker archive over dotNS.
+        val READY_TIMEOUT = 60.seconds
+    }
 }

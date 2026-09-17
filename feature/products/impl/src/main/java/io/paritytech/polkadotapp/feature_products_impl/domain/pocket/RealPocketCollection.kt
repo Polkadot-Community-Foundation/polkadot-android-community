@@ -34,7 +34,7 @@ class RealPocketCollection @Inject constructor(
     }
 
     override suspend fun removeCard(key: PocketCardKey): Result<PocketRemoval> {
-        if (pinned(key) != null) return Result.failure(PocketRemoveError.Privileged)
+        if (pinnedPocketCards.pinned(key) != null) return Result.failure(PocketRemoveError.Privileged)
 
         return runCatching { if (repository.delete(key)) PocketRemoval.REMOVED else PocketRemoval.ABSENT }
     }
@@ -46,12 +46,9 @@ class RealPocketCollection @Inject constructor(
 
     /** The newest face the product drew, else the one bundled with a pinned card for its first run. */
     override suspend fun cachedFace(key: PocketCardKey): JsWidget? =
-        repository.face(key) ?: pinned(key)?.face
+        repository.face(key) ?: pinnedPocketCards.pinned(key)?.face
 
     // One write against the face alone: a face landing while the card is being removed can no longer
     // put the card back, and the card list does not change every time a product redraws.
     override suspend fun cacheFace(key: PocketCardKey, face: JsWidget) = repository.saveFace(key, face)
-
-    private suspend fun pinned(key: PocketCardKey): CachedPocketCard? =
-        pinnedPocketCards.cards().firstOrNull { it.card.key == key }
 }

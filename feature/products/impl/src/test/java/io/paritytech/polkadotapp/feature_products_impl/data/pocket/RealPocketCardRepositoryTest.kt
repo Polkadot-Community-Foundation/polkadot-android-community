@@ -4,11 +4,11 @@ import io.paritytech.polkadotapp.database.dao.PocketCardDao
 import io.paritytech.polkadotapp.database.model.PocketCardFaceLocal
 import io.paritytech.polkadotapp.database.model.PocketCardLocal
 import io.paritytech.polkadotapp.feature_products_api.domain.pocket.PocketCard
-import io.paritytech.polkadotapp.feature_products_api.domain.pocket.PocketCardId
-import io.paritytech.polkadotapp.feature_products_api.domain.pocket.PocketCardKey
 import io.paritytech.polkadotapp.feature_products_api.model.JsWidget
-import io.paritytech.polkadotapp.feature_products_api.model.ProductId
 import io.paritytech.polkadotapp.feature_products_impl.domain.pocket.CachedPocketCard
+import io.paritytech.polkadotapp.feature_products_impl.domain.pocket.addedCard
+import io.paritytech.polkadotapp.feature_products_impl.domain.pocket.cardKey
+import io.paritytech.polkadotapp.feature_products_impl.domain.pocket.gameProduct
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
@@ -52,12 +52,9 @@ class RealPocketCardRepositoryTest {
     private val dao = FakePocketCardDao()
     private val repository = RealPocketCardRepository(dao)
 
-    private fun key(cardId: String) = PocketCardKey(ProductId.fromStoredValue("game.dot"), PocketCardId(cardId))
+    private fun key(cardId: String) = cardKey(gameProduct, cardId)
 
-    private fun card(cardId: String, face: JsWidget) = CachedPocketCard(
-        card = PocketCard(key(cardId), title = cardId, privileged = false),
-        face = face,
-    )
+    private fun card(cardId: String, face: JsWidget): CachedPocketCard = addedCard(gameProduct, cardId).copy(face = face)
 
     // The collection feeds the home tab, the core's card list and the deeplink handler, none of which
     // catch. A face written by an older vocabulary must cost the card its picture, not its place.

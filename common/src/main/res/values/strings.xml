@@ -1515,6 +1515,7 @@ I’m attaching PDF with more information and details regarding the Tattoo Stenc
     <string name="pocket_remove_card_cancel">Cancel</string>
     <string name="pocket_deeplink_unknown_card">This product doesn\'t publish that card.</string>
     <string name="pocket_deeplink_no_pocket">This product has no Pocket cards.</string>
+    <string name="pocket_deeplink_malformed">That Pocket link is incomplete.</string>
     <string name="pocket_coinage_balance_title">Coinage Balance</string>
     <string name="pocket_coinage_total_balance">Total balance</string>
     <string name="pocket_coinage_spendable">Spendable</string>

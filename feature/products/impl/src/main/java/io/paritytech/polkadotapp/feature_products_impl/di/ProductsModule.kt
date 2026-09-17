@@ -25,6 +25,7 @@ import io.paritytech.polkadotapp.feature_products_api.domain.browser.ProductSess
 import io.paritytech.polkadotapp.feature_products_api.domain.deriveEntropy.DeriveEntropyUseCase
 import io.paritytech.polkadotapp.feature_products_api.domain.pocket.PocketCollection
 import io.paritytech.polkadotapp.feature_products_api.domain.pocket.PocketFaceSource
+import io.paritytech.polkadotapp.feature_products_api.domain.product.ProductContentWarmUp
 import io.paritytech.polkadotapp.feature_products_api.domain.runtime.ProductRuntimeSettings
 import io.paritytech.polkadotapp.feature_products_api.domain.sponsoring.PreimageSubmitSponsoring
 import io.paritytech.polkadotapp.feature_products_api.domain.sponsoring.StatementStoreSubmissionSponsoring
@@ -108,6 +109,7 @@ import io.paritytech.polkadotapp.feature_products_impl.domain.pocket.RealPocketF
 import io.paritytech.polkadotapp.feature_products_impl.domain.pocket.RealPocketImageResolver
 import io.paritytech.polkadotapp.feature_products_impl.domain.product.ProductRegistrar
 import io.paritytech.polkadotapp.feature_products_impl.domain.product.ProductScriptResolver
+import io.paritytech.polkadotapp.feature_products_impl.domain.product.RealProductContentWarmUp
 import io.paritytech.polkadotapp.feature_products_impl.domain.product.RealProductRegistrar
 import io.paritytech.polkadotapp.feature_products_impl.domain.product.RealProductScriptResolver
 import io.paritytech.polkadotapp.feature_products_impl.domain.productBotManagement.ProductBotManagementInteractor
@@ -135,6 +137,8 @@ import io.paritytech.polkadotapp.feature_products_impl.presentation.initializati
 import io.paritytech.polkadotapp.feature_products_impl.presentation.initialization.TopUpResumeInitializer
 import io.paritytech.polkadotapp.feature_products_impl.presentation.productBotManagement.ProductsRouter
 import io.paritytech.polkadotapp.feature_products_impl.presentation.spaHost.RuntimeSelectingSpaHost
+import io.paritytech.polkadotapp.feature_scan_api.domain.DeeplinkScanContentParser
+import io.paritytech.polkadotapp.feature_scan_api.domain.ScanContentParser
 import okhttp3.OkHttpClient
 import java.util.concurrent.TimeUnit
 import javax.inject.Singleton
@@ -197,6 +201,10 @@ internal interface ProductsModule {
     @Binds
     @Singleton
     fun bindServingHostResolver(impl: ProductServingHostResolver): DotNsServingHostResolver
+
+    @Binds
+    @Singleton
+    fun bindProductContentWarmUp(impl: RealProductContentWarmUp): ProductContentWarmUp
 
     @Binds
     @Singleton
@@ -396,6 +404,16 @@ internal interface ProductsModule {
         ): ProductPermissionRequester {
             return AutoAllowProductPermissionRequester(whitelistedProductsProvider, real)
         }
+
+        /**
+         * A Pocket link is as likely to arrive as a QR code as it is to be tapped, and the scanner
+         * reads a different set than the deeplink router. Without this the same URL is claimed when
+         * tapped and reported as an invalid code when scanned.
+         */
+        @Provides
+        @IntoSet
+        fun providePocketScanContentParser(handler: PocketDeepLinkHandler): ScanContentParser =
+            DeeplinkScanContentParser(handler)
 
         @Provides
         @Singleton

@@ -21,11 +21,11 @@ import io.paritytech.polkadotapp.feature_products_impl.domain.pocket.PocketCardI
 import io.paritytech.polkadotapp.feature_products_impl.domain.pocket.PocketPublishError
 import io.paritytech.polkadotapp.feature_products_impl.domain.pocket.PublishedPocketCards
 import io.paritytech.polkadotapp.feature_products_impl.domain.truapi.PocketDeeplink
-import io.paritytech.polkadotapp.feature_products_impl.domain.truapi.PocketDeeplinkAction
 import io.paritytech.polkadotapp.feature_products_impl.domain.truapi.PocketDeeplinkParser
 import io.paritytech.polkadotapp.feature_products_impl.presentation.productBotManagement.ProductsRouter
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
+import timber.log.Timber
 import javax.inject.Inject
 import io.paritytech.polkadotapp.common.R as RCommon
 
@@ -52,13 +52,22 @@ internal class PocketDeepLinkHandler @Inject constructor(
         return gate.opens(ProductId.fromUrl(data.asWebUri(), tld).getOrNull())
     }
 
+    /**
+     * The reserved target belongs to the host whether or not the link under it is well formed, so a
+     * malformed one is answered here rather than left to open the product's own page.
+     */
+    private fun malformed(data: Uri): DeeplinkProcessingOutcome {
+        Timber.w("pocket: %s is under the reserved target but is not a Pocket link", data)
+
+        return DeeplinkProcessingOutcome.ShowMessage(context.getString(RCommon.string.pocket_deeplink_malformed))
+    }
+
     context(scope: ComputationalScope)
     override suspend fun handle(data: Uri): Result<DeeplinkProcessingOutcome> = withContext(dispatchers.io) {
         dotNsTldProvider.getTld().flatMap { tld ->
             val normalized = DotNsUtils.normalize(data.asWebUri(), tld)
                 ?: return@flatMap Result.failure(IllegalArgumentException("Not a $tld domain: $data"))
-            val deeplink = parser.parse(normalized.toString())
-                ?: return@flatMap Result.failure(IllegalArgumentException("Not a Pocket deeplink: $data"))
+            val deeplink = parser.parse(normalized.toString()) ?: return@flatMap Result.success(malformed(data))
 
             ProductId.fromString(deeplink.productHost, tld).flatMap { productId -> dispatch(productId, deeplink) }
         }
@@ -69,11 +78,13 @@ internal class PocketDeepLinkHandler @Inject constructor(
             .getOrElse { return Result.failure(it) }
         val present = collection.observeCards().first().any { it.key == key }
 
-        return when {
-            // A present card is opened whichever action asked; adding it again has nothing to add.
-            present -> Result.success(DeeplinkProcessingOutcome.Navigate { router.openPocketCard(key) })
-            deeplink.action == PocketDeeplinkAction.OPEN -> Result.success(hostError(PocketPublishError.UnknownCard))
-            else -> offerToAdd(key)
+        // A card already held is opened, whichever action asked for it. One that is not held has to
+        // be approved before it can be opened, so both actions lead to the same offer; what the
+        // product publishes decides whether there is one to make.
+        return if (present) {
+            Result.success(DeeplinkProcessingOutcome.Navigate { router.openPocketCard(key) })
+        } else {
+            offerToAdd(key)
         }
     }
 

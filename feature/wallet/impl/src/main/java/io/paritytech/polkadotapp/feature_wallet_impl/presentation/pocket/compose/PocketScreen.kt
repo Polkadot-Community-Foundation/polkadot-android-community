@@ -260,7 +260,9 @@ private fun PocketList(
                     right = PolkadotTheme.spacings.mediumIncreased
                 ).add(navigationBarInsets).asPaddingValues()
             ) {
-                itemsIndexed(cards) { index, card ->
+                // Keyed: a product card holds a face subscription and its resolved images, so
+                // positional identity would make every card below an insertion drop and re-subscribe.
+                itemsIndexed(cards, key = { _, card -> card.id }) { index, card ->
                     val cardModifier = Modifier.pocketListCardSharedElement(
                         card = card,
                         index = index,

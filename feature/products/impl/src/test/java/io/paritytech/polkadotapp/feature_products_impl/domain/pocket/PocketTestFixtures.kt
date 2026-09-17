@@ -6,6 +6,7 @@ import io.paritytech.polkadotapp.feature_products_api.domain.pocket.PocketCardKe
 import io.paritytech.polkadotapp.feature_products_api.model.JsWidget
 import io.paritytech.polkadotapp.feature_products_api.model.ProductId
 import io.paritytech.polkadotapp.feature_products_impl.data.pocket.PocketCardRepository
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 
@@ -26,8 +27,18 @@ internal fun addedCard(productId: ProductId, cardId: String) = CachedPocketCard(
     face = faceOf("added $cardId"),
 )
 
-internal class FakePinnedPocketCards(private val cards: List<CachedPocketCard>) : PinnedPocketCards {
-    override suspend fun cards(): List<CachedPocketCard> = cards
+internal class FakePinnedPocketCards(
+    private val cards: List<CachedPocketCard>,
+    // The real one awaits the network's name before it can list the cards, and never fails.
+    private val listable: Boolean = true,
+) : PinnedPocketCards {
+    override suspend fun cards(): List<CachedPocketCard> {
+        if (!listable) awaitCancellation()
+
+        return cards
+    }
+
+    override fun pinned(key: PocketCardKey): CachedPocketCard? = cards.firstOrNull { it.card.key == key }
 }
 
 internal class InMemoryPocketCardRepository : PocketCardRepository {

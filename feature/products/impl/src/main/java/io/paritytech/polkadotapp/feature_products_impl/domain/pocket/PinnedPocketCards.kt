@@ -9,10 +9,12 @@ import io.paritytech.polkadotapp.feature_dotns_api.domain.getTldRetrying
 import io.paritytech.polkadotapp.feature_products_api.domain.pocket.PocketCard
 import io.paritytech.polkadotapp.feature_products_api.domain.pocket.PocketCardId
 import io.paritytech.polkadotapp.feature_products_api.domain.pocket.PocketCardKey
+import io.paritytech.polkadotapp.feature_products_api.model.JsWidget
 import io.paritytech.polkadotapp.feature_products_api.model.ProductId
 import io.paritytech.polkadotapp.feature_products_api.model.derivation.ReservedProductIds
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
 import io.paritytech.polkadotapp.common.R as RCommon
@@ -20,6 +22,13 @@ import io.paritytech.polkadotapp.common.R as RCommon
 /** The cards the host itself places: present on first run, removable by nobody. */
 interface PinnedPocketCards {
     suspend fun cards(): List<CachedPocketCard>
+
+    /**
+     * The host-placed card [key] names, if it names one. Answers without waiting on anything: a
+     * removal arrives from the core on a thread it cannot spare, and a card's own key already says
+     * which network it belongs to.
+     */
+    fun pinned(key: PocketCardKey): CachedPocketCard?
 }
 
 /**
@@ -44,27 +53,41 @@ class AssetPinnedPocketCards @Inject constructor(
 
     private val loading = Mutex()
     private var loaded: List<CachedPocketCard>? = null
+    private val bundledFaces = ConcurrentHashMap<String, JsWidget>()
 
+    // The card's product is reserved on the network the app is on, which can take a chain read to
+    // learn. Only listing the cards needs it; naming one does not.
     override suspend fun cards(): List<CachedPocketCard> = loading.withLock {
         loaded ?: load().also { loaded = it }
     }
 
-    private suspend fun load(): List<CachedPocketCard> {
-        val tld = dotNsTldProvider.getTldRetrying()
-        return definitions.map { definition ->
-            CachedPocketCard(
-                card = PocketCard(
-                    key = PocketCardKey(definition.backingProduct(tld), PocketCardId(definition.cardId)),
-                    title = context.getString(definition.titleRes),
-                    privileged = true,
-                ),
-                face = bundledFace(definition.cardId),
-            )
-        }
+    override fun pinned(key: PocketCardKey): CachedPocketCard? {
+        val definition = definitions.firstOrNull { it.cardId == key.cardId.value } ?: return null
+        val tld = DotNsTld.parse(key.productId.value.substringAfter('.', missingDelimiterValue = "")) ?: return null
+        if (definition.backingProduct(tld) != key.productId) return null
+
+        return definition.toCard(key.productId)
     }
 
+    private suspend fun load(): List<CachedPocketCard> {
+        val tld = dotNsTldProvider.getTldRetrying()
+
+        return definitions.map { it.toCard(it.backingProduct(tld)) }
+    }
+
+    private fun Definition.toCard(backing: ProductId) = CachedPocketCard(
+        card = PocketCard(
+            key = PocketCardKey(backing, PocketCardId(cardId)),
+            title = context.getString(titleRes),
+            privileged = true,
+        ),
+        face = bundledFace(cardId),
+    )
+
     // Bundled with the app, so a failure here is a build defect rather than product input.
-    private fun bundledFace(cardId: String) = faceDecoder
-        .decode(context.assets.open("pocket/$cardId.json").bufferedReader().readText())
-        .getOrElse { throw IllegalStateException("bundled Pocket face '$cardId' is invalid", it) }
+    private fun bundledFace(cardId: String): JsWidget = bundledFaces.getOrPut(cardId) {
+        faceDecoder
+            .decode(context.assets.open("pocket/$cardId.json").bufferedReader().readText())
+            .getOrElse { throw IllegalStateException("bundled Pocket face '$cardId' is invalid", it) }
+    }
 }

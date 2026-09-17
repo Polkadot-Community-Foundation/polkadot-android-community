@@ -9,6 +9,7 @@ import io.paritytech.polkadotapp.feature_products_api.model.ProductExecutable
 import io.paritytech.polkadotapp.feature_products_api.model.ProductIcon
 import io.paritytech.polkadotapp.feature_products_impl.domain.pocket.PocketCardIdentifier
 import io.paritytech.polkadotapp.tools_ipfs_api.Cid
+import timber.log.Timber
 import javax.inject.Inject
 
 /** Rejections are `Result.failure`: the record exists but the publisher got it wrong. */
@@ -68,13 +69,23 @@ internal class ManifestParser @Inject constructor(
             }
         }
 
-    // A stricter host must not see a different manifest: cards are only read behind `includes.pocket`.
+    /**
+     * A stricter host must not see a different manifest, so cards are read only behind
+     * `includes.pocket` and screened exactly as the core screens them. A defect costs the product
+     * its cards and nothing more: failing the worker record over one would take the product's chat
+     * with it, and chat has nothing to do with the cards.
+     */
     private fun PocketRemote?.toCardDefinitions(includesPocket: Boolean): List<PocketCardDefinition> {
         if (this == null) return emptyList()
-        require(includesPocket) { "pocket.cards published without includes.pocket" }
-        val definitions = requireNotNull(cards) { "pocket missing cards" }.map { it.toDefinition() }
-        require(definitions.distinctBy { it.id }.size == definitions.size) { "pocket.cards ids must be unique" }
-        return definitions
+
+        return runCatching {
+            require(includesPocket) { "pocket.cards published without includes.pocket" }
+            val definitions = requireNotNull(cards) { "pocket missing cards" }.map { it.toDefinition() }
+            require(definitions.distinctBy { it.id }.size == definitions.size) { "pocket.cards ids must be unique" }
+            definitions
+        }
+            .onFailure { Timber.w(it, "pocket: publishing no cards for this worker") }
+            .getOrDefault(emptyList())
     }
 
     private fun PocketCardRemote.toDefinition(): PocketCardDefinition {

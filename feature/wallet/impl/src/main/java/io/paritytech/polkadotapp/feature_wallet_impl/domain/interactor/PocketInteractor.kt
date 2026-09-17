@@ -19,6 +19,7 @@ import io.paritytech.polkadotapp.feature_products_api.domain.pocket.PocketCard
 import io.paritytech.polkadotapp.feature_products_api.domain.pocket.PocketCardKey
 import io.paritytech.polkadotapp.feature_products_api.domain.pocket.PocketCollection
 import io.paritytech.polkadotapp.feature_products_api.domain.pocket.PocketFaceSource
+import io.paritytech.polkadotapp.feature_products_api.domain.product.ProductContentWarmUp
 import io.paritytech.polkadotapp.feature_products_api.model.JsImageSource
 import io.paritytech.polkadotapp.feature_products_api.model.JsWidget
 import io.paritytech.polkadotapp.feature_tokens_api.di.DigitalDollarChainAssetProvider
@@ -48,6 +49,7 @@ class PocketInteractor @Inject constructor(
     private val knownChains: KnownChains,
     private val pocketCollection: PocketCollection,
     private val pocketFaceSource: PocketFaceSource,
+    private val productContentWarmUp: ProductContentWarmUp,
 ) {
     fun observeBackupProgress(): Flow<BackupProgress> = coinageBackupService.subscribeProgress()
 
@@ -82,6 +84,9 @@ class PocketInteractor @Inject constructor(
         .map { it.username.getDisplayUsername() }
 
     fun observeProductCards(): Flow<List<PocketCard>> = pocketCollection.observeCards()
+
+    /** Fetches the product's pages before its card is opened, so opening it does not wait on them. */
+    suspend fun warmUpProduct(key: PocketCardKey): Result<Unit> = productContentWarmUp.warmUp(key.productId)
 
     /** Collect only while the face is on screen: collecting keeps the backing product's worker running. */
     fun observeFace(key: PocketCardKey): Flow<JsWidget> = pocketFaceSource.observeFace(key)

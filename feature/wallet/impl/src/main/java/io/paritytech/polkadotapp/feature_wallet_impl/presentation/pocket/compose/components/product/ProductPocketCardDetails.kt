@@ -1,5 +1,6 @@
 package io.paritytech.polkadotapp.feature_wallet_impl.presentation.pocket.compose.components.product
 
+import android.webkit.WebView
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.EnterExitState
 import androidx.compose.foundation.background
@@ -7,6 +8,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -16,7 +18,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import io.paritytech.polkadotapp.design.components.progress.NovaCircularProgressIndicator
 import io.paritytech.polkadotapp.design.components.spacer.VerticalSpacer
 import io.paritytech.polkadotapp.design.components.text.NovaText
 import io.paritytech.polkadotapp.design.components.topbar.PolkadotTopBar
@@ -30,6 +34,7 @@ import io.paritytech.polkadotapp.feature_wallet_impl.presentation.pocket.Product
 import io.paritytech.polkadotapp.feature_wallet_impl.presentation.pocket.compose.LocalNavAnimatedVisibilityScope
 import io.paritytech.polkadotapp.feature_wallet_impl.presentation.pocket.compose.pocketCardSharedElement
 import io.paritytech.polkadotapp.feature_wallet_impl.presentation.pocket.models.PocketCardUiModel
+import kotlinx.coroutines.flow.MutableStateFlow
 import io.paritytech.polkadotapp.common.R as RCommon
 
 /**
@@ -87,31 +92,53 @@ private fun ExpandedProductContent(
     modifier: Modifier = Modifier,
     session: SpaHostSession?,
 ) {
+    // Stand-ins for a product that has not been asked for yet, so the card still has ground under it
+    // on its way up. Remembered unconditionally: a composable cannot remember only sometimes.
+    val noProgressYet = remember { MutableStateFlow<DotNsLoadProgress>(DotNsLoadProgress.Idle) }
+    val noWebViewYet = remember { MutableStateFlow<WebView?>(null) }
+
+    val loadProgress by (session?.loadProgress ?: noProgressYet).collectAsStateWithLifecycle()
+    val webView by (session?.webView ?: noWebViewYet).collectAsStateWithLifecycle()
+
+    // Once the product has painted once it owns the space; its own navigations must not blank it.
+    var productShowing by remember(session) { mutableStateOf(false) }
+    LaunchedEffect(loadProgress) {
+        if (loadProgress == DotNsLoadProgress.Completed) productShowing = true
+    }
+
     // The app's own ground under the card until the product has something to show, so a page that
     // paints white does not flash through the arrival.
     Box(
         modifier = modifier.background(PolkadotTheme.colors.bg.surface.main),
         contentAlignment = Alignment.Center,
     ) {
-        if (session != null) {
-            val loadProgress by session.loadProgress.collectAsStateWithLifecycle()
-            val webView by session.webView.collectAsStateWithLifecycle()
+        when {
+            loadProgress is DotNsLoadProgress.Failed -> NovaText(
+                text = stringResource(RCommon.string.product_resolution_error_unknown),
+                style = PolkadotTheme.typography.body.medium,
+                color = PolkadotTheme.colors.fg.secondary
+            )
 
-            // Once the product has painted once it owns the space; its own navigations must not blank it.
-            var productShowing by remember(session) { mutableStateOf(false) }
-            LaunchedEffect(loadProgress) {
-                if (loadProgress == DotNsLoadProgress.Completed) productShowing = true
-            }
+            productShowing -> ProductWebViewHost(modifier = Modifier.fillMaxSize(), webView = webView)
 
-            when {
-                loadProgress is DotNsLoadProgress.Failed -> NovaText(
-                    text = stringResource(RCommon.string.product_resolution_error_unknown),
-                    style = PolkadotTheme.typography.body.medium,
-                    color = PolkadotTheme.colors.fg.secondary
-                )
-
-                productShowing -> ProductWebViewHost(modifier = Modifier.fillMaxSize(), webView = webView)
-            }
+            else -> ProductLoadProgress(progress = loadProgress)
         }
     }
 }
+
+/**
+ * A product can take seconds to fetch on its first open, and the space below the card is empty for
+ * all of it. Idle counts as loading here: the card is open, so the product is coming, and dotNS
+ * reports nothing until its own lookup returns.
+ */
+@Composable
+private fun ProductLoadProgress(progress: DotNsLoadProgress) {
+    val downloaded = (progress as? DotNsLoadProgress.Downloading)?.fraction
+    if (downloaded == null) {
+        NovaCircularProgressIndicator(modifier = Modifier.size(PRODUCT_PROGRESS_SIZE))
+    } else {
+        NovaCircularProgressIndicator(modifier = Modifier.size(PRODUCT_PROGRESS_SIZE), progress = { downloaded })
+    }
+}
+
+private val PRODUCT_PROGRESS_SIZE = 48.dp

@@ -111,4 +111,17 @@ class RealPocketCollectionTest {
     fun `a pinned card with nothing drawn yet still shows the face bundled with the app`() = runTest {
         assertEquals(humanity.face, collection.cachedFace(humanity.card.key))
     }
+
+    // Listing the pinned cards waits for the network's name, which offline never arrives. A removal
+    // must not wait with it: the core asks for one inline, on a dispatcher thread it cannot spare,
+    // and a face read backs every card on screen.
+    @Test
+    fun `a removal and a face read do not wait for the pinned cards to be listable`() = runTest {
+        val offline = RealPocketCollection(FakePinnedPocketCards(listOf(humanity), listable = false), repository)
+        offline.addCard(loyalty)
+
+        assertEquals(PocketRemoval.REMOVED, offline.removeCard(loyalty.card.key).getOrThrow())
+        assertEquals(PocketRemoveError.Privileged, offline.removeCard(humanity.card.key).exceptionOrNull())
+        assertEquals(humanity.face, offline.cachedFace(humanity.card.key))
+    }
 }

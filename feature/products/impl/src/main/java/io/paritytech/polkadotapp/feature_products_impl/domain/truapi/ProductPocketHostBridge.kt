@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import uniffi.truapi_server.NativePocketRemoval
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 import uniffi.truapi.PocketCard as NativePocketCard
 
@@ -30,6 +31,7 @@ class ProductPocketHostBridge(
 ) : PocketHostBridge {
     private val snapshot = AtomicReference<List<NativePocketCard>>(emptyList())
     private var collector: Job? = null
+    private val stopped = AtomicBoolean(false)
 
     /**
      * Keeps the snapshot current and republishes the product's cards on every collection change.
@@ -43,13 +45,16 @@ class ProductPocketHostBridge(
                 .distinctUntilChanged()
                 .collect { cards ->
                     snapshot.set(cards)
-                    republish(cards)
+                    // Cancelling does not wait, and the caller closes the execution as soon as it
+                    // returns: a republish already in flight would otherwise reach a freed handle.
+                    if (!stopped.get()) republish(cards)
                 }
         }
     }
 
     /** Ends the republishing; [republish] is handed the execution, which its owner is about to close. */
     fun stop() {
+        stopped.set(true)
         collector?.cancel()
         collector = null
     }

@@ -241,18 +241,20 @@ class ProductTrUAPIHostBridge @AssistedInject constructor(
             Timber.w("truapi.attach: already attached to %s, ignoring", productId.value)
             return Result.success(it)
         }
-        cachedChains.set(chains)
-        val pocket = ProductPocketHostBridge(productId, pocketCardStore, scope)
-        val opened = runtime.openProductExecution(
-            bridge = buildBridge(productId, navigationPolicy),
-            configuration = ProductExecutionConfig(productId.value, kind),
-            pocket = pocket,
-        )
-        execution = opened
-        pocketBridge = pocket
-        // Anything failing past this point leaves a live execution behind, and
-        // `execution != null` would then block every re-attach; tear it down.
+        // Opening the execution is inside the Result too: it reaches the core and can be refused,
+        // and the callers launch this into scopes that have no handler for a throw.
         return runCatching {
+            cachedChains.set(chains)
+            val pocket = ProductPocketHostBridge(productId, pocketCardStore, scope)
+            val opened = runtime.openProductExecution(
+                bridge = buildBridge(productId, navigationPolicy),
+                configuration = ProductExecutionConfig(productId.value, kind),
+                pocket = pocket,
+            )
+            execution = opened
+            pocketBridge = pocket
+            // Anything failing past this point leaves a live execution behind, and
+            // `execution != null` would then block every re-attach; tear it down.
             pocket.start(opened::notifyPocketCardsChanged)
             chainProvider.attach(
                 onResponse = opened::notifyChainResponse,

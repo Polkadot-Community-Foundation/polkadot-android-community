@@ -27,6 +27,7 @@ import uniffi.truapi.ImageSource
 import uniffi.truapi.Modifier
 import uniffi.truapi.RendererNode
 import uniffi.truapi.Shape
+import uniffi.truapi.Size
 import uniffi.truapi.TypographyStyle
 import uniffi.truapi.VerticalAlignment
 
@@ -103,12 +104,12 @@ private fun List<Modifier>.toJsModifiers(): List<JsModifier> = buildList {
             is Modifier.Padding -> add(modifier.v1.toPadding())
             is Modifier.Background -> add(JsModifier.Background(modifier.v1.color.toJs(), modifier.v1.shape?.toJs()))
             is Modifier.Border -> add(
-                JsModifier.Border(modifier.v1.width.toInt(), modifier.v1.color.toJs(), modifier.v1.shape?.toJs()),
+                JsModifier.Border(modifier.v1.width.toDp(), modifier.v1.color.toJs(), modifier.v1.shape?.toJs()),
             )
-            is Modifier.Height -> height = modifier.v1.toInt()
-            is Modifier.Width -> width = modifier.v1.toInt()
-            is Modifier.MinWidth -> minWidth = modifier.v1.toInt()
-            is Modifier.MinHeight -> minHeight = modifier.v1.toInt()
+            is Modifier.Height -> height = modifier.v1.toDp()
+            is Modifier.Width -> width = modifier.v1.toDp()
+            is Modifier.MinWidth -> minWidth = modifier.v1.toDp()
+            is Modifier.MinHeight -> minHeight = modifier.v1.toDp()
             is Modifier.FillWidth -> if (modifier.v1) add(JsModifier.FillMaxWidth())
             is Modifier.FillHeight -> if (modifier.v1) add(JsModifier.FillMaxHeight())
             is Modifier.Opacity -> add(JsModifier.Opacity(modifier.v1.toInt()))
@@ -121,23 +122,35 @@ private fun List<Modifier>.toJsModifiers(): List<JsModifier> = buildList {
     }
 }
 
+/**
+ * The core carries a size as an unsigned 64-bit number and Compose draws in Int dp, so a bare
+ * conversion turns 4294967295 into -1, which throws the moment the padding is applied. A product
+ * must not be able to take the card's screen down with a number, so a size beyond anything a screen
+ * could hold is drawn at that bound instead of rejected: the card keeps drawing, visibly wrong.
+ */
+private fun Size.toDp(): Int = coerceAtMost(MAX_DRAWABLE_DP).toInt()
+
+// Two orders of magnitude past the longest edge of any device, and far from where dp-to-pixel
+// arithmetic overflows.
+private const val MAX_DRAWABLE_DP: Size = 100_000uL
+
 // `bottom` defaults to `top` and `start` to `end` when absent.
 private fun Dimensions.toMargin() = JsModifier.Margin(
-    top = top.toInt(),
-    end = end.toInt(),
-    bottom = (bottom ?: top).toInt(),
-    start = (start ?: end).toInt(),
+    top = top.toDp(),
+    end = end.toDp(),
+    bottom = (bottom ?: top).toDp(),
+    start = (start ?: end).toDp(),
 )
 
 private fun Dimensions.toPadding() = JsModifier.Padding(
-    top = top.toInt(),
-    end = end.toInt(),
-    bottom = (bottom ?: top).toInt(),
-    start = (start ?: end).toInt(),
+    top = top.toDp(),
+    end = end.toDp(),
+    bottom = (bottom ?: top).toDp(),
+    start = (start ?: end).toDp(),
 )
 
 private fun Shape.toJs(): JsShape = when (this) {
-    is Shape.Rounded -> JsShape.Rounded(radius = v1.toInt())
+    is Shape.Rounded -> JsShape.Rounded(radius = v1.toDp())
     is Shape.Circle -> JsShape.Circle
     is Shape.Square -> JsShape.Square
 }
