@@ -41,6 +41,8 @@ import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
 import java.math.BigDecimal
+import kotlin.time.ExperimentalTime
+import kotlin.time.Instant
 
 class RealSendEnterAmountInteractorTest {
     private val coinKey: CoinPrivateKey = byteArrayOf(1).toDataByteArray()
@@ -108,6 +110,7 @@ class RealSendEnterAmountInteractorTest {
         coinagePaymentStatusUseCase = statusUseCase,
         coinageDebugSettings = mockk(),
         coroutineDispatchers = mockk<CoroutineDispatchers> { every { computation } returns dispatcher },
+        timeProvider = mockk(),
         sendValidation = mockk(),
     )
 
@@ -124,6 +127,11 @@ class RealSendEnterAmountInteractorTest {
 
         context(diagnostics: StalenessReportCollector)
         override suspend fun prepareMemo(plan: TransferPlan) = Result.success(PreparedTransferMemo(memo, handoffCommit))
+
+        @OptIn(ExperimentalTime::class)
+        context(diagnostics: StalenessReportCollector)
+        override suspend fun prepareScheduledMemo(plan: TransferPlan, retryUntil: Instant) =
+            Result.success(PreparedTransferMemo(memo, handoffCommit))
     }
 
     private companion object {
