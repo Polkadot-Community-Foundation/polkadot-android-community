@@ -114,6 +114,9 @@ jobs:
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          # The action defaults to `tools platform-tools`; Google removed `tools`, so the default fails on an SDK cache miss.
+          packages: platform-tools
 
       - name: Install NDK ${{ env.NDK_VERSION }}
         run: sdkmanager "ndk;${{ env.NDK_VERSION }}" "platforms;android-36"
