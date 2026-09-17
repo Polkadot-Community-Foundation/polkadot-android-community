@@ -68,7 +68,7 @@ class PocketViewModel @Inject constructor(
         .map { balance ->
             PocketCardUiModel.DigitalDollar.Amounts(
                 balance = tokenAmountMapper.mapFrom(balance.total),
-                available = tokenAmountMapper.mapFrom(balance.available)
+                ready = tokenAmountMapper.mapFrom(balance.ready)
             )
         }
         .withLoading("PocketViewModel: Failed to observe digital dollar balance")
@@ -190,10 +190,10 @@ class PocketViewModel @Inject constructor(
                 amounts?.let {
                     tokenAmountFormatter.formatTokenAmount(it.balance, RoundPrecision.FIAT, withSymbol = false)
                 },
-                amounts?.let { tokenAmountFormatter.formatFiat(it.available) },
+                amounts?.let { tokenAmountFormatter.formatFiat(it.ready) },
                 card.syncInProgress,
                 card.accountBackupPending,
-                amounts?.notFullyAvailable
+                amounts?.notFullyReady
             ).joinToString("|")
         }
 

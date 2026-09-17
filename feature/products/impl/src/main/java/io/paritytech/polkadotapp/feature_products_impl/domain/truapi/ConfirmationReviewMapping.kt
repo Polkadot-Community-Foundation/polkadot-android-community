@@ -143,9 +143,10 @@ private fun RawPayload.toContent(): RawPayloadContent = when (this) {
 
 /**
  * An unwatermarked payload carries no `<Bytes>` protection, so a signature over it can authorize a
- * transaction; the core requires a host to say so. The raw-signing sheet shows a payload as an
- * ordinary message and has nowhere to put that warning, so such a request is refused rather than
- * presented as the harmless thing it is not. Surfacing the warning is what lifts this.
+ * transaction; the core requires a host to say so. This sheet shows a raw payload as an ordinary
+ * message and has nowhere to put that warning, and carrying the flag into the domain model would
+ * reach the SSO SCALE mappers, which encode a wire message to the paired wallet. So the request is
+ * refused rather than presented as the harmless thing it is not; a sheet that can warn lifts this.
  */
 private fun SignRawReview.toSigningRequestBody(): SigningRequestBody = when (this) {
     is SignRawReview.Product -> {

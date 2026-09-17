@@ -7,10 +7,10 @@ inputs:
       SHA so an unrelated merge there cannot turn this build red; bump it
       deliberately.
       The app's HostCallbacks implementation must match the native API surface
-      at this commit. Currently host-rust-core `main` with the Pocket collection
-      (#706) merged, over the Unified Renderer (#633), Worker Lifecycle (#632)
-      and wire envelope (#357) work that the Android Pocket modality needs.
-      iOS pins its own ref; the two are bumped independently.
+      at this commit. Currently seven commits past the 0.16.0 release tag that
+      polkadot-app-ios-v2 pins, for the Pocket collection (#706) the Android
+      Pocket modality needs. Drop back to the tag once Pocket ships in a
+      release; iOS pins its own ref and the two are bumped independently.
     required: false
     default: "b0d95f0d4d2526f7dd0a58b78452667e9b22b99d"
 
@@ -126,6 +126,8 @@ runs:
     - name: 🦀 Install Rust
       uses: actions-rust-lang/setup-rust-toolchain@v1
       with:
+        # The nightly the codegen needs is installed by date in the step below,
+        # rather than as whatever `nightly` resolves to on the day.
         toolchain: stable
         override: true
         components: rustfmt, clippy
@@ -135,11 +137,14 @@ runs:
           .
           .truapi -> target
 
-    # :bindings:truapi-host regenerates the core's gitignored Rust sources from
-    # rustdoc JSON, which only a nightly rustdoc emits. Dated, because the JSON
-    # format moves with the toolchain; Gradle reads the same property.
+    # :bindings:truapi-host runs the core's own codegen script, whose rustdoc JSON
+    # only a nightly emits and whose output it formats with that toolchain's
+    # rustfmt. Dated, because the JSON format moves with the toolchain; Gradle
+    # passes the same property to the script as TRUAPI_NIGHTLY_TOOLCHAIN.
     - name: Add nightly for the core codegen
-      run: rustup toolchain install "$(sed -n 's/^truapi.rustNightly=//p' gradle.properties)" --profile minimal
+      run: |
+        nightly="$(sed -n 's/^truapi.rustNightly=//p' gradle.properties)"
+        rustup toolchain install "$nightly" --profile minimal --component rustfmt
       shell: bash
 
     - name: Add targets

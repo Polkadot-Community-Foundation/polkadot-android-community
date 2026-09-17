@@ -101,51 +101,10 @@ cargo {
     }
 }
 
-// truapi-server declares its dispatcher and WASM bridge modules unconditionally
-// and gitignores them: the core's scripts/codegen.sh produces them from rustdoc
-// JSON of the protocol crates. Only the Rust half of that script is needed to
-// compile the cdylib, so it is reproduced here rather than requiring node and
-// npm on every machine that builds the app. rustdoc's JSON output is nightly
-// only, and its format moves with the toolchain, so the date is pinned in
-// gradle.properties; `rustup toolchain install $rustNightly` once.
+// The nightly rustdoc the core's codegen runs on, pinned by date in
+// gradle.properties: its JSON format moves with the toolchain, so an unpinned
+// nightly turns every build red the day truapi-codegen stops accepting it.
 val rustNightly: String = providers.gradleProperty("truapi.rustNightly").get()
-val rustdocJsonDir = "$truapiDir/target/doc"
-
-fun registerRustdocJson(taskName: String, crate: String) = tasks.register<Exec>(taskName) {
-    workingDir = file(truapiDir)
-    commandLine("cargo", "+$rustNightly", "rustdoc", "-p", crate, "--", "-Z", "unstable-options", "--output-format", "json")
-    inputs.files(fileTree("$truapiDir/rust/crates/$crate") { include("**/*.rs", "Cargo.toml") })
-        .withPropertyName("crateSources")
-    outputs.file("$rustdocJsonDir/${crate.replace('-', '_')}.json").withPropertyName("rustdocJson")
-}
-
-val rustdocTruapiJson = registerRustdocJson("rustdocTruapiJson", "truapi")
-val rustdocTruapiPlatformJson = registerRustdocJson("rustdocTruapiPlatformJson", "truapi-platform")
-
-val generateCoreRustSources by tasks.registering(Exec::class) {
-    dependsOn(rustdocTruapiJson, rustdocTruapiPlatformJson)
-    workingDir = file(truapiDir)
-    // `--output` is the TypeScript client, mandatory for the tool but unused
-    // here, so it lands under target/ where cargo's own clean removes it.
-    commandLine(
-        "cargo", "run", "-p", "truapi-codegen", "--",
-        "--input", "$rustdocJsonDir/truapi.json",
-        "--output", "$truapiDir/target/android-codegen/client",
-        "--rust-output", "$truapiDir/rust/crates/truapi-server/src/generated",
-        "--platform-input", "$rustdocJsonDir/truapi_platform.json",
-        "--platform-rust-output", "$truapiDir/rust/crates/truapi-server/src/wasm",
-        "--codec-version", "2",
-    )
-    inputs.files(
-        "$rustdocJsonDir/truapi.json",
-        "$rustdocJsonDir/truapi_platform.json",
-        fileTree("$truapiDir/rust/crates/truapi-codegen") { include("**/*.rs", "Cargo.toml") },
-    ).withPropertyName("codegenInputs")
-    outputs.dir("$truapiDir/rust/crates/truapi-server/src/generated").withPropertyName("generatedDispatcher")
-    outputs.file("$truapiDir/rust/crates/truapi-server/src/wasm/generated_bridge.rs").withPropertyName("generatedBridge")
-}
-
-tasks.matching { it.name.startsWith("cargoBuild") }.configureEach { dependsOn(generateCoreRustSources) }
 
 // Host cdylib uniffi-bindgen reads to extract the interface: .dylib on macOS,
 // .so on Linux, .dll on Windows. Built with truapi's `codegen` profile, which
@@ -163,12 +122,47 @@ val hostCdylib: String = run {
     "$truapiDir/target/codegen/libtruapi_server.$ext"
 }
 
+// codegen.sh formats what it emits with the core's own prettier, resolved with
+// `npm exec --no`, so the core's workspace dependencies have to be installed
+// before it runs. host-rust-core's own CI does the same thing ahead of the
+// script; without it the task dies on a missing prettier rather than anything
+// to do with the generated code.
+val installCoreNodeDeps by tasks.registering(Exec::class) {
+    workingDir = file(truapiDir)
+    commandLine("npm", "ci", "--ignore-scripts")
+    inputs.files("$truapiDir/package.json", "$truapiDir/package-lock.json")
+        .withPropertyName("coreNodeManifests")
+    outputs.dir("$truapiDir/node_modules").withPropertyName("coreNodeModules")
+}
+
+// Generate the core's wire dispatcher. host-rust-core stopped tracking
+// `truapi-server/src/generated` and generates it on demand, so a checkout of any
+// commit after that does not compile until this runs. Release tags do not carry
+// it either: the iOS tag script commits only the paths `Package.swift` declares.
+// Calling the core's own script rather than repeating its codegen invocation
+// keeps this from drifting when that pipeline changes.
+val generateCoreDispatcher by tasks.registering(Exec::class) {
+    dependsOn(installCoreNodeDeps)
+    workingDir = file(truapiDir)
+    environment("TRUAPI_NIGHTLY_TOOLCHAIN", rustNightly)
+    commandLine("./scripts/codegen.sh")
+    inputs.files(
+        fileTree("$truapiDir/rust/crates/truapi") { include("**/*.rs", "**/Cargo.toml") },
+        fileTree("$truapiDir/rust/crates/truapi-platform") { include("**/*.rs", "**/Cargo.toml") },
+        fileTree("$truapiDir/rust/crates/truapi-codegen") { include("**/*.rs", "**/Cargo.toml") },
+    ).withPropertyName("codegenSources")
+    outputs.dirs(
+        "$truapiDir/rust/crates/truapi-server/src/generated",
+        "$truapiDir/rust/crates/truapi-server/src/wasm",
+    ).withPropertyName("generatedDispatcher")
+}
+
 // Build the host-native cdylib for uniffi-bindgen — a runner-targeted build,
 // separate from the per-ABI Android cross-compile (cargoBuild). Cargo is
 // incremental on its own; the input/output declarations additionally let
 // Gradle skip the cargo invocation entirely when the rust tree is untouched.
 val buildHostCdylib by tasks.registering(Exec::class) {
-    dependsOn(generateCoreRustSources)
+    dependsOn(generateCoreDispatcher)
     workingDir = file(truapiDir)
     commandLine("cargo", "build", "-p", "truapi-server", "--profile", "codegen", "--features", "ws-bridge")
     inputs.files(
@@ -201,6 +195,11 @@ val generateUniffiKotlin by tasks.registering(Exec::class) {
 
 tasks.matching { it.name == "compileDebugKotlin" || it.name == "compileReleaseKotlin" }
     .configureEach { dependsOn(generateUniffiKotlin) }
+
+// The per-ABI cross-compiles build truapi-server too, so they need the
+// dispatcher just as much as the host-native build does.
+tasks.matching { it.name.startsWith("cargoBuild") }
+    .configureEach { dependsOn(generateCoreDispatcher) }
 
 dependencies {
     // UniFFI Kotlin bindings use JNA for FFI.
