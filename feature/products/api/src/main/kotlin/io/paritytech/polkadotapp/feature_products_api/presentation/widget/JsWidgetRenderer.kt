@@ -1,5 +1,6 @@
-package io.paritytech.polkadotapp.feature_products_impl.presentation.compose
+package io.paritytech.polkadotapp.feature_products_api.presentation.widget
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,16 +16,27 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
+import io.paritytech.polkadotapp.design.components.image.NovaAsyncImage
 import io.paritytech.polkadotapp.design.components.text.NovaText
 import io.paritytech.polkadotapp.design.components.text.NovaTextField
 import io.paritytech.polkadotapp.design.theme.PolkadotTheme
 import io.paritytech.polkadotapp.feature_products_api.model.JsAlignment
 import io.paritytech.polkadotapp.feature_products_api.model.JsArrangement
 import io.paritytech.polkadotapp.feature_products_api.model.JsButtonVariant
+import io.paritytech.polkadotapp.feature_products_api.model.JsEffect
 import io.paritytech.polkadotapp.feature_products_api.model.JsHorizontalAlignment
+import io.paritytech.polkadotapp.feature_products_api.model.JsImageFit
 import io.paritytech.polkadotapp.feature_products_api.model.JsTypographyStyle
 import io.paritytech.polkadotapp.feature_products_api.model.JsUiEvent
 import io.paritytech.polkadotapp.feature_products_api.model.JsVerticalAlignment
@@ -63,7 +75,75 @@ private fun JsWidgetContent(
         is JsWidget.Text -> JsTextRenderer(widget, modifier)
         is JsWidget.Button -> JsButtonRenderer(widget, modifier)
         is JsWidget.TextField -> JsTextFieldRenderer(widget, modifier)
+        is JsWidget.Image -> JsImageRenderer(widget, modifier)
+        is JsWidget.Effect -> JsEffectRenderer(widget, modifier)
     }
+}
+
+@Composable
+private fun JsImageRenderer(
+    widget: JsWidget.Image,
+    modifier: Modifier = Modifier,
+) {
+    val resolver = LocalJsImageResolver.current
+    // Kept across a re-resolve, so a face that redraws does not blink its images away.
+    var model by remember(widget.source) { mutableStateOf(resolver.resolved(widget.source)) }
+    LaunchedEffect(widget.source, resolver) {
+        resolver.resolve(widget.source)?.let { model = it }
+    }
+    val imageModifier = modifier.then(widget.modifiers.toComposeModifier())
+
+    // An image the host cannot fetch draws as empty space.
+    if (model == null) {
+        Spacer(modifier = imageModifier)
+    } else {
+        NovaAsyncImage(
+            modifier = imageModifier,
+            model = model,
+            contentDescription = null,
+            contentScale = widget.fit.toContentScale(),
+        )
+    }
+}
+
+@Composable
+private fun JsEffectRenderer(
+    widget: JsWidget.Effect,
+    modifier: Modifier = Modifier,
+) {
+    Box(modifier = modifier) {
+        widget.children.forEach { child ->
+            JsWidgetContent(widget = child)
+        }
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .background(widget.effect.toBrush(), alpha = EFFECT_ALPHA),
+        )
+    }
+}
+
+private const val EFFECT_ALPHA = 0.3f
+
+private fun JsEffect.toBrush(): Brush = when (this) {
+    JsEffect.RAINBOW -> Brush.linearGradient(
+        listOf(
+            Color(0xFFFF5E5E),
+            Color(0xFFFFD35E),
+            Color(0xFF5EFF8A),
+            Color(0xFF5ED0FF),
+            Color(0xFF8A5EFF),
+            Color(0xFFFF5EDB),
+        ),
+    )
+}
+
+private fun JsImageFit.toContentScale(): ContentScale = when (this) {
+    JsImageFit.NONE -> ContentScale.None
+    JsImageFit.FILL -> ContentScale.FillBounds
+    JsImageFit.COVER -> ContentScale.Crop
+    JsImageFit.CONTAIN -> ContentScale.Fit
+    JsImageFit.SCALE_DOWN -> ContentScale.Inside
 }
 
 @Composable

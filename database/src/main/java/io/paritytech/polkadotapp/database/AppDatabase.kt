@@ -37,6 +37,7 @@ import io.paritytech.polkadotapp.database.dao.GamePlayersDao
 import io.paritytech.polkadotapp.database.dao.MessageNotificationSentDao
 import io.paritytech.polkadotapp.database.dao.MessageRevisionDao
 import io.paritytech.polkadotapp.database.dao.MetaAccountDao
+import io.paritytech.polkadotapp.database.dao.PocketCardDao
 import io.paritytech.polkadotapp.database.dao.ProcessedChatMessageDao
 import io.paritytech.polkadotapp.database.dao.ProductDao
 import io.paritytech.polkadotapp.database.dao.ProductFundingOperationDao
@@ -119,6 +120,8 @@ import io.paritytech.polkadotapp.database.model.GamePlayersLocal
 import io.paritytech.polkadotapp.database.model.MessageNotificationSentLocal
 import io.paritytech.polkadotapp.database.model.MessageRevisionLocal
 import io.paritytech.polkadotapp.database.model.MetaAccountLocal
+import io.paritytech.polkadotapp.database.model.PocketCardFaceLocal
+import io.paritytech.polkadotapp.database.model.PocketCardLocal
 import io.paritytech.polkadotapp.database.model.ProcessedChatMessageLocal
 import io.paritytech.polkadotapp.database.model.ProductFundingOperationLocal
 import io.paritytech.polkadotapp.database.model.ProductIntegrationLocal
@@ -208,6 +211,8 @@ import io.paritytech.polkadotapp.database.model.chain.ChainRuntimeInfoLocal
         CoinageEntryOutputLocal::class,
         CoinageHandoffLocal::class,
         ProductTopUpLocal::class,
+        PocketCardLocal::class,
+        PocketCardFaceLocal::class,
     ],
     autoMigrations = [
         // Add ChatMessageReactionLocal
@@ -286,6 +291,8 @@ import io.paritytech.polkadotapp.database.model.chain.ChainRuntimeInfoLocal
         AutoMigration(from = 61, to = 62),
         // Key external_payments by (origin, id); add claimedPlanks for partially claimed payments
         AutoMigration(from = 64, to = 65),
+        // Add pocket_cards (cards the user added to the Pocket) and pocket_card_faces (the newest face drawn for a card)
+        AutoMigration(from = 65, to = 66),
     ]
 )
 @TypeConverters(
@@ -451,4 +458,6 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun durableTxDao(): DurableTxDao
 
     abstract fun coinageInstallationDao(): CoinageInstallationDao
+
+    abstract fun pocketCardDao(): PocketCardDao
 }

@@ -1,4 +1,4 @@
-package io.paritytech.polkadotapp.feature_products_impl.presentation.compose
+package io.paritytech.polkadotapp.feature_products_api.presentation.widget
 
 import androidx.compose.runtime.compositionLocalOf
 import io.paritytech.polkadotapp.feature_products_api.model.JsUiEvent
