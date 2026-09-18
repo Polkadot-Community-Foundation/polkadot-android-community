@@ -121,6 +121,35 @@ jobs:
       - name: Install NDK ${{ env.NDK_VERSION }}
         run: sdkmanager "ndk;${{ env.NDK_VERSION }}" "platforms;android-36"
 
+      # ---- TrUAPI core (diagnostic build only) -------------------------------
+      # :feature:products:impl depends on :bindings:truapi-host in every variant,
+      # and that module compiles the TrUAPI Rust core from an OUT-OF-REPO checkout,
+      # so configuration fails without it. Pin = `truapi_ref` in upstream's
+      # .github/actions/install/action.yaml.
+      - name: Install Clang 21 (TrUAPI core)
+        uses: ./.github/actions/setup-clang
+        with:
+          clang-version: '21'
+
+      - name: Checkout truapi core
+        uses: actions/checkout@v4
+        with:
+          repository: paritytech/host-rust-core
+          ref: b0d95f0d4d2526f7dd0a58b78452667e9b22b99d
+          path: .truapi
+
+      # settings.gradle.kts resolves `truapi.dir` from local.properties OR TRUAPI_DIR.
+      - name: Point the build at the truapi checkout
+        run: echo "TRUAPI_DIR=$GITHUB_WORKSPACE/.truapi" >> "$GITHUB_ENV"
+
+      # The core's codegen emits rustdoc JSON, which only a nightly produces, and
+      # formats it with that toolchain's rustfmt. Pinned by date in gradle.properties.
+      - name: Add the pinned nightly for core codegen
+        run: |
+          nightly="$(sed -n 's/^truapi.rustNightly=//p' gradle.properties)"
+          echo "installing $nightly"
+          rustup toolchain install "$nightly" --profile minimal --component rustfmt
+
       - name: Set up Gradle (with cache)
         uses: gradle/actions/setup-gradle@v4
 
