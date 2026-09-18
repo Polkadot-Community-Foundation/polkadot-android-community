@@ -101,5 +101,7 @@ internal fun ByteArray.hexKey(): String = toHexString()
  */
 private fun TestnetEnvironment.ecosystem(): String = when (this) {
     TestnetEnvironment.PRODUCTION -> "polkadot"
-    TestnetEnvironment.NIGHTLY, TestnetEnvironment.TESTNET -> "paseo"
+    // DEV is this fork's public dev build; network-wise it mirrors NIGHTLY (same chains_v2
+    // key and nightly-* chain ids), so it reports the same ecosystem.
+    TestnetEnvironment.NIGHTLY, TestnetEnvironment.TESTNET, TestnetEnvironment.DEV -> "paseo"
 }
