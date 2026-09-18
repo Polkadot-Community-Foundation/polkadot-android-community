@@ -75,19 +75,7 @@ class RootViewModel @Inject constructor(
         with(servicesScope) {
             launch {
                 remoteConfigService.sync()
-                    .onSuccess {
-                        with(servicesScope) {
-                            launch { rootInteractor.syncPrices() }
-                            launch { depositService.startObserveAndConvert() }
-                            launch { syncPriceCurrencyChange.startObserving() }
-                            launch { statementStoreSlotAllocator.scheduleSlotRenewals() }
-                            launch { warmUpWebProducts() }
-
-                            coinageServiceStarter.start()
-                            externalPaymentWorkerStarter.start()
-                            rootInteractor.startUpdateSystems().shareInBackground()
-                        }
-                    }
+                    .onSuccess { launchServicesBasedOnRemoteConfig() }
             }
 
             launch { jwtAuthWarmUpService.warmUpToken() }
@@ -97,6 +85,20 @@ class RootViewModel @Inject constructor(
             launch { checkDevReset() }
         }
         watchSsoEvents(servicesScope)
+    }
+
+    private fun launchServicesBasedOnRemoteConfig() {
+        with(servicesScope) {
+            launch { rootInteractor.syncPrices() }
+            launch { depositService.startObserveAndConvert() }
+            launch { syncPriceCurrencyChange.startObserving() }
+            launch { statementStoreSlotAllocator.scheduleSlotRenewals() }
+            launch { warmUpWebProducts() }
+
+            coinageServiceStarter.start()
+            externalPaymentWorkerStarter.start()
+            rootInteractor.startUpdateSystems().shareInBackground()
+        }
     }
 
     private suspend fun warmUpWebProducts() {
