@@ -193,7 +193,11 @@ val generateUniffiKotlin by tasks.registering(Exec::class) {
     outputs.dir(outDir).withPropertyName("generatedBindings")
 }
 
-tasks.matching { it.name == "compileDebugKotlin" || it.name == "compileReleaseKotlin" }
+// Upstream names only compileDebugKotlin/compileReleaseKotlin here. This fork adds the
+// dev/nightly/safetynet build types, whose compile tasks then miss the dependency and hit
+// "Unresolved reference 'uniffi'" because src/main/kotlin/generated is never produced.
+// Match every variant's Kotlin compile, the same way syncHostShell above does.
+tasks.matching { it.name.startsWith("compile") && it.name.endsWith("Kotlin") }
     .configureEach { dependsOn(generateUniffiKotlin) }
 
 // The per-ABI cross-compiles build truapi-server too, so they need the
