@@ -6,7 +6,8 @@ sealed interface TokenSymbolAppearance {
     val symbol: String
 
     object DigitalDollar : TokenSymbolAppearance {
-        override val symbol: String = CurrencyConfig.symbol
+        override val symbol: String
+            get() = CurrencyConfig.symbol
     }
 
     class Symbol(override val symbol: String) : TokenSymbolAppearance

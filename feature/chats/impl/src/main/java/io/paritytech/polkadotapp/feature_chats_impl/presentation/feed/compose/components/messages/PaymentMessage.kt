@@ -22,6 +22,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import io.paritytech.polkadotapp.common.presentation.compose.withCurrencyTickerStyle
 import io.paritytech.polkadotapp.design.components.icon.NovaIcon
@@ -47,6 +48,8 @@ import io.paritytech.polkadotapp.feature_tokens_api.presentation.formatter.Local
 import io.paritytech.polkadotapp.feature_tokens_api.presentation.formatter.TokenAmountFormatter
 import io.paritytech.polkadotapp.feature_tokens_api.presentation.model.RoundPrecision
 import io.paritytech.polkadotapp.feature_tokens_api.presentation.model.TokenAmountModel
+import io.paritytech.polkadotapp.feature_tokens_api.presentation.paymentAsset.LocalPaymentAssetBrand
+import io.paritytech.polkadotapp.feature_tokens_api.presentation.paymentAsset.compose.PaymentAssetLogoImage
 import kotlinx.collections.immutable.persistentListOf
 import io.paritytech.polkadotapp.common.R as RCommon
 
@@ -151,25 +154,21 @@ private fun PaymentMessageContent(
                     .padding(PolkadotTheme.spacings.mediumIncreased),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                if (differingAmount != null) {
-                    NovaText(
-                        text = formatter.formatTokenAmount(message.amount, RoundPrecision.DEFAULT, withSymbol = false),
-                        style = PolkadotTheme.typography.body.medium.copy(textDecoration = TextDecoration.LineThrough),
-                        color = secondaryTextColor,
-                        textAlign = TextAlign.Center
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(PolkadotTheme.spacings.small)
+                ) {
+                    PaymentAssetLogoImage(
+                        modifier = Modifier.size(PaymentAssetLogoSize),
+                        logo = LocalPaymentAssetBrand.current.squareLogo,
+                        fallback = {}
                     )
-                    NovaText(
-                        text = formatter.formatTokenAmount(differingAmount, RoundPrecision.DEFAULT, withSymbol = false),
-                        style = PolkadotTheme.typography.headline.large,
-                        color = primaryTextColor,
-                        textAlign = TextAlign.Center
-                    )
-                } else {
-                    NovaText(
-                        text = formatter.formatTokenAmount(message.amount, RoundPrecision.DEFAULT, withSymbol = false),
-                        style = PolkadotTheme.typography.headline.large,
-                        color = primaryTextColor,
-                        textAlign = TextAlign.Center
+
+                    PaymentAmounts(
+                        amount = message.amount,
+                        differingAmount = differingAmount,
+                        primaryTextColor = primaryTextColor,
+                        secondaryTextColor = secondaryTextColor
                     )
                 }
 
@@ -208,6 +207,40 @@ private fun PaymentMessageContent(
         }
 
         VerticalSpacer { small }
+    }
+}
+
+@Composable
+private fun PaymentAmounts(
+    amount: TokenAmountModel,
+    differingAmount: TokenAmountModel?,
+    primaryTextColor: Color,
+    secondaryTextColor: Color
+) {
+    val formatter = LocalTokenAmountFormatter.current
+
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        if (differingAmount != null) {
+            NovaText(
+                text = formatter.formatTokenAmount(amount, RoundPrecision.DEFAULT, withSymbol = false),
+                style = PolkadotTheme.typography.body.medium.copy(textDecoration = TextDecoration.LineThrough),
+                color = secondaryTextColor,
+                textAlign = TextAlign.Center
+            )
+            NovaText(
+                text = formatter.formatTokenAmount(differingAmount, RoundPrecision.DEFAULT, withSymbol = false),
+                style = PolkadotTheme.typography.headline.large,
+                color = primaryTextColor,
+                textAlign = TextAlign.Center
+            )
+        } else {
+            NovaText(
+                text = formatter.formatTokenAmount(amount, RoundPrecision.DEFAULT, withSymbol = false),
+                style = PolkadotTheme.typography.headline.large,
+                color = primaryTextColor,
+                textAlign = TextAlign.Center
+            )
+        }
     }
 }
 
@@ -404,6 +437,8 @@ private fun PaymentMessagePreview(
         onLongPress = {}
     )
 }
+
+private val PaymentAssetLogoSize = DpSize(20.dp, 22.dp)
 
 /** Tall enough for the whole status gallery; the scroll is for the interactive preview. */
 private const val PREVIEW_HEIGHT = 1400
