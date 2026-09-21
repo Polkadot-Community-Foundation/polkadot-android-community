@@ -13,10 +13,10 @@ name: Build (Production)
 # closed tester group named by `FIREBASE_TESTER_GROUPS` in the `production` environment. This is
 # the only path by which anything from this lane reaches a person, and it is:
 #   - opt-in per run, and inert unless `signing: production` (an unsigned APK will not install);
-#   - gated on the `production-tester-distribution` environment (required reviewers), which is a
-#     SECOND approval after `production-distribution` releases the keystore to the `sign` job;
+#   - gated on the `production-internal-tester-distribution` environment (required reviewers),
+#     a SECOND approval after `production-distribution` releases the keystore to the `sign` job;
 #   - private: App Distribution serves only testers invited to that group, never the public.
-# `production-tester-distribution` is deliberately NOT the devnet lane's `tester-distribution`:
+# `production-internal-tester-distribution` is deliberately NOT the devnet `tester-distribution`:
 # that environment is shared with `release-dev.yml`, holds no vars, and the production WIF identity
 # is only issued to this repository's production environments. A separate environment keeps the two
 # tester audiences, and the two Google identities, from ever touching each other.
@@ -456,8 +456,9 @@ jobs:
           Verify the fingerprint above against PCF's key inventory by hand."
           fi
 
-      # `apk` is exported so `distribute` can fetch this exact object: the WIF identity may
-      # create and read under `android/` but NOT list, so the object name cannot be discovered.
+      # `apk` is exported so `distribute` fetches this exact object rather than globbing the
+      # prefix: run attempts share `android/<run>-<attempt>/`, and naming the object removes any
+      # chance of picking up a neighbouring build's APK.
       - name: Upload the signed build to the private bucket
         id: upload_signed
         env:
@@ -496,19 +497,19 @@ jobs:
   # ship a SIGNED build, so it depends on `sign` and inherits its `signing: production` condition.
   #
   # Two approvals therefore stand between a dispatch and a tester's phone: `production-distribution`
-  # releases the keystore to `sign`, then `production-tester-distribution` releases this job. That is
-  # deliberate — signing and shipping are separate decisions.
+  # releases the keystore to `sign`, then `production-internal-tester-distribution` releases this
+  # job. That is deliberate — signing and shipping are separate decisions.
   #
   # Auth is keyless (WIF). `scripts/ci/firebase-app-distribution.sh` bridges the WIF access token
   # into the App Distribution REST API, because `firebase-tools` insists on a service-account key
   # file and we do not issue one. The same script serves the devnet lane.
   distribute:
-    name: Distribute to the production tester group
+    name: Distribute to the internal production tester group
     needs: sign
     if: ${{ inputs.distribute && github.event.inputs.signing == 'production' }}
     runs-on: ubuntu-latest
     environment:
-      name: production-tester-distribution
+      name: production-internal-tester-distribution
       url: https://console.firebase.google.com/project/polkadot-community-foundation/appdistribution
     permissions:
       contents: read
@@ -528,13 +529,13 @@ jobs:
           set -euo pipefail
           fail=0
           if [ -z "$APP_ID" ]; then
-            echo "::error::FIREBASE_APP_ID_ANDROID_PROD is not set on the 'production-tester-distribution' environment."
+            echo "::error::FIREBASE_APP_ID_ANDROID_PROD is not set on the 'production-internal-tester-distribution' environment."
             fail=1
           fi
           if [ -z "$GROUPS" ]; then
-            echo "::error::FIREBASE_TESTER_GROUPS_PROD is not set on the 'production-tester-distribution' \
+            echo "::error::FIREBASE_TESTER_GROUPS_PROD is not set on the 'production-internal-tester-distribution' \
           environment. Create the production tester group in Firebase App Distribution, then set it with: \
-          gh variable set FIREBASE_TESTER_GROUPS_PROD --env production-tester-distribution --repo <owner>/<repo>. \
+          gh variable set FIREBASE_TESTER_GROUPS_PROD --env production-internal-tester-distribution --repo <owner>/<repo>. \
           Do NOT reuse the repository-level FIREBASE_TESTER_GROUPS: that is the devnet tester group."
             fail=1
           fi
@@ -543,7 +544,7 @@ jobs:
             fail=1
           fi
           if [ -z "$BUILD_BUCKET" ]; then
-            echo "::error::BUILD_BUCKET is not set on the 'production-tester-distribution' environment."
+            echo "::error::BUILD_BUCKET is not set on the 'production-internal-tester-distribution' environment."
             fail=1
           fi
           [ "$fail" -eq 0 ] || exit 1
@@ -595,7 +596,7 @@ jobs:
           } > "$NOTES"
           echo "notes=$NOTES" >> "$GITHUB_OUTPUT"
 
-      - name: Distribute the signed APK to the production tester group
+      - name: Distribute the signed APK to the internal production tester group
         run: |
           scripts/ci/firebase-app-distribution.sh \
             "${{ steps.notes.outputs.apk }}" \
