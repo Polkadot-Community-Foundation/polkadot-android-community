@@ -1,5 +1,6 @@
 package io.paritytech.polkadotapp.feature_chats_impl.presentation.feed.compose.components.messages
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -50,6 +51,7 @@ import io.paritytech.polkadotapp.feature_tokens_api.presentation.model.RoundPrec
 import io.paritytech.polkadotapp.feature_tokens_api.presentation.model.TokenAmountModel
 import io.paritytech.polkadotapp.feature_tokens_api.presentation.paymentAsset.LocalPaymentAssetBrand
 import io.paritytech.polkadotapp.feature_tokens_api.presentation.paymentAsset.compose.PaymentAssetLogoImage
+import io.paritytech.polkadotapp.feature_tokens_api.presentation.paymentAsset.compose.icons.BundledPaymentAssetLogos
 import kotlinx.collections.immutable.persistentListOf
 import io.paritytech.polkadotapp.common.R as RCommon
 
@@ -146,8 +148,6 @@ private fun PaymentMessageContent(
             shape = PolkadotTheme.shapes.medium,
             color = amountBoxColor
         ) {
-            val formatter = LocalTokenAmountFormatter.current
-
             Column(
                 modifier = Modifier
                     .widthIn(min = 154.dp)
@@ -160,9 +160,14 @@ private fun PaymentMessageContent(
                 ) {
                     PaymentAssetLogoImage(
                         modifier = Modifier.size(PaymentAssetLogoSize),
-                        logo = LocalPaymentAssetBrand.current.squareLogo,
-                        fallback = {}
-                    )
+                        logo = LocalPaymentAssetBrand.current.squareLogo
+                    ) {
+                        Image(
+                            modifier = Modifier.size(PaymentAssetLogoSize),
+                            imageVector = BundledPaymentAssetLogos.Square,
+                            contentDescription = null
+                        )
+                    }
 
                     PaymentAmounts(
                         amount = message.amount,
@@ -171,13 +176,6 @@ private fun PaymentMessageContent(
                         secondaryTextColor = secondaryTextColor
                     )
                 }
-
-                NovaText(
-                    text = formatter.formatToSymbol(message.amount).withCurrencyTickerStyle(PolkadotTheme.typography.title.large),
-                    style = PolkadotTheme.typography.title.large,
-                    color = secondaryTextColor,
-                    textAlign = TextAlign.Center
-                )
             }
         }
 
