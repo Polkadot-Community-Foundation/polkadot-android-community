@@ -20,8 +20,11 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import io.paritytech.polkadotapp.common.presentation.loading.LoadingState
+import io.paritytech.polkadotapp.common.presentation.paymentAsset.LocalPaymentAssetBrand
+import io.paritytech.polkadotapp.common.presentation.paymentAsset.PaymentAssetBrand
 import io.paritytech.polkadotapp.common.presentation.paymentAsset.PaymentAssetLogoVariant
 import io.paritytech.polkadotapp.common.presentation.paymentAsset.compose.PaymentAssetLogoImage
+import io.paritytech.polkadotapp.common.presentation.paymentAsset.compose.aspectRatio
 import io.paritytech.polkadotapp.design.components.icon.NovaIcon
 import io.paritytech.polkadotapp.design.components.icon.NovaIcons
 import io.paritytech.polkadotapp.design.components.icon.vectors.Refreshing
@@ -117,7 +120,9 @@ fun DigitalDollarCard(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     PaymentAssetLogoImage(
-                        modifier = Modifier.height(WideLogoHeight),
+                        modifier = Modifier
+                            .height(WideLogoHeight)
+                            .aspectRatio(PaymentAssetLogoVariant.Wide.aspectRatio),
                         variant = PaymentAssetLogoVariant.Wide
                     )
                 }
@@ -367,7 +372,8 @@ private fun DigitalDollarCardPreviewContainer(
 ) {
     PolkadotTheme {
         CompositionLocalProvider(
-            LocalTokenAmountFormatter provides TokenAmountFormatter.mocked
+            LocalTokenAmountFormatter provides TokenAmountFormatter.mocked,
+            LocalPaymentAssetBrand provides PaymentAssetBrand.mocked
         ) {
             DigitalDollarCard(
                 card = PocketCardUiModel.DigitalDollar(

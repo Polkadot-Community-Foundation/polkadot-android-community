@@ -18,6 +18,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import io.paritytech.polkadotapp.common.presentation.compose.withCurrencyTickerStyle
 import io.paritytech.polkadotapp.common.presentation.paymentAsset.LocalPaymentAssetBrand
+import io.paritytech.polkadotapp.common.presentation.paymentAsset.PaymentAssetBrand
 import io.paritytech.polkadotapp.design.components.icon.NovaIcon
 import io.paritytech.polkadotapp.design.components.icon.NovaIcons
 import io.paritytech.polkadotapp.design.components.icon.vectors.ArrowDownward
@@ -220,7 +221,10 @@ private fun DetailsToggle(expanded: Boolean, onClick: () -> Unit) {
 @Preview
 @Composable
 private fun CoinageStateCardPreview() {
-    CompositionLocalProvider(LocalTokenAmountFormatter provides TokenAmountFormatter.mocked) {
+    CompositionLocalProvider(
+        LocalTokenAmountFormatter provides TokenAmountFormatter.mocked,
+        LocalPaymentAssetBrand provides PaymentAssetBrand.mocked
+    ) {
         PolkadotTheme {
             CoinageStateCard(
                 modifier = Modifier.fillMaxWidth(),

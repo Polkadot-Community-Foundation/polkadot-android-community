@@ -3,10 +3,12 @@ package io.paritytech.polkadotapp.common.presentation.paymentAsset
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.staticCompositionLocalOf
 import io.paritytech.polkadotapp.common.utils.CurrencyConfig
+import io.paritytech.polkadotapp.design.utils.noLocalProvidedFor
 
 // Static on purpose: the brand changes at most once per app start, and text formatted outside the composition
 // (TokenAmountFormatter) only picks up the published symbol when the whole subtree recomposes.
-val LocalPaymentAssetBrand = staticCompositionLocalOf { PaymentAssetBrand.bundled(CurrencyConfig.defaultSymbol) }
+// No default: a root that forgets to provide the brand fails at once instead of silently showing the bundled one.
+val LocalPaymentAssetBrand = staticCompositionLocalOf<PaymentAssetBrand> { noLocalProvidedFor("PaymentAssetBrand") }
 
 @Immutable
 data class PaymentAssetBrand(
@@ -20,6 +22,9 @@ data class PaymentAssetBrand(
             squareLogo = PaymentAssetLogo.Bundled,
             wideLogo = PaymentAssetLogo.Bundled,
         )
+
+        val mocked: PaymentAssetBrand
+            get() = bundled(CurrencyConfig.defaultSymbol)
     }
 }
 

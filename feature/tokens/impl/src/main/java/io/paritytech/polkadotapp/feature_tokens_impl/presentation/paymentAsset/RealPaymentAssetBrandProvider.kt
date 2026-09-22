@@ -26,8 +26,14 @@ internal class RealPaymentAssetBrandProvider @Inject constructor(
     }
 
     suspend fun applyPublishedBrand() {
+        // Firebase keeps the last activated config on disk: applying it first keeps the published brand through an
+        // offline session and avoids a bundled → published flash on every start.
+        configProvider.lastActivatedPaymentAssetConfig()
+            .logFailure("Last activated payment asset config unreadable, waiting for the sync")
+            .onSuccess { config -> brand.value = config.toBrand() }
+
         configProvider.paymentAssetConfig()
-            .logFailure("Payment asset config unavailable, keeping the bundled brand")
+            .logFailure("Payment asset config unavailable, keeping the current brand")
             .onSuccess { config -> brand.value = config.toBrand() }
     }
 
