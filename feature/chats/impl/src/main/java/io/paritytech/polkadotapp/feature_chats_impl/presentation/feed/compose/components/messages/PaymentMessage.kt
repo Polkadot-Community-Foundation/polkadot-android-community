@@ -19,7 +19,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.DpSize
@@ -150,7 +149,7 @@ private fun PaymentMessageContent(
                 modifier = Modifier
                     .widthIn(min = 154.dp)
                     .padding(PolkadotTheme.spacings.mediumIncreased),
-                horizontalAlignment = Alignment.CenterHorizontally
+                horizontalAlignment = Alignment.Start
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -209,26 +208,23 @@ private fun PaymentAmounts(
 ) {
     val formatter = LocalTokenAmountFormatter.current
 
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+    Column(horizontalAlignment = Alignment.Start) {
         if (differingAmount != null) {
             NovaText(
                 text = formatter.formatTokenAmount(amount, RoundPrecision.DEFAULT, withSymbol = false),
                 style = PolkadotTheme.typography.body.medium.copy(textDecoration = TextDecoration.LineThrough),
-                color = secondaryTextColor,
-                textAlign = TextAlign.Center
+                color = secondaryTextColor
             )
             NovaText(
                 text = formatter.formatTokenAmount(differingAmount, RoundPrecision.DEFAULT, withSymbol = false),
                 style = PolkadotTheme.typography.headline.large,
-                color = primaryTextColor,
-                textAlign = TextAlign.Center
+                color = primaryTextColor
             )
         } else {
             NovaText(
                 text = formatter.formatTokenAmount(amount, RoundPrecision.DEFAULT, withSymbol = false),
                 style = PolkadotTheme.typography.headline.large,
-                color = primaryTextColor,
-                textAlign = TextAlign.Center
+                color = primaryTextColor
             )
         }
     }

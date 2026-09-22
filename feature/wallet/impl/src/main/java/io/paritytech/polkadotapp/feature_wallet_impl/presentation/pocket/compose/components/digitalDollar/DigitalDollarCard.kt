@@ -19,10 +19,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import io.paritytech.polkadotapp.common.presentation.compose.withCurrencyTickerStyle
 import io.paritytech.polkadotapp.common.presentation.loading.LoadingState
-import io.paritytech.polkadotapp.common.utils.CurrencyConfig
-import io.paritytech.polkadotapp.common.presentation.loading.dataOrNull
 import io.paritytech.polkadotapp.common.presentation.paymentAsset.PaymentAssetLogoVariant
 import io.paritytech.polkadotapp.common.presentation.paymentAsset.compose.PaymentAssetLogoImage
 import io.paritytech.polkadotapp.design.components.icon.NovaIcon
@@ -280,7 +277,7 @@ private object AmountShimmerSizes {
     val HEIGHT = 28.dp
 }
 
-private val WideLogoHeight = 32.dp
+private val WideLogoHeight = 36.dp
 
 @Preview
 @Composable

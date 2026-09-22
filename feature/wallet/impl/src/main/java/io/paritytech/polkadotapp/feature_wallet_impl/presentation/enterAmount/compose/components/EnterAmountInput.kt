@@ -47,6 +47,7 @@ import io.paritytech.polkadotapp.common.R as RCommon
 
 private val SymbolIconSize = DpSize(32.dp, 36.dp)
 private val AmountReferenceHeight = 64.dp
+private const val DIGIT_CAP_HEIGHT_RATIO = 0.72f
 
 private fun Density.symbolIconSizeFor(amountFontSize: TextUnit): DpSize =
     SymbolIconSize * (amountFontSize.toDp() / AmountReferenceHeight)
@@ -125,10 +126,14 @@ internal fun EnterAmountInput(
                     .copy(fontSize = currentFontSize)
 
                 Row(modifier = Modifier.offset(x = offsetX)) {
+                    val markBaselineOffset = with(density) {
+                        ((currentFontSize.toDp() * DIGIT_CAP_HEIGHT_RATIO - symbolIconSize.height) / 2).roundToPx()
+                    }
+
                     PaymentAssetLogoImage(
                         modifier = Modifier
                             .size(symbolIconSize)
-                            .align(Alignment.CenterVertically),
+                            .alignBy { it.measuredHeight + markBaselineOffset },
                         variant = PaymentAssetLogoVariant.Square
                     )
 
@@ -140,6 +145,7 @@ internal fun EnterAmountInput(
                         singleLine = true,
                         enabled = enabled,
                         modifier = Modifier
+                            .alignByBaseline()
                             .conditionalNotNull(focusRequester) { focusRequester(it) },
                         cursorBrush = SolidColor(PolkadotTheme.colors.fg.primary),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
