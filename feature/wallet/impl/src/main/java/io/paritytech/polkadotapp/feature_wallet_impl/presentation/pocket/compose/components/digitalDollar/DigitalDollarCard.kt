@@ -25,6 +25,8 @@ import androidx.compose.ui.unit.dp
 import io.paritytech.polkadotapp.common.presentation.compose.withCurrencyTickerStyle
 import io.paritytech.polkadotapp.common.presentation.loading.LoadingState
 import io.paritytech.polkadotapp.common.presentation.loading.dataOrNull
+import io.paritytech.polkadotapp.common.presentation.paymentAsset.PaymentAssetLogoVariant
+import io.paritytech.polkadotapp.common.presentation.paymentAsset.compose.PaymentAssetLogoImage
 import io.paritytech.polkadotapp.design.components.icon.NovaIcon
 import io.paritytech.polkadotapp.design.components.icon.NovaIcons
 import io.paritytech.polkadotapp.design.components.icon.vectors.Refreshing
@@ -39,9 +41,6 @@ import io.paritytech.polkadotapp.feature_tokens_api.presentation.formatter.Token
 import io.paritytech.polkadotapp.feature_tokens_api.presentation.formatter.formatFiat
 import io.paritytech.polkadotapp.feature_tokens_api.presentation.model.RoundPrecision
 import io.paritytech.polkadotapp.feature_tokens_api.presentation.model.TokenAmountModel
-import io.paritytech.polkadotapp.feature_tokens_api.presentation.paymentAsset.LocalPaymentAssetBrand
-import io.paritytech.polkadotapp.feature_tokens_api.presentation.paymentAsset.compose.PaymentAssetLogoImage
-import io.paritytech.polkadotapp.feature_tokens_api.presentation.paymentAsset.compose.icons.BundledPaymentAssetLogos
 import io.paritytech.polkadotapp.feature_wallet_impl.R
 import io.paritytech.polkadotapp.feature_wallet_impl.presentation.pocket.compose.animation.LocalCardTilt
 import io.paritytech.polkadotapp.feature_wallet_impl.presentation.pocket.compose.animation.MotionShineParameters
@@ -139,14 +138,8 @@ fun DigitalDollarCard(
                 ) {
                     PaymentAssetLogoImage(
                         modifier = Modifier.height(WideLogoHeight),
-                        logo = LocalPaymentAssetBrand.current.wideLogo
-                    ) {
-                        Image(
-                            modifier = Modifier.height(WideLogoHeight),
-                            imageVector = BundledPaymentAssetLogos.Wide,
-                            contentDescription = null
-                        )
-                    }
+                        variant = PaymentAssetLogoVariant.Wide
+                    )
                 }
 
                 BalanceAmount(

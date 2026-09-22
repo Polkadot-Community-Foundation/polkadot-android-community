@@ -4,7 +4,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.fragment.app.viewModels
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dagger.hilt.android.AndroidEntryPoint
 import io.paritytech.polkadotapp.common.presentation.formatters.space.InformationSizeFormatter
 import io.paritytech.polkadotapp.common.presentation.formatters.space.LocalInformationSizeFormatter
@@ -20,8 +19,6 @@ import io.paritytech.polkadotapp.feature_chats_impl.presentation.formatter.ChatM
 import io.paritytech.polkadotapp.feature_chats_impl.presentation.formatter.LocalChatMessageTimeFormatter
 import io.paritytech.polkadotapp.feature_tokens_api.presentation.formatter.LocalTokenAmountFormatter
 import io.paritytech.polkadotapp.feature_tokens_api.presentation.formatter.TokenAmountFormatter
-import io.paritytech.polkadotapp.feature_tokens_api.presentation.paymentAsset.LocalPaymentAssetBrand
-import io.paritytech.polkadotapp.feature_tokens_api.presentation.paymentAsset.PaymentAssetBrandProvider
 import javax.inject.Inject
 import kotlin.time.Duration.Companion.minutes
 
@@ -44,19 +41,14 @@ class ChatFeedFragment : BaseComposeFragment<ChatFeedViewModel>() {
     @Inject
     lateinit var multimediaMessageController: MultimediaMessageController
 
-    @Inject
-    lateinit var paymentAssetBrandProvider: PaymentAssetBrandProvider
-
     @Composable
     override fun Screen() {
         val anchorTimestamp by rememberCurrentTimeMillisWithDelay(1.minutes)
-        val paymentAssetBrand by paymentAssetBrandProvider.brand.collectAsStateWithLifecycle()
 
         CompositionLocalProvider(
             LocalChatMessageTimeFormatter provides chatMessageTimeFormatter,
             LocalTimeFormatter provides timeFormatter,
             LocalTokenAmountFormatter provides tokenAmountFormatter,
-            LocalPaymentAssetBrand provides paymentAssetBrand,
             LocalInformationSizeFormatter provides informationSizeFormatter,
             LocalChatFeedTimestampAnchor provides anchorTimestamp,
             LocalMultimediaMessageController provides multimediaMessageController

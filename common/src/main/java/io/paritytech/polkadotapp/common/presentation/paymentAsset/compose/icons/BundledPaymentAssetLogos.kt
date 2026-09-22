@@ -1,4 +1,4 @@
-package io.paritytech.polkadotapp.feature_tokens_api.presentation.paymentAsset.compose.icons
+package io.paritytech.polkadotapp.common.presentation.paymentAsset.compose.icons
 
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
@@ -8,7 +8,7 @@ import androidx.compose.ui.graphics.vector.addPathNodes
 import androidx.compose.ui.unit.dp
 
 /** The payment asset marks shipped with the app, drawn whenever no published logo is available. */
-object BundledPaymentAssetLogos {
+internal object BundledPaymentAssetLogos {
     val Square: ImageVector by lazy(LazyThreadSafetyMode.NONE) {
         ImageVector.Builder(
             name = "PaymentAssetSquareLogo",

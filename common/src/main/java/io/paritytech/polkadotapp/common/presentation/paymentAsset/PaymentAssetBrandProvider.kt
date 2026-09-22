@@ -1,4 +1,4 @@
-package io.paritytech.polkadotapp.feature_tokens_api.presentation.paymentAsset
+package io.paritytech.polkadotapp.common.presentation.paymentAsset
 
 import kotlinx.coroutines.flow.StateFlow
 

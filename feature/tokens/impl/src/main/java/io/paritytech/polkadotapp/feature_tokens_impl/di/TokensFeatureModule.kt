@@ -6,6 +6,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import dagger.multibindings.IntoSet
 import io.paritytech.polkadotapp.common.presentation.AppInitializer
+import io.paritytech.polkadotapp.common.presentation.paymentAsset.PaymentAssetBrandProvider
 import io.paritytech.polkadotapp.feature_tokens_api.di.DigitalDollarChainAssetProvider
 import io.paritytech.polkadotapp.feature_tokens_api.domain.AssetDisplayMapper
 import io.paritytech.polkadotapp.feature_tokens_api.domain.ChainAssetProvider
@@ -15,7 +16,6 @@ import io.paritytech.polkadotapp.feature_tokens_api.presentation.formatter.Conve
 import io.paritytech.polkadotapp.feature_tokens_api.presentation.formatter.KnownTokenFormatter
 import io.paritytech.polkadotapp.feature_tokens_api.presentation.formatter.TokenAmountFormatter
 import io.paritytech.polkadotapp.feature_tokens_api.presentation.mapper.TokenAmountMapper
-import io.paritytech.polkadotapp.feature_tokens_api.presentation.paymentAsset.PaymentAssetBrandProvider
 import io.paritytech.polkadotapp.feature_tokens_impl.data.paymentAsset.PaymentAssetConfigProvider
 import io.paritytech.polkadotapp.feature_tokens_impl.data.paymentAsset.RemoteConfigPaymentAssetConfigProvider
 import io.paritytech.polkadotapp.feature_tokens_impl.domain.RealAssetDisplayMapper
@@ -26,8 +26,6 @@ import io.paritytech.polkadotapp.feature_tokens_impl.presentation.formatter.Real
 import io.paritytech.polkadotapp.feature_tokens_impl.presentation.formatter.RealKnownTokenFormatter
 import io.paritytech.polkadotapp.feature_tokens_impl.presentation.formatter.RealTokenAmountFormatter
 import io.paritytech.polkadotapp.feature_tokens_impl.presentation.mapper.RealTokenAmountMapper
-import io.paritytech.polkadotapp.feature_tokens_impl.presentation.paymentAsset.CoilPaymentAssetLogoPrefetcher
-import io.paritytech.polkadotapp.feature_tokens_impl.presentation.paymentAsset.PaymentAssetLogoPrefetcher
 import io.paritytech.polkadotapp.feature_tokens_impl.presentation.paymentAsset.RealPaymentAssetBrandProvider
 import javax.inject.Singleton
 
@@ -62,9 +60,6 @@ internal interface TokensFeatureApiModule {
 
     @Binds
     fun bindPaymentAssetConfigProvider(impl: RemoteConfigPaymentAssetConfigProvider): PaymentAssetConfigProvider
-
-    @Binds
-    fun bindPaymentAssetLogoPrefetcher(impl: CoilPaymentAssetLogoPrefetcher): PaymentAssetLogoPrefetcher
 
     @Binds
     fun bindPaymentAssetBrandProvider(impl: RealPaymentAssetBrandProvider): PaymentAssetBrandProvider

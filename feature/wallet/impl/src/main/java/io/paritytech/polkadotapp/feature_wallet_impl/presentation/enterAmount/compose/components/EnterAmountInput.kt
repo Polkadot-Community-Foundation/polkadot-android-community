@@ -1,6 +1,5 @@
 package io.paritytech.polkadotapp.feature_wallet_impl.presentation.enterAmount.compose.components
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -37,13 +36,12 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.isUnspecified
 import io.paritytech.polkadotapp.common.presentation.compose.withCurrencyTickerStyle
+import io.paritytech.polkadotapp.common.presentation.paymentAsset.PaymentAssetLogoVariant
+import io.paritytech.polkadotapp.common.presentation.paymentAsset.compose.PaymentAssetLogoImage
 import io.paritytech.polkadotapp.design.components.spacer.HorizontalSpacer
 import io.paritytech.polkadotapp.design.components.text.NovaText
 import io.paritytech.polkadotapp.design.theme.PolkadotTheme
 import io.paritytech.polkadotapp.design.utils.conditionalNotNull
-import io.paritytech.polkadotapp.feature_tokens_api.presentation.paymentAsset.LocalPaymentAssetBrand
-import io.paritytech.polkadotapp.feature_tokens_api.presentation.paymentAsset.compose.PaymentAssetLogoImage
-import io.paritytech.polkadotapp.feature_tokens_api.presentation.paymentAsset.compose.icons.BundledPaymentAssetLogos
 import io.paritytech.polkadotapp.common.R as RCommon
 
 private val SymbolIconSize = DpSize(42.dp, 47.dp)
@@ -126,20 +124,12 @@ internal fun EnterAmountInput(
                     .copy(fontSize = currentFontSize)
 
                 Row(modifier = Modifier.offset(x = offsetX)) {
-                    val symbolModifier = Modifier
-                        .size(symbolIconSize)
-                        .alignBy { it.measuredHeight }
-
                     PaymentAssetLogoImage(
-                        modifier = symbolModifier,
-                        logo = LocalPaymentAssetBrand.current.squareLogo
-                    ) {
-                        Image(
-                            modifier = symbolModifier,
-                            imageVector = BundledPaymentAssetLogos.Square,
-                            contentDescription = null
-                        )
-                    }
+                        modifier = Modifier
+                            .size(symbolIconSize)
+                            .alignBy { it.measuredHeight },
+                        variant = PaymentAssetLogoVariant.Square
+                    )
 
                     HorizontalSpacer { small }
 

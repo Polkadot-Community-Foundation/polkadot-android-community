@@ -17,7 +17,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import io.paritytech.polkadotapp.common.presentation.compose.withCurrencyTickerStyle
-import io.paritytech.polkadotapp.common.utils.CurrencyConfig
+import io.paritytech.polkadotapp.common.presentation.paymentAsset.LocalPaymentAssetBrand
 import io.paritytech.polkadotapp.design.components.icon.NovaIcon
 import io.paritytech.polkadotapp.design.components.icon.NovaIcons
 import io.paritytech.polkadotapp.design.components.icon.vectors.ArrowDownward
@@ -119,7 +119,7 @@ private fun Headline(total: TokenAmountModel) {
         )
         NovaText(
             modifier = Modifier.alignByBaseline(),
-            text = CurrencyConfig.symbol.withCurrencyTickerStyle(PolkadotTheme.typography.title.large),
+            text = LocalPaymentAssetBrand.current.symbol.withCurrencyTickerStyle(PolkadotTheme.typography.title.large),
             style = PolkadotTheme.typography.title.large,
             color = PolkadotTheme.colors.fg.secondary
         )

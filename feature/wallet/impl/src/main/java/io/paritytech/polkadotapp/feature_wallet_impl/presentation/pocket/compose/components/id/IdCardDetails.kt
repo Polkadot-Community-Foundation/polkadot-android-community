@@ -13,7 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import io.paritytech.polkadotapp.common.presentation.compose.withCurrencyTickerStyle
-import io.paritytech.polkadotapp.common.utils.CurrencyConfig
+import io.paritytech.polkadotapp.common.presentation.paymentAsset.LocalPaymentAssetBrand
 import io.paritytech.polkadotapp.design.components.icon.NovaIcons
 import io.paritytech.polkadotapp.design.components.icon.vectors.Share
 import io.paritytech.polkadotapp.design.components.navigationbar.LocalAppNavigationBarInsets
@@ -101,7 +101,7 @@ private fun IdCardDetailsContent(
                     VerticalSpacer { small }
 
                     NovaText(
-                        text = stringResource(RCommon.string.pocket_id_share_subtitle, CurrencyConfig.symbol)
+                        text = stringResource(RCommon.string.pocket_id_share_subtitle, LocalPaymentAssetBrand.current.symbol)
                             .withCurrencyTickerStyle(PolkadotTheme.typography.paragraph.large),
                         style = PolkadotTheme.typography.paragraph.large,
                         modifier = Modifier.padding(

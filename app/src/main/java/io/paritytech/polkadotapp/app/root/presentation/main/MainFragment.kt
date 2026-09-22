@@ -18,8 +18,6 @@ import io.paritytech.polkadotapp.feature_prices_api.presentation.formatter.FiatF
 import io.paritytech.polkadotapp.feature_prices_api.presentation.formatter.LocalFiatFormatter
 import io.paritytech.polkadotapp.feature_tokens_api.presentation.formatter.LocalTokenAmountFormatter
 import io.paritytech.polkadotapp.feature_tokens_api.presentation.formatter.TokenAmountFormatter
-import io.paritytech.polkadotapp.feature_tokens_api.presentation.paymentAsset.LocalPaymentAssetBrand
-import io.paritytech.polkadotapp.feature_tokens_api.presentation.paymentAsset.PaymentAssetBrandProvider
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -41,19 +39,13 @@ class MainFragment : BaseComposeFragment<MainViewModel>() {
     @Inject
     lateinit var bottomNavHeightProvider: BottomNavHeightProvider
 
-    @Inject
-    lateinit var paymentAssetBrandProvider: PaymentAssetBrandProvider
-
     @Composable
     override fun Screen() {
-        val paymentAssetBrand by paymentAssetBrandProvider.brand.collectAsStateWithLifecycle()
-
         CompositionLocalProvider(
             LocalChatMessageTimeFormatter provides chatMessageTimeFormatter,
             LocalTimeFormatter provides timeFormatter,
             LocalTokenAmountFormatter provides tokenAmountFormatter,
-            LocalFiatFormatter provides fiatFormatter,
-            LocalPaymentAssetBrand provides paymentAssetBrand
+            LocalFiatFormatter provides fiatFormatter
         ) {
             val bottomNavHeight by bottomNavHeightProvider.heightDp.collectAsStateWithLifecycle()
             CompositionLocalProvider(

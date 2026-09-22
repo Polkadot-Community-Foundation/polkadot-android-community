@@ -25,7 +25,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.paritytech.polkadotapp.common.presentation.compose.withCurrencyTickerStyle
 import io.paritytech.polkadotapp.common.presentation.loading.LoadingState
 import io.paritytech.polkadotapp.common.presentation.loading.onLoaded
-import io.paritytech.polkadotapp.common.utils.CurrencyConfig
+import io.paritytech.polkadotapp.common.presentation.paymentAsset.LocalPaymentAssetBrand
 import io.paritytech.polkadotapp.design.components.button.common.PolkadotButtonShape
 import io.paritytech.polkadotapp.design.components.button.common.PolkadotButtonStyle
 import io.paritytech.polkadotapp.design.components.button.default.PolkadotButton
@@ -250,7 +250,7 @@ private fun SendCashButton(
             )
 
             NovaText(
-                stringResource(RCommon.string.pocket_digital_dollar_send_button, CurrencyConfig.symbol)
+                stringResource(RCommon.string.pocket_digital_dollar_send_button, LocalPaymentAssetBrand.current.symbol)
                     .withCurrencyTickerStyle(PolkadotTheme.typography.title.large)
             )
         }

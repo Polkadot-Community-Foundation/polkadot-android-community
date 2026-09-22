@@ -1,6 +1,5 @@
 package io.paritytech.polkadotapp.feature_chats_impl.presentation.feed.compose.components.messages
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -26,6 +25,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import io.paritytech.polkadotapp.common.presentation.compose.withCurrencyTickerStyle
+import io.paritytech.polkadotapp.common.presentation.paymentAsset.PaymentAssetLogoVariant
+import io.paritytech.polkadotapp.common.presentation.paymentAsset.compose.PaymentAssetLogoImage
 import io.paritytech.polkadotapp.design.components.icon.NovaIcon
 import io.paritytech.polkadotapp.design.components.icon.NovaIcons
 import io.paritytech.polkadotapp.design.components.icon.vectors.ArrowDownward
@@ -49,9 +50,6 @@ import io.paritytech.polkadotapp.feature_tokens_api.presentation.formatter.Local
 import io.paritytech.polkadotapp.feature_tokens_api.presentation.formatter.TokenAmountFormatter
 import io.paritytech.polkadotapp.feature_tokens_api.presentation.model.RoundPrecision
 import io.paritytech.polkadotapp.feature_tokens_api.presentation.model.TokenAmountModel
-import io.paritytech.polkadotapp.feature_tokens_api.presentation.paymentAsset.LocalPaymentAssetBrand
-import io.paritytech.polkadotapp.feature_tokens_api.presentation.paymentAsset.compose.PaymentAssetLogoImage
-import io.paritytech.polkadotapp.feature_tokens_api.presentation.paymentAsset.compose.icons.BundledPaymentAssetLogos
 import kotlinx.collections.immutable.persistentListOf
 import io.paritytech.polkadotapp.common.R as RCommon
 
@@ -160,14 +158,8 @@ private fun PaymentMessageContent(
                 ) {
                     PaymentAssetLogoImage(
                         modifier = Modifier.size(PaymentAssetLogoSize),
-                        logo = LocalPaymentAssetBrand.current.squareLogo
-                    ) {
-                        Image(
-                            modifier = Modifier.size(PaymentAssetLogoSize),
-                            imageVector = BundledPaymentAssetLogos.Square,
-                            contentDescription = null
-                        )
-                    }
+                        variant = PaymentAssetLogoVariant.Square
+                    )
 
                     PaymentAmounts(
                         amount = message.amount,
