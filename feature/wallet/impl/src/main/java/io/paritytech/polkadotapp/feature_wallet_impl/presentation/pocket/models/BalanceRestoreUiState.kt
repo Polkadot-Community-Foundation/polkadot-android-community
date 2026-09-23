@@ -1,8 +1,7 @@
 package io.paritytech.polkadotapp.feature_wallet_impl.presentation.pocket.models
 
 data class DigitalDollarCardDetailsUiState(
-    val balanceRestore: BalanceRestoreUiState,
-    val getCashEnabled: Boolean
+    val balanceRestore: BalanceRestoreUiState
 )
 
 sealed interface BalanceRestoreUiState {

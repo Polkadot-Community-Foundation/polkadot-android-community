@@ -41,6 +41,8 @@ import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
 import java.math.BigDecimal
+import kotlin.time.ExperimentalTime
+import kotlin.time.Instant
 
 class RealSendEnterAmountInteractorTest {
     private val coinKey: CoinPrivateKey = byteArrayOf(1).toDataByteArray()
@@ -67,14 +69,14 @@ class RealSendEnterAmountInteractorTest {
     fun `a claim seen at the best block completes the payment`() = runTest {
         givenStatuses(listOf(AwaitingClaim), listOf(Claimed(finalized = false)))
 
-        assertEquals(listOf(SendState.Detected, SendState.Complete), sendViaSubmitter())
+        assertEquals(listOf(SendState.Detected, SendState.Complete(listOf(accountId))), sendViaSubmitter())
     }
 
     @Test
     fun `an empty first reading keeps watching`() = runTest {
         givenStatuses(emptyList(), listOf(AwaitingClaim), listOf(Claimed(finalized = false)))
 
-        assertEquals(listOf(SendState.Detecting, SendState.Detected, SendState.Complete), sendViaSubmitter())
+        assertEquals(listOf(SendState.Detecting, SendState.Detected, SendState.Complete(listOf(accountId))), sendViaSubmitter())
     }
 
     private fun givenStatuses(vararg readings: List<CoinagePaymentStatus>) {
@@ -108,6 +110,7 @@ class RealSendEnterAmountInteractorTest {
         coinagePaymentStatusUseCase = statusUseCase,
         coinageDebugSettings = mockk(),
         coroutineDispatchers = mockk<CoroutineDispatchers> { every { computation } returns dispatcher },
+        timeProvider = mockk { every { now() } returns Instant.fromEpochMilliseconds(0) },
         sendValidation = mockk(),
     )
 
@@ -122,8 +125,15 @@ class RealSendEnterAmountInteractorTest {
 
         override suspend fun preparePlan(amount: BigDecimal) = Result.success(plan)
 
+        @OptIn(ExperimentalTime::class)
         context(diagnostics: StalenessReportCollector)
-        override suspend fun prepareMemo(plan: TransferPlan) = Result.success(PreparedTransferMemo(memo, handoffCommit))
+        override suspend fun prepareMemo(plan: TransferPlan, retryUntil: Instant) =
+            Result.success(PreparedTransferMemo(memo, handoffCommit))
+
+        @OptIn(ExperimentalTime::class)
+        context(diagnostics: StalenessReportCollector)
+        override suspend fun prepareScheduledMemo(plan: TransferPlan, retryUntil: Instant) =
+            Result.success(PreparedTransferMemo(memo, handoffCommit))
     }
 
     private companion object {
