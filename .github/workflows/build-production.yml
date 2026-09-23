@@ -94,6 +94,12 @@ concurrency:
 env:
   NDK_VERSION: "29.0.14206865"
   PRODUCTION_APPLICATION_ID: io.pcf.polkadotapp
+  # Recent gcloud enables parallel composite uploads by default for large objects. That path
+  # writes temporary component objects, composes them, then DELETES the components -- and this
+  # lane's identity deliberately cannot delete (see "Private output"). The upload fails with
+  # `GcsApiError('')` and "Temporary components were not uploaded correctly". Keep uploads
+  # single-stream; these artifacts are a few hundred MB at most.
+  CLOUDSDK_STORAGE_PARALLEL_COMPOSITE_UPLOAD_ENABLED: "False"
 
 jobs:
   build:
