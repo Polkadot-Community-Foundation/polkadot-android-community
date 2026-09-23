@@ -11,12 +11,14 @@ import io.paritytech.polkadotapp.database.model.CoinageHandoffLocal
 import io.paritytech.polkadotapp.database.model.DurableTxLocal
 import io.paritytech.polkadotapp.feature_coinage_api.domain.model.CoinageKeyIndex
 import io.paritytech.polkadotapp.feature_coinage_api.domain.transaction.model.CoinageAssetState
+import io.paritytech.polkadotapp.feature_coinage_api.domain.transaction.model.CoinageAssetStates
 import io.paritytech.polkadotapp.feature_coinage_api.domain.transaction.model.CoinageInput
 import io.paritytech.polkadotapp.feature_coinage_api.domain.transaction.model.CoinageOperationGroupId
 import io.paritytech.polkadotapp.feature_coinage_api.domain.transaction.model.CoinageRegistrationError
 import io.paritytech.polkadotapp.feature_coinage_api.domain.transaction.model.CoinageTransactionId
 import io.paritytech.polkadotapp.feature_coinage_api.domain.transaction.model.CoinageTransactionState
 import io.paritytech.polkadotapp.feature_coinage_api.domain.transaction.model.OwnAsset
+import io.paritytech.polkadotapp.feature_coinage_impl.data.installation.CoinageInstallationRepository
 import io.paritytech.polkadotapp.feature_coinage_impl.data.installation.queryPerInstallation
 import io.paritytech.polkadotapp.feature_coinage_impl.data.installation.toCoinageKeyIndex
 import io.paritytech.polkadotapp.feature_transactions.api.domain.durable.DurableTxStatus
@@ -27,6 +29,7 @@ import javax.inject.Inject
 
 class RealCoinageAssetLedger @Inject constructor(
     private val dao: CoinageEntryDao,
+    private val installationRepository: CoinageInstallationRepository,
 ) : CoinageAssetLedger {
     context(_: RegistrationScope)
     override suspend fun registerAssets(registrations: List<Pair<CoinageTransactionId, AssetRegistration>>) {
@@ -147,29 +150,28 @@ class RealCoinageAssetLedger @Inject constructor(
     ): Flow<List<CoinageTransactionState>> =
         dao.subscribeGroupEntries(groupId.value).map { it.toTransactionStates() }
 
-    override fun subscribeAssetStates(): Flow<Map<OwnAsset, CoinageAssetState>> =
-        dao.subscribeAssetStates().map { projections -> projections.associate { it.toDomain() } }
+    override fun subscribeAssetStates(): Flow<CoinageAssetStates> =
+        dao.subscribeAssetStates().map { it.toAssetStates() }
 
     override suspend fun getAssetState(asset: OwnAsset): Result<CoinageAssetState> = runCatching {
         val index = asset.index()
+        val projection = dao.getAssetState(asset.kind().toLocal(), index.installation.value.value, index.item)
 
-        dao.getAssetState(asset.kind().toLocal(), index.installation.value.value, index.item)?.toDomain()?.second
-            ?: CoinageAssetState.UNTRACKED
+        listOfNotNull(projection).toAssetStates().getAssetStateOf(asset)
     }
 
-    override suspend fun getAssetStates(
-        assets: List<OwnAsset>,
-    ): Result<Map<OwnAsset, CoinageAssetState>> = runCatching {
-        val tracked = assets.groupBy { it.kind() }
+    override suspend fun getAssetStates(assets: List<OwnAsset>): Result<CoinageAssetStates> = runCatching {
+        assets.groupBy { it.kind() }
             .flatMap { (kind, ofKind) ->
                 ofKind.map { it.index() }.queryPerInstallation { installationId, items ->
                     dao.getAssetStates(kind.toLocal(), installationId, items)
                 }
             }
-            .associate { it.toDomain() }
-
-        assets.associateWith { tracked[it] ?: CoinageAssetState.UNTRACKED }
+            .toAssetStates()
     }
+
+    private suspend fun List<CoinageAssetStateProjection>.toAssetStates() =
+        CoinageAssetStates(associate { it.toDomain() }, installationRepository.getOrCreateCurrent())
 }
 
 private class DaoValidationScope(private val dao: CoinageEntryDao) : RegistrationValidationScope {
