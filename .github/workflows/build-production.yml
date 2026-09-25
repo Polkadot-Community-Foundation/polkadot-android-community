@@ -214,6 +214,7 @@ jobs:
           # Each falls back to a PCF-owned production value, never a paritytech one.
           APPLICATION_ID: ${{ vars.APPLICATION_ID || 'io.pcf.polkadotapp' }}
           APPLICATION_NAME: ${{ vars.APPLICATION_NAME || 'Polkadot' }}
+          CONTACT_EMAIL: ${{ vars.CONTACT_EMAIL || 'info@pcf.network' }}
           CURRENCY_SYMBOL: ${{ vars.CURRENCY_SYMBOL || 'CASH' }}
           FIRESTORE_DATABASE_ID: ${{ vars.FIRESTORE_DATABASE_ID || '(default)' }}
           LOG_COLLECTION_EMAIL: ${{ vars.LOG_COLLECTION_EMAIL }}
