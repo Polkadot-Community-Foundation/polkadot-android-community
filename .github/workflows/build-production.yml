@@ -81,6 +81,10 @@ on:
         description: 'Send the signed APK to the production Firebase tester group. Requires signing=production.'
         type: boolean
         default: false
+      version_code:
+        description: 'versionCode. For a Play upload use the latest in Play Console + 1. Defaults to the run number.'
+        type: string
+        default: ''
 
 permissions:
   contents: read
@@ -202,7 +206,8 @@ jobs:
 
       - name: Assemble + bundle gpRelease
         env:
-          CI_BUILD_ID: ${{ github.run_number }}
+          # Play needs a versionCode above every one already uploaded, and the run number is not.
+          CI_BUILD_ID: ${{ inputs.version_code || github.run_number }}
           # ── NO RELEASE_KEYSTORE_* HERE, BY DESIGN ──────────────────────────────────────────
           # app/build.gradle.kts leaves the release variant UNSIGNED when RELEASE_KEYSTORE_FILE
           # is absent. Signing, when requested, happens in the gated `sign` job below, so the
