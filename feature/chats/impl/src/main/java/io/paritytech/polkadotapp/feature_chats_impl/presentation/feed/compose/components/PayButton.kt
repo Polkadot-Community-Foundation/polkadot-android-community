@@ -2,14 +2,11 @@ package io.paritytech.polkadotapp.feature_chats_impl.presentation.feed.compose.c
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.tooling.preview.Preview
-import io.paritytech.polkadotapp.common.utils.CurrencyConfig
 import io.paritytech.polkadotapp.design.components.button.common.PolkadotButtonStyle
 import io.paritytech.polkadotapp.design.components.button.icon.PolkadotIconButton
 import io.paritytech.polkadotapp.design.components.button.icon.PolkadotIconButtonSize
 import io.paritytech.polkadotapp.design.components.icon.NovaIcons
-import io.paritytech.polkadotapp.design.components.icon.vectors.CashOutlined
 import io.paritytech.polkadotapp.design.components.icon.vectors.DollarIcon
 import io.paritytech.polkadotapp.design.theme.PolkadotTheme
 
@@ -20,19 +17,13 @@ internal fun PayButton(
 ) {
     PolkadotIconButton(
         modifier = modifier,
-        icon = fiatIcon,
+        icon = NovaIcons.DollarIcon,
         onClick = onClick,
         style = PolkadotButtonStyle.secondary(),
         size = PolkadotIconButtonSize.mediumIncreased(),
         shape = PolkadotTheme.shapes.full,
     )
 }
-
-private val fiatIcon: ImageVector
-    get() = when (CurrencyConfig.fiatSymbol) {
-        "$" -> NovaIcons.DollarIcon
-        else -> NovaIcons.CashOutlined
-    }
 
 @Preview
 @Composable
