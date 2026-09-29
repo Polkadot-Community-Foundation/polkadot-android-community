@@ -117,7 +117,6 @@ fun PolkadotSearchField(
             )
 
             if (showClear) {
-                // Centered in a full slot, so a smaller clear button keeps its place at the field's end.
                 Box(
                     modifier = Modifier.size(SearchSlotSize),
                     contentAlignment = Alignment.Center,

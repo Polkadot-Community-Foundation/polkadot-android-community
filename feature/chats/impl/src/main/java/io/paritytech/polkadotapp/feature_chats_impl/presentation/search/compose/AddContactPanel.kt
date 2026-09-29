@@ -197,9 +197,7 @@ private fun ScannerSearchArea(
     }
 }
 
-// Scaled rather than resized, so the camera surface is not re-laid out on every animation frame. Kept in composition
-// while collapsed: leaving it would unbind the camera, so closing search would restart it and repeat the permission ask.
-// Recognition is off meanwhile, so a code the user cannot see is not acted on.
+// Scaled rather than resized, so the camera surface is not re-laid out on every animation frame.
 @Composable
 private fun BoxScope.CollapsingScanner(
     collapseProgress: State<Float>,
@@ -208,8 +206,6 @@ private fun BoxScope.CollapsingScanner(
     scanner: @Composable (modifier: Modifier, recognitionArmed: Boolean) -> Unit,
 ) {
     PolkadotSurface(
-        // Sized by the shorter side: above the keyboard the area can be shorter than wide, and while searching it
-        // grows taller than wide.
         modifier = Modifier
             .align(Alignment.BottomCenter)
             .largestSquare()
@@ -228,7 +224,6 @@ private fun BoxScope.CollapsingScanner(
     }
 }
 
-// The same fill and stroke as the search field beside it.
 @Composable
 private fun ScanButton(onClick: () -> Unit) {
     PolkadotIconButton(
@@ -242,7 +237,6 @@ private fun ScanButton(onClick: () -> Unit) {
 }
 
 // A width-sized square that gives up height when the column has less room, e.g. above the keyboard on short screens.
-// While searching it grows into all the height the column offers, so the results get the room up to the top.
 private fun Modifier.searchAreaSize(searchProgress: () -> Float): Modifier = layout { measurable, constraints ->
     val width = constraints.maxWidth
     val square = width.coerceAtMost(constraints.maxHeight)

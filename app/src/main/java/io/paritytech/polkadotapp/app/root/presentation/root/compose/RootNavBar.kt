@@ -181,8 +181,6 @@ fun RootNavBar(
     val topPadding = PolkadotTheme.spacings.small
     val bottomPadding = PolkadotTheme.spacings.small
 
-    // Screens pad for the bar at rest, so the height is derived from the tab row rather than measured: a measured
-    // one follows every frame of a panel or keyboard animation and recomposes the screen under the bar with it.
     val navigationBarsBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val currentOnRestingHeightChange by rememberUpdatedState(onRestingHeightChange)
     LaunchedEffect(tabRowHeight, navigationBarsBottom) {
@@ -197,7 +195,6 @@ fun RootNavBar(
             .padding(top = topPadding, bottom = bottomPadding)
             .navigationBarsPadding()
             .modifyIf(scanPanelShown) {
-                // Over the keyboard the tab row sinks halfway behind the keys, as on iOS.
                 windowInsetsPadding(WindowInsets.ime.exclude(WindowInsets(bottom = tabRowHeight / 2 + bottomPadding)))
             },
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -211,7 +208,7 @@ fun RootNavBar(
             }
         }
 
-        // Weighted so that on a short screen the scan panel, not the tab row below it, gives up height.
+        // Weighted so that on a short screen the panel, not the bar below it, gives up height.
         BarContainer(modifier = Modifier.weight(1f, fill = false)) {
             scanPanel.AnimatedVisibility(
                 visible = { it },
@@ -219,9 +216,6 @@ fun RootNavBar(
                 enter = expandVertically(expandFrom = Alignment.Bottom) + fadeIn(),
                 exit = shrinkVertically(shrinkTowards = Alignment.Bottom) + fadeOut(),
             ) {
-                // Binding the camera blocks the main thread, so it waits for this point of the opening: the spring has
-                // done most of its travel by then, so the stall lands on the slow end of the motion, and the camera
-                // starts well before the transition formally ends.
                 var cameraActive by remember { mutableStateOf(false) }
                 LaunchedEffect(scanExpanded) {
                     if (scanExpanded) {
@@ -239,7 +233,6 @@ fun RootNavBar(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(panelPadding),
-                    // Inset by the padding, the camera's corners stay concentric with the container's.
                     scannerShape = RoundedCornerShape(NavBarCornerRadius - panelPadding),
                     cameraActive = cameraActive,
                     onScanHandled = onScanHandled,
@@ -307,8 +300,6 @@ fun RootNavBar(
     }
 }
 
-// Shown while the tab row sits under the keyboard, so the keys read as being above it, as on iOS. The ramp starts
-// a tenth down the row so its top edge stays clear.
 private fun Modifier.keyboardShadow(alpha: () -> Float): Modifier = drawWithCache {
     val brush = Brush.verticalGradient(
         KEYBOARD_SHADOW_START to Color.Transparent,
@@ -320,7 +311,6 @@ private fun Modifier.keyboardShadow(alpha: () -> Float): Modifier = drawWithCach
     }
 }
 
-// The bar's own surface. The scan panel opens inside it above the tab row, so panel and bar read as one layout.
 @Composable
 private fun BarContainer(modifier: Modifier, content: @Composable ColumnScope.() -> Unit) {
     PolkadotSurface(

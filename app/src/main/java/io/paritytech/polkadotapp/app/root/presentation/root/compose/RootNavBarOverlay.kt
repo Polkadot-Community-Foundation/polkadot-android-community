@@ -66,7 +66,6 @@ private val BAR_HORIZONTAL_MARGIN = 16.dp
 // how far it was dragged. Matches Material's swipeable velocity threshold.
 private val FLING_VELOCITY_THRESHOLD = 125.dp
 
-// Deeper than the overlay token's own alpha, so the screen behind the scan panel recedes further.
 private const val BACKDROP_ALPHA = 0.7f
 
 /**
@@ -133,8 +132,6 @@ fun RootNavBarOverlay(
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        // Full-bleed, as on iOS: it reaches under the status bar and over the chain-health bar, which sits below
-        // this overlay in the activity.
         AnimatedVisibility(
             visible = !hidden && pull.scanExpanded,
             enter = fadeIn(),
@@ -251,8 +248,6 @@ fun RootNavBarOverlay(
     }
 }
 
-// Adds the grab band above the bar while there is room for it. A panel that needs the height takes the band's room
-// over, so the scan search can reach up to the status bar.
 private fun Modifier.grabBandAbove(band: Dp): Modifier = layout { measurable, constraints ->
     val placeable = measurable.measure(constraints.copy(minHeight = 0))
     val height = (placeable.height + band.roundToPx()).coerceIn(constraints.minHeight, constraints.maxHeight)

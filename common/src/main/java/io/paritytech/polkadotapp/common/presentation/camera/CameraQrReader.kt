@@ -42,8 +42,6 @@ class RealCameraQrReader @Inject constructor(
         )
         qrCodeAnalyzer.attachCamera(camera)
 
-        // Frames are analyzed off the main thread; ML Kit still delivers results on it. The analyzer is set after
-        // attachCamera so the scanner it creates on the first frame already knows the camera's zoom range.
         val analysisExecutor = Executors.newSingleThreadExecutor()
         imageAnalysis.setAnalyzer(analysisExecutor, qrCodeAnalyzer)
 
@@ -52,7 +50,6 @@ class RealCameraQrReader @Inject constructor(
         } finally {
             imageAnalysis.clearAnalyzer()
             processCameraProvider.unbind(imageAnalysis, preview)
-            // Closed on the analysis thread, after any frame still being analyzed there.
             analysisExecutor.execute(qrCodeAnalyzer::close)
             analysisExecutor.shutdown()
         }
