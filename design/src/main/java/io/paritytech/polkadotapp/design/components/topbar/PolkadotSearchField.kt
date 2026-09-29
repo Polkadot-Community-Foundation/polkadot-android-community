@@ -4,6 +4,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -49,6 +50,7 @@ fun PolkadotSearchField(
     focusRequester: FocusRequester? = null,
     onClick: (() -> Unit)? = null,
     showClear: Boolean = value.isNotEmpty(),
+    contentPadding: PaddingValues = PaddingValues(PolkadotTheme.spacings.tiny),
 ) {
     val placeholderContent: (@Composable () -> Unit)? = placeholder?.let { text ->
         {
@@ -71,7 +73,7 @@ fun PolkadotSearchField(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(PolkadotTheme.spacings.tiny),
+                .padding(contentPadding),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(PolkadotTheme.spacings.tiny),
         ) {

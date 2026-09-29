@@ -2,7 +2,6 @@ package io.paritytech.polkadotapp.feature_chats_impl.presentation.search.compose
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -12,16 +11,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.graphics.BlendMode
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.CompositingStrategy
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.paritytech.polkadotapp.common.domain.model.AccountId
 import io.paritytech.polkadotapp.common.presentation.search.SearchState
@@ -38,12 +30,9 @@ import io.paritytech.polkadotapp.feature_chats_impl.presentation.search.models.U
 import kotlinx.collections.immutable.ImmutableList
 import io.paritytech.polkadotapp.common.R as RCommon
 
-// The bottom [bottomInset] stays covered by the host's scanner thumbnail: lists scroll and fade out under it,
-// messages center above it.
 @Composable
 internal fun AddContactSearchContent(
     state: AddContactUiState,
-    bottomInset: Dp,
     onSearchResultClick: (UserSearchResultUiModel) -> Unit,
     onRecentClick: (ChatId) -> Unit,
 ) {
@@ -74,33 +63,28 @@ internal fun AddContactSearchContent(
             when (searchResult) {
                 SearchState.Initial -> if (state.recents.isEmpty()) {
                     CenteredMessage(
-                        text = AnnotatedString(stringResource(RCommon.string.add_contact_no_recent_searches)),
-                        bottomInset = bottomInset
+                        text = AnnotatedString(stringResource(RCommon.string.add_contact_no_recent_searches))
                     )
                 } else {
                     RecentsList(
                         recents = state.recents,
-                        bottomInset = bottomInset,
                         onRecentClick = onRecentClick
                     )
                 }
 
-                SearchState.Loading -> CenteredLoading(bottomInset = bottomInset)
+                SearchState.Loading -> CenteredLoading()
 
                 SearchState.Empty -> CenteredMessage(
-                    text = stringResource(RCommon.string.common_no_results_for, state.searchQuery).withBold(state.searchQuery),
-                    bottomInset = bottomInset
+                    text = stringResource(RCommon.string.common_no_results_for, state.searchQuery).withBold(state.searchQuery)
                 )
 
                 is SearchState.Error -> CenteredMessage(
-                    text = AnnotatedString(stringResource(RCommon.string.add_contact_search_error)),
-                    bottomInset = bottomInset
+                    text = AnnotatedString(stringResource(RCommon.string.add_contact_search_error))
                 )
 
                 is SearchState.Loaded -> UsersList(
                     users = searchResult.results,
                     loadingContactId = state.loadingContactId,
-                    bottomInset = bottomInset,
                     onSearchResultClick = onSearchResultClick
                 )
             }
@@ -111,15 +95,9 @@ internal fun AddContactSearchContent(
 @Composable
 private fun RecentsList(
     recents: ImmutableList<RecentChatUiModel>,
-    bottomInset: Dp,
     onRecentClick: (ChatId) -> Unit,
 ) {
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .fadingBottomEdge(bottomInset),
-        contentPadding = PaddingValues(bottom = bottomInset)
-    ) {
+    LazyColumn(modifier = Modifier.fillMaxSize()) {
         items(
             items = recents,
             key = { recent -> recent.key }
@@ -138,15 +116,9 @@ private fun RecentsList(
 private fun UsersList(
     users: ImmutableList<UserSearchResultUiModel>,
     loadingContactId: AccountId?,
-    bottomInset: Dp,
     onSearchResultClick: (UserSearchResultUiModel) -> Unit,
 ) {
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .fadingBottomEdge(bottomInset),
-        contentPadding = PaddingValues(bottom = bottomInset)
-    ) {
+    LazyColumn(modifier = Modifier.fillMaxSize()) {
         items(
             items = users,
             key = { user -> user.contactAccountId.value.toHexString() }
@@ -163,11 +135,9 @@ private fun UsersList(
 }
 
 @Composable
-private fun CenteredMessage(text: AnnotatedString, bottomInset: Dp) {
+private fun CenteredMessage(text: AnnotatedString) {
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(bottom = bottomInset),
+        modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
         NovaText(
@@ -183,11 +153,9 @@ private fun CenteredMessage(text: AnnotatedString, bottomInset: Dp) {
 }
 
 @Composable
-private fun CenteredLoading(bottomInset: Dp) {
+private fun CenteredLoading() {
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(bottom = bottomInset),
+        modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
         NovaCircularProgressIndicator(
@@ -197,19 +165,3 @@ private fun CenteredLoading(bottomInset: Dp) {
         )
     }
 }
-
-// Masks the content alpha, so rows dissolve into whatever sits behind the list instead of into a fixed color.
-private fun Modifier.fadingBottomEdge(height: Dp): Modifier = this
-    .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
-    .drawWithContent {
-        drawContent()
-        val fadeHeight = height.toPx()
-        drawRect(
-            brush = Brush.verticalGradient(
-                colors = listOf(Color.Black, Color.Transparent),
-                startY = size.height - fadeHeight,
-                endY = size.height
-            ),
-            blendMode = BlendMode.DstIn
-        )
-    }

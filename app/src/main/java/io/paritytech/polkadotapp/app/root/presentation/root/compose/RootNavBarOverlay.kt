@@ -5,6 +5,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -38,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import io.paritytech.polkadotapp.common.presentation.tabbar.TabBarBaseInset
 import io.paritytech.polkadotapp.common.presentation.tabs.BottomTab
 import io.paritytech.polkadotapp.design.components.spacer.VerticalSpacer
+import io.paritytech.polkadotapp.design.theme.PolkadotTheme
 import io.paritytech.polkadotapp.design.utils.collectAsEffect
 import io.paritytech.polkadotapp.feature_connection_status_api.presentation.mixin.ChainHealthIndicatorsModel
 import io.paritytech.polkadotapp.feature_products_api.domain.browser.TabInfo
@@ -63,6 +65,9 @@ private val BAR_HORIZONTAL_MARGIN = 16.dp
 // Horizontal fling faster than this (dp per second) settles the bar in the fling direction regardless of
 // how far it was dragged. Matches Material's swipeable velocity threshold.
 private val FLING_VELOCITY_THRESHOLD = 125.dp
+
+// Deeper than the overlay token's own alpha, so the screen behind the scan panel recedes further.
+private const val BACKDROP_ALPHA = 0.7f
 
 /**
  * Hosts the global navigation bar as a right-edge pull-out. The bar sits off-screen with only a [NUB_WIDTH]
@@ -128,6 +133,20 @@ fun RootNavBarOverlay(
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
+        // Full-bleed, as on iOS: it reaches under the status bar and over the chain-health bar, which sits below
+        // this overlay in the activity.
+        AnimatedVisibility(
+            visible = !hidden && pull.scanExpanded,
+            enter = fadeIn(),
+            exit = fadeOut(),
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(PolkadotTheme.colors.bg.surface.overlay.copy(alpha = BACKDROP_ALPHA)),
+            )
+        }
+
         if (scrimVisible) {
             Box(
                 modifier = Modifier
@@ -204,12 +223,7 @@ fun RootNavBarOverlay(
                         // math is unchanged), then right margin.
                         modifier = Modifier
                             .padding(start = BAR_HORIZONTAL_MARGIN)
-                            .onSizeChanged {
-                                pull.setBarWidth(it.width.toFloat())
-                                if (!pull.panelExpanded && !hidden) {
-                                    onBarHeight(with(density) { it.height.toDp() })
-                                }
-                            }
+                            .onSizeChanged { pull.setBarWidth(it.width.toFloat()) }
                             .padding(end = BAR_HORIZONTAL_MARGIN),
                         currentTab = currentTab,
                         tabWarnings = tabWarnings,
@@ -229,6 +243,7 @@ fun RootNavBarOverlay(
                         onScanClicked = { onScannerTooltipDismiss(); pull.toggleScan() },
                         onScanHandled = { navigate -> pull.collapsePanels(); navigate?.invoke() },
                         onScannerTooltipDismiss = onScannerTooltipDismiss,
+                        onRestingHeightChange = { if (!hidden) onBarHeight(it) },
                     )
                 }
             }
