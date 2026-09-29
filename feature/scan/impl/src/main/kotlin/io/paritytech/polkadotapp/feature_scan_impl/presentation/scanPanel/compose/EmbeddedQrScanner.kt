@@ -23,6 +23,7 @@ import io.paritytech.polkadotapp.common.R as RCommon
 @Composable
 fun EmbeddedQrScanner(
     modifier: Modifier = Modifier,
+    cameraActive: Boolean,
     recognitionArmed: Boolean,
     onScanHandled: (navigate: (() -> Unit)?) -> Unit,
 ) {
@@ -41,6 +42,7 @@ fun EmbeddedQrScanner(
         surfaceRequestFlow = viewModel.surfaceRequest,
         invalidCodeEvent = viewModel.invalidCodeEvent,
         cameraPermissionDeniedFlow = viewModel.cameraPermissionDenied,
+        cameraActive = cameraActive,
         bindToCamera = viewModel::bindToCamera,
         onInvalidCodeAlertClosed = viewModel::invalidationDialogClosed,
         onPermissionAlertClosed = viewModel::permissionAlertClosed,

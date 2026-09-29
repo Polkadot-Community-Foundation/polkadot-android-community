@@ -32,13 +32,13 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.input.pointer.util.addPointerInputChange
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.paritytech.polkadotapp.common.presentation.tabbar.TabBarBaseInset
 import io.paritytech.polkadotapp.common.presentation.tabs.BottomTab
-import io.paritytech.polkadotapp.design.components.spacer.VerticalSpacer
 import io.paritytech.polkadotapp.design.theme.PolkadotTheme
 import io.paritytech.polkadotapp.design.utils.collectAsEffect
 import io.paritytech.polkadotapp.feature_connection_status_api.presentation.mixin.ChainHealthIndicatorsModel
@@ -214,10 +214,10 @@ fun RootNavBarOverlay(
                                     else -> pull.undoPeek()
                                 }
                             }
-                        },
+                        }
+                        .grabBandAbove(SWIPE_AREA_EXPANSION),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    VerticalSpacer { SWIPE_AREA_EXPANSION }
                     RootNavBar(
                         // Left margin, then measure (→ pill's right edge = width − right margin so the nub
                         // math is unchanged), then right margin.
@@ -248,5 +248,16 @@ fun RootNavBarOverlay(
                 }
             }
         }
+    }
+}
+
+// Adds the grab band above the bar while there is room for it. A panel that needs the height takes the band's room
+// over, so the scan search can reach up to the status bar.
+private fun Modifier.grabBandAbove(band: Dp): Modifier = layout { measurable, constraints ->
+    val placeable = measurable.measure(constraints.copy(minHeight = 0))
+    val height = (placeable.height + band.roundToPx()).coerceIn(constraints.minHeight, constraints.maxHeight)
+
+    layout(placeable.width, height) {
+        placeable.place(0, height - placeable.height)
     }
 }

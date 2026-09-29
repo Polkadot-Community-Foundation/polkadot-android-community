@@ -59,15 +59,21 @@ class QrScanningMixin @Inject constructor(
             }
         }
 
-        cameraQrReader.bind(
-            preview = Preview.Builder().build().apply {
-                setSurfaceProvider { newSurfaceRequest ->
-                    surfaceRequest.value = newSurfaceRequest
-                }
-            },
-            lifecycleOwner = lifecycleOwner,
-            qrCodeAnalyzer = QrCodeAnalyzer { handleQrCodeData(it) }
-        )
+        try {
+            cameraQrReader.bind(
+                preview = Preview.Builder().build().apply {
+                    setSurfaceProvider { newSurfaceRequest ->
+                        surfaceRequest.value = newSurfaceRequest
+                    }
+                },
+                lifecycleOwner = lifecycleOwner,
+                qrCodeAnalyzer = QrCodeAnalyzer { handleQrCodeData(it) }
+            )
+        } finally {
+            // Cleared on unbind, not only on the next bind: the panel binds only once it has opened, and until then
+            // the viewfinder would be handed the released surface.
+            surfaceRequest.value = null
+        }
     }
 
     fun invalidationDialogClosed() {

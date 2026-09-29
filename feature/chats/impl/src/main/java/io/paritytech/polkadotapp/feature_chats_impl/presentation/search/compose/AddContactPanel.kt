@@ -5,13 +5,12 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -33,6 +32,7 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.util.lerp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.paritytech.polkadotapp.common.domain.model.intoAccountId
@@ -50,6 +50,7 @@ import io.paritytech.polkadotapp.design.components.button.icon.PolkadotIconButto
 import io.paritytech.polkadotapp.design.components.button.icon.PolkadotIconButtonSize
 import io.paritytech.polkadotapp.design.components.icon.NovaIcons
 import io.paritytech.polkadotapp.design.components.icon.vectors.Scanner
+import io.paritytech.polkadotapp.design.components.spacer.HorizontalSpacer
 import io.paritytech.polkadotapp.design.components.spacer.VerticalSpacer
 import io.paritytech.polkadotapp.design.components.surface.PolkadotSurface
 import io.paritytech.polkadotapp.design.components.topbar.PolkadotSearchField
@@ -115,13 +116,19 @@ private fun AddContactPanelInternal(
     scannerShape: Shape,
     scanner: @Composable (modifier: Modifier, recognitionArmed: Boolean) -> Unit,
 ) {
+    val searchProgress = animateFloatAsState(
+        targetValue = if (searchActive) 1f else 0f,
+        label = "SearchProgress"
+    )
+
     Column(modifier = modifier) {
         ScannerSearchArea(
             modifier = Modifier
                 .weight(1f, fill = false)
-                .squareUpToMaxHeight(),
+                .searchAreaSize { searchProgress.value },
             state = state,
             searchActive = searchActive,
+            searchProgress = searchProgress,
             actions = actions,
             scannerShape = scannerShape,
             scanner = scanner,
@@ -134,10 +141,10 @@ private fun AddContactPanelInternal(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             AnimatedVisibility(visible = searchActive) {
-                ScanButton(
-                    modifier = Modifier.padding(end = PolkadotTheme.spacings.small),
-                    onClick = actions.onCloseSearch,
-                )
+                Row {
+                    ScanButton(onClick = actions.onCloseSearch)
+                    HorizontalSpacer { small }
+                }
             }
 
             PolkadotSearchField(
@@ -152,6 +159,7 @@ private fun AddContactPanelInternal(
                 placeholder = stringResource(RCommon.string.add_contact_search_placeholder),
                 showClear = searchActive,
                 contentPadding = PaddingValues(PolkadotTheme.spacings.zero),
+                clearButtonSize = PolkadotIconButtonSize.small(),
             )
         }
     }
@@ -162,15 +170,11 @@ private fun ScannerSearchArea(
     modifier: Modifier,
     state: AddContactUiState,
     searchActive: Boolean,
+    searchProgress: State<Float>,
     actions: AddContactPanelActions,
     scannerShape: Shape,
     scanner: @Composable (modifier: Modifier, recognitionArmed: Boolean) -> Unit,
 ) {
-    val collapseProgress = animateFloatAsState(
-        targetValue = if (searchActive) 1f else 0f,
-        label = "ScannerCollapseProgress"
-    )
-
     Box(modifier = modifier) {
         AnimatedVisibility(
             visible = searchActive,
@@ -185,7 +189,7 @@ private fun ScannerSearchArea(
         }
 
         CollapsingScanner(
-            collapseProgress = collapseProgress,
+            collapseProgress = searchProgress,
             recognitionArmed = !searchActive,
             shape = scannerShape,
             scanner = scanner,
@@ -204,12 +208,11 @@ private fun BoxScope.CollapsingScanner(
     scanner: @Composable (modifier: Modifier, recognitionArmed: Boolean) -> Unit,
 ) {
     PolkadotSurface(
-        // Sized by the height: above the keyboard the area can be shorter than wide, and a width-sized square
-        // would overflow it and get centered.
+        // Sized by the shorter side: above the keyboard the area can be shorter than wide, and while searching it
+        // grows taller than wide.
         modifier = Modifier
             .align(Alignment.BottomCenter)
-            .fillMaxHeight()
-            .aspectRatio(1f, matchHeightConstraintsFirst = true)
+            .largestSquare()
             .graphicsLayer {
                 val scale = 1f - collapseProgress.value
 
@@ -225,28 +228,38 @@ private fun BoxScope.CollapsingScanner(
     }
 }
 
+// The same fill and stroke as the search field beside it.
 @Composable
-private fun ScanButton(
-    modifier: Modifier,
-    onClick: () -> Unit,
-) {
+private fun ScanButton(onClick: () -> Unit) {
     PolkadotIconButton(
-        modifier = modifier,
         icon = NovaIcons.Scanner,
         onClick = onClick,
-        style = PolkadotButtonStyle.secondary(),
+        style = PolkadotButtonStyle.tertiary(),
         size = PolkadotIconButtonSize.mediumIncreased(),
         shape = PolkadotButtonShape.pill,
+        border = BorderStroke(PolkadotTheme.borders.default, PolkadotTheme.colors.stroke.secondary),
     )
 }
 
 // A width-sized square that gives up height when the column has less room, e.g. above the keyboard on short screens.
-private fun Modifier.squareUpToMaxHeight(): Modifier = layout { measurable, constraints ->
+// While searching it grows into all the height the column offers, so the results get the room up to the top.
+private fun Modifier.searchAreaSize(searchProgress: () -> Float): Modifier = layout { measurable, constraints ->
     val width = constraints.maxWidth
-    val height = width.coerceAtMost(constraints.maxHeight)
+    val square = width.coerceAtMost(constraints.maxHeight)
+    val full = if (constraints.hasBoundedHeight) constraints.maxHeight else square
+    val height = lerp(square, full, searchProgress())
     val placeable = measurable.measure(Constraints.fixed(width, height))
 
     layout(width, height) {
+        placeable.place(0, 0)
+    }
+}
+
+private fun Modifier.largestSquare(): Modifier = layout { measurable, constraints ->
+    val side = minOf(constraints.maxWidth, constraints.maxHeight)
+    val placeable = measurable.measure(Constraints.fixed(side, side))
+
+    layout(side, side) {
         placeable.place(0, 0)
     }
 }

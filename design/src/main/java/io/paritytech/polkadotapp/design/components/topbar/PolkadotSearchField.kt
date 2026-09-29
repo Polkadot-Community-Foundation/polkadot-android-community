@@ -34,7 +34,7 @@ import io.paritytech.polkadotapp.design.components.text.PolkadotInputField
 import io.paritytech.polkadotapp.design.theme.PolkadotTheme
 import io.paritytech.polkadotapp.design.utils.conditionalNotNull
 
-private val SearchLeadingIconSize = 48.dp
+private val SearchSlotSize = 48.dp
 
 @Composable
 fun PolkadotSearchField(
@@ -51,6 +51,7 @@ fun PolkadotSearchField(
     onClick: (() -> Unit)? = null,
     showClear: Boolean = value.isNotEmpty(),
     contentPadding: PaddingValues = PaddingValues(PolkadotTheme.spacings.tiny),
+    clearButtonSize: PolkadotIconButtonSize = PolkadotIconButtonSize.mediumIncreased(),
 ) {
     val placeholderContent: (@Composable () -> Unit)? = placeholder?.let { text ->
         {
@@ -89,7 +90,7 @@ fun PolkadotSearchField(
                 )
             } else {
                 Box(
-                    modifier = Modifier.size(SearchLeadingIconSize),
+                    modifier = Modifier.size(SearchSlotSize),
                     contentAlignment = Alignment.Center,
                 ) {
                     NovaIcon(
@@ -116,13 +117,19 @@ fun PolkadotSearchField(
             )
 
             if (showClear) {
-                PolkadotIconButton(
-                    icon = NovaIcons.Close,
-                    onClick = onClear,
-                    style = PolkadotButtonStyle.ghost(),
-                    size = PolkadotIconButtonSize.mediumIncreased(),
-                    shape = PolkadotButtonShape.pill,
-                )
+                // Centered in a full slot, so a smaller clear button keeps its place at the field's end.
+                Box(
+                    modifier = Modifier.size(SearchSlotSize),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    PolkadotIconButton(
+                        icon = NovaIcons.Close,
+                        onClick = onClear,
+                        style = PolkadotButtonStyle.ghost(),
+                        size = clearButtonSize,
+                        shape = PolkadotButtonShape.pill,
+                    )
+                }
             }
         }
     }

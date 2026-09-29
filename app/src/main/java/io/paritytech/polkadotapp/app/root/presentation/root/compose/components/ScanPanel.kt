@@ -10,6 +10,7 @@ import io.paritytech.polkadotapp.feature_scan_impl.presentation.scanPanel.compos
 internal fun ScanPanel(
     modifier: Modifier,
     scannerShape: Shape,
+    cameraActive: Boolean,
     onScanHandled: (navigate: (() -> Unit)?) -> Unit,
 ) {
     AddContactPanel(
@@ -18,6 +19,7 @@ internal fun ScanPanel(
         scanner = { scannerModifier, recognitionArmed ->
             EmbeddedQrScanner(
                 modifier = scannerModifier,
+                cameraActive = cameraActive,
                 recognitionArmed = recognitionArmed,
                 onScanHandled = onScanHandled,
             )

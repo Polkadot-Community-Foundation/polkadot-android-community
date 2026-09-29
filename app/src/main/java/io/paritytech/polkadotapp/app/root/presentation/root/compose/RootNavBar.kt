@@ -44,6 +44,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -96,6 +97,7 @@ import io.paritytech.polkadotapp.feature_connection_status_api.presentation.mixi
 import io.paritytech.polkadotapp.feature_products_api.domain.browser.TabInfo
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableMap
+import kotlinx.coroutines.flow.first
 import io.paritytech.polkadotapp.common.R as RCommon
 
 private const val APPS_PER_ROW = 5
@@ -111,6 +113,8 @@ private val CenterPillHeight = 54.dp
 
 // Corner radius shared by the bar (a pill at its height) and the products container — same rounding.
 private val NavBarCornerRadius = 32.dp
+
+private const val CAMERA_START_AT_OPENING_FRACTION = 0.3f
 
 private const val KEYBOARD_SHADOW_START = 0.1f
 private const val KEYBOARD_SHADOW_OPACITY = 0.75f
@@ -215,6 +219,21 @@ fun RootNavBar(
                 enter = expandVertically(expandFrom = Alignment.Bottom) + fadeIn(),
                 exit = shrinkVertically(shrinkTowards = Alignment.Bottom) + fadeOut(),
             ) {
+                // Binding the camera blocks the main thread, so it waits for this point of the opening: the spring has
+                // done most of its travel by then, so the stall lands on the slow end of the motion, and the camera
+                // starts well before the transition formally ends.
+                var cameraActive by remember { mutableStateOf(false) }
+                LaunchedEffect(scanExpanded) {
+                    if (scanExpanded) {
+                        snapshotFlow {
+                            val playTime = scanPanel.playTimeNanos
+                            scanPanel.currentState ||
+                                (playTime > 0 && playTime >= scanPanel.totalDurationNanos * CAMERA_START_AT_OPENING_FRACTION)
+                        }.first { it }
+                        cameraActive = true
+                    }
+                }
+
                 val panelPadding = PolkadotTheme.spacings.small
                 ScanPanel(
                     modifier = Modifier
@@ -222,6 +241,7 @@ fun RootNavBar(
                         .padding(panelPadding),
                     // Inset by the padding, the camera's corners stay concentric with the container's.
                     scannerShape = RoundedCornerShape(NavBarCornerRadius - panelPadding),
+                    cameraActive = cameraActive,
                     onScanHandled = onScanHandled,
                 )
             }
