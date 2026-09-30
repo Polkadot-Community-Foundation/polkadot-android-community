@@ -5,6 +5,8 @@ import io.paritytech.polkadotapp.feature_chats_api.domain.model.contactOrNull
 import io.paritytech.polkadotapp.feature_chats_impl.domain.models.Chat
 import io.paritytech.polkadotapp.feature_chats_impl.domain.models.ContactSearchResult
 
+const val MAX_RECENT_CHATS = 5
+
 class ContactSearchSections(
     val recents: List<Chat>,
     val allUsers: List<ContactSearchResult>,
@@ -18,9 +20,9 @@ fun composeContactSearchSections(
     blockedAccountIds: Set<AccountId>,
     allUsers: List<ContactSearchResult>,
 ): ContactSearchSections {
-    val matchedRecents = recents.filter { chat ->
-        chat.display.name.contains(query, ignoreCase = true) && chat.contactAccountId() !in blockedAccountIds
-    }
+    val matchedRecents = recents
+        .filter { chat -> chat.display.name.contains(query, ignoreCase = true) && chat.contactAccountId() !in blockedAccountIds }
+        .take(MAX_RECENT_CHATS)
     val recentIds = matchedRecents.mapNotNull { it.contactAccountId() }.toSet()
 
     val matchedUsers = allUsers

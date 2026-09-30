@@ -129,6 +129,15 @@ private fun AddContactPanelInternal(
     )
 
     Column(modifier = modifier) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = PolkadotTheme.spacings.small),
+            contentAlignment = Alignment.Center,
+        ) {
+            NovaBottomSheetDragHandler()
+        }
+
         ScannerSearchArea(
             modifier = Modifier
                 .weight(1f, fill = false)
@@ -188,22 +197,11 @@ private fun ScannerSearchArea(
             enter = fadeIn(),
             exit = fadeOut(),
         ) {
-            Column {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = PolkadotTheme.spacings.tiny),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    NovaBottomSheetDragHandler()
-                }
-
-                AddContactSearchContent(
-                    state = state,
-                    onSearchResultClick = actions.onSearchResultClick,
-                    onRecentClick = actions.onRecentClick,
-                )
-            }
+            AddContactSearchContent(
+                state = state,
+                onSearchResultClick = actions.onSearchResultClick,
+                onRecentClick = actions.onRecentClick,
+            )
         }
 
         CollapsingScanner(

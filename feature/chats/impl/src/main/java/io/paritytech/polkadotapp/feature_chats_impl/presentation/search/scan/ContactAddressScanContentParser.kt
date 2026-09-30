@@ -11,9 +11,7 @@ import io.paritytech.polkadotapp.common.utils.flatMap
 import io.paritytech.polkadotapp.common.utils.mapError
 import io.paritytech.polkadotapp.feature_account_api.data.repository.AccountRepository
 import io.paritytech.polkadotapp.feature_account_api.data.repository.getWalletAccountIdIn
-import io.paritytech.polkadotapp.feature_chats_api.domain.model.ChatId
 import io.paritytech.polkadotapp.feature_chats_impl.ChatsRouter
-import io.paritytech.polkadotapp.feature_chats_impl.data.repository.ChatSearchRecentsRepository
 import io.paritytech.polkadotapp.feature_chats_impl.domain.usecase.StartChatDataUseCase
 import io.paritytech.polkadotapp.feature_chats_impl.presentation.search.models.toChatFeedPayload
 import io.paritytech.polkadotapp.feature_scan_api.domain.PostParseAction
@@ -26,7 +24,6 @@ class ContactAddressScanContentParser @Inject constructor(
     private val chainRegistry: ChainRegistry,
     private val accountRepository: AccountRepository,
     private val startChatDataUseCase: StartChatDataUseCase,
-    private val chatSearchRecentsRepository: ChatSearchRecentsRepository,
     private val router: ChatsRouter
 ) : ScanContentParser {
     override suspend fun canHandle(content: String): Boolean {
@@ -37,11 +34,7 @@ class ContactAddressScanContentParser @Inject constructor(
     override suspend fun handle(content: String): Result<PostParseAction> {
         return decodeAddress(content)
             .flatMap { accountId -> rejectIfSelf(accountId) }
-            .flatMap { accountId ->
-                startChatDataUseCase(accountId)
-                    .mapError(ContactScanError::ResolveFailed)
-                    .onSuccess { chatSearchRecentsRepository.addRecent(ChatId.fromContact(accountId)) }
-            }
+            .flatMap { accountId -> startChatDataUseCase(accountId).mapError(ContactScanError::ResolveFailed) }
             .map { startChatData -> PostParseAction.BackAndThen { router.openChatFeed(startChatData.toChatFeedPayload()) } }
             .onFailure { Timber.w(it, "Contact address scan rejected: ${it.message}") }
     }

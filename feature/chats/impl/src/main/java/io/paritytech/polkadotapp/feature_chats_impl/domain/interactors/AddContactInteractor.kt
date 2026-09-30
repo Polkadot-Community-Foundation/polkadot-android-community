@@ -8,6 +8,7 @@ import io.paritytech.polkadotapp.common.utils.mapList
 import io.paritytech.polkadotapp.feature_account_api.data.repository.AccountRepository
 import io.paritytech.polkadotapp.feature_account_api.data.repository.getWalletAccountIdIn
 import io.paritytech.polkadotapp.feature_chats_api.domain.model.ChatId
+import io.paritytech.polkadotapp.feature_chats_api.domain.model.isContactChat
 import io.paritytech.polkadotapp.feature_chats_impl.data.repository.ChatSearchRecentsRepository
 import io.paritytech.polkadotapp.feature_chats_impl.data.repository.ContactsRepository
 import io.paritytech.polkadotapp.feature_chats_impl.domain.models.Chat
@@ -17,7 +18,6 @@ import io.paritytech.polkadotapp.feature_chats_impl.domain.usecase.StartChatData
 import io.paritytech.polkadotapp.feature_chats_impl.domain.usecase.SubscribeActiveChatsUseCase
 import io.paritytech.polkadotapp.feature_usernames_api.domain.usecase.SearchUsernamesUseCase
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 
@@ -62,17 +62,9 @@ class RealAddContactInteractor @Inject constructor(
         return startChatDataUseCase(contactAccountId)
     }
 
-    // Recents keep only chat ids: resolved against the live chat list, so a recent shows the chat as it is now, and one
-    // whose chat is no longer active is dropped.
     context(scope: ComputationalScope)
-    override fun observeRecentChats(): Flow<List<Chat>> = combine(
-        chatSearchRecentsRepository.observeRecents(),
-        subscribeActiveChats()
-    ) { recents, chats ->
-        val chatsById = chats.associateBy { it.id }
-
-        recents.mapNotNull { chatsById[it.chatId] }
-    }
+    override fun observeRecentChats(): Flow<List<Chat>> = subscribeActiveChats()
+        .map { chats -> chats.filter { it.id.isContactChat() } }
 
     override fun observeBlockedAccountIds(): Flow<Set<AccountId>> = contactsRepository.subscribeBlockedContacts()
         .map { contacts -> contacts.map { it.accountId }.toSet() }

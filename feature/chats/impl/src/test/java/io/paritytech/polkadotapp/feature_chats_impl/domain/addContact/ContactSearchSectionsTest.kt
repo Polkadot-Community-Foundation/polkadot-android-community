@@ -28,6 +28,32 @@ class ContactSearchSectionsTest {
     }
 
     @Test
+    fun `recents show at most five matches in chat list order`() {
+        val names = (1..7).map { "anna.0$it" }
+
+        val sections = composeContactSearchSections(
+            query = "anna",
+            recents = names.map { chat(it) },
+            blockedAccountIds = emptySet(),
+            allUsers = emptyList(),
+        )
+
+        assertEquals(names.take(MAX_RECENT_CHATS), sections.recentNames())
+    }
+
+    @Test
+    fun `a chat below the top five is still found by the query`() {
+        val sections = composeContactSearchSections(
+            query = "anna",
+            recents = listOf("bob.01", "carl.02", "dave.03", "eve.04", "fred.05", "anna.06").map { chat(it) },
+            blockedAccountIds = emptySet(),
+            allUsers = emptyList(),
+        )
+
+        assertEquals(listOf("anna.06"), sections.recentNames())
+    }
+
+    @Test
     fun `a person in recents is not repeated in all users`() {
         val sections = composeContactSearchSections(
             query = "al",

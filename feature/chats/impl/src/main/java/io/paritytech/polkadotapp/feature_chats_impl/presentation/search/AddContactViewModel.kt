@@ -15,6 +15,7 @@ import io.paritytech.polkadotapp.feature_chats_api.presentation.error.toPresenta
 import io.paritytech.polkadotapp.feature_chats_api.presentation.model.ChatFeedPayload
 import io.paritytech.polkadotapp.feature_chats_impl.ChatsRouter
 import io.paritytech.polkadotapp.feature_chats_impl.domain.addContact.ContactSearchSections
+import io.paritytech.polkadotapp.feature_chats_impl.domain.addContact.MAX_RECENT_CHATS
 import io.paritytech.polkadotapp.feature_chats_impl.domain.addContact.composeContactSearchSections
 import io.paritytech.polkadotapp.feature_chats_impl.domain.interactors.AddContactInteractor
 import io.paritytech.polkadotapp.feature_chats_impl.domain.models.ChatAvatar
@@ -75,7 +76,7 @@ internal class AddContactViewModel @Inject constructor(
     private val loadingContactId = MutableStateFlow<AccountId?>(null)
 
     private val recents = recentChats
-        .map { chats -> chats.map { it.toRecentUi(isMenuOpen = false) }.toImmutableList() }
+        .map { chats -> chats.take(MAX_RECENT_CHATS).map { it.toRecentUi(isMenuOpen = false) }.toImmutableList() }
         .inBackground()
 
     override val state: StateFlow<AddContactUiState> = combine(
