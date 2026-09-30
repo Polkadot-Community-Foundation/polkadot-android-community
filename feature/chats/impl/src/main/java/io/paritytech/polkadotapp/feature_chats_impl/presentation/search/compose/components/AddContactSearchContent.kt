@@ -1,12 +1,13 @@
 package io.paritytech.polkadotapp.feature_chats_impl.presentation.search.compose.components
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -16,15 +17,15 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import io.paritytech.polkadotapp.common.domain.model.AccountId
-import io.paritytech.polkadotapp.common.presentation.search.SearchState
 import io.paritytech.polkadotapp.design.components.progress.NovaCircularProgressIndicator
 import io.paritytech.polkadotapp.design.components.text.NovaText
 import io.paritytech.polkadotapp.design.theme.PolkadotTheme
-import io.paritytech.polkadotapp.design.utils.withBold
 import io.paritytech.polkadotapp.feature_chats_api.domain.model.ChatId
+import io.paritytech.polkadotapp.feature_chats_impl.presentation.chatSearch.compose.components.ChatSearchNoResults
 import io.paritytech.polkadotapp.feature_chats_impl.presentation.chatSearch.compose.components.ChatSearchPersonRow
 import io.paritytech.polkadotapp.feature_chats_impl.presentation.chatSearch.models.NoRowStatus
 import io.paritytech.polkadotapp.feature_chats_impl.presentation.chatSearch.models.RecentChatUiModel
+import io.paritytech.polkadotapp.feature_chats_impl.presentation.search.AddContactSearchResults
 import io.paritytech.polkadotapp.feature_chats_impl.presentation.search.AddContactUiState
 import io.paritytech.polkadotapp.feature_chats_impl.presentation.search.models.UserSearchResultUiModel
 import kotlinx.collections.immutable.ImmutableList
@@ -36,101 +37,89 @@ internal fun AddContactSearchContent(
     onSearchResultClick: (UserSearchResultUiModel) -> Unit,
     onRecentClick: (ChatId) -> Unit,
 ) {
-    val searchResult = state.searchResult
+    when (val results = state.results) {
+        AddContactSearchResults.Idle -> if (state.recents.isEmpty()) {
+            CenteredMessage(text = AnnotatedString(stringResource(RCommon.string.add_contact_no_recent_searches)))
+        } else {
+            LazyColumn(modifier = Modifier.fillMaxSize()) {
+                recentsSection(recents = state.recents, onRecentClick = onRecentClick)
+            }
+        }
 
-    Column(modifier = Modifier.fillMaxSize()) {
+        is AddContactSearchResults.Sections -> LazyColumn(modifier = Modifier.fillMaxSize()) {
+            recentsSection(recents = results.recents, onRecentClick = onRecentClick)
+            allUsersSection(
+                users = results.allUsers,
+                loadingContactId = state.loadingContactId,
+                onClick = onSearchResultClick,
+            )
+        }
+
+        AddContactSearchResults.Waiting -> Unit
+
+        AddContactSearchResults.Loading -> CenteredLoading()
+
+        AddContactSearchResults.Empty -> ChatSearchNoResults(query = state.searchQuery)
+
+        AddContactSearchResults.Error -> CenteredMessage(
+            text = AnnotatedString(stringResource(RCommon.string.add_contact_search_error))
+        )
+    }
+}
+
+private fun LazyListScope.recentsSection(
+    recents: ImmutableList<RecentChatUiModel>,
+    onRecentClick: (ChatId) -> Unit,
+) {
+    if (recents.isEmpty()) return
+
+    sectionHeader(key = "recent_header", titleRes = RCommon.string.search_section_recent)
+    items(
+        items = recents,
+        key = { recent -> "recent_${recent.key}" }
+    ) { recent ->
+        ChatSearchPersonRow(
+            title = recent.title,
+            avatarModel = recent.avatarModel,
+            status = recent.status,
+            onClick = { onRecentClick(recent.chatId) },
+        )
+    }
+}
+
+private fun LazyListScope.allUsersSection(
+    users: ImmutableList<UserSearchResultUiModel>,
+    loadingContactId: AccountId?,
+    onClick: (UserSearchResultUiModel) -> Unit,
+) {
+    if (users.isEmpty()) return
+
+    sectionHeader(key = "user_header", titleRes = RCommon.string.search_section_all_users)
+    items(
+        items = users,
+        key = { user -> "user_${user.contactAccountId.value.toHexString()}" }
+    ) { user ->
+        ChatSearchPersonRow(
+            title = user.username,
+            avatarModel = user.avatarModel,
+            status = NoRowStatus,
+            onClick = { onClick(user) },
+            loading = user.contactAccountId == loadingContactId,
+        )
+    }
+}
+
+private fun LazyListScope.sectionHeader(key: String, @StringRes titleRes: Int) {
+    item(key = key) {
         NovaText(
             modifier = Modifier.padding(
                 horizontal = PolkadotTheme.spacings.extraMedium,
                 vertical = PolkadotTheme.spacings.small
             ),
-            text = stringResource(
-                if (searchResult is SearchState.Initial) {
-                    RCommon.string.add_contact_recents_header
-                } else {
-                    RCommon.string.add_contact_users_header
-                }
-            ),
+            text = stringResource(titleRes),
             style = PolkadotTheme.typography.caption.medium,
             color = PolkadotTheme.colors.fg.secondary,
         )
-
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f)
-        ) {
-            when (searchResult) {
-                SearchState.Initial -> if (state.recents.isEmpty()) {
-                    CenteredMessage(
-                        text = AnnotatedString(stringResource(RCommon.string.add_contact_no_recent_searches))
-                    )
-                } else {
-                    RecentsList(
-                        recents = state.recents,
-                        onRecentClick = onRecentClick
-                    )
-                }
-
-                SearchState.Loading -> CenteredLoading()
-
-                SearchState.Empty -> CenteredMessage(
-                    text = stringResource(RCommon.string.common_no_results_for, state.searchQuery).withBold(state.searchQuery)
-                )
-
-                is SearchState.Error -> CenteredMessage(
-                    text = AnnotatedString(stringResource(RCommon.string.add_contact_search_error))
-                )
-
-                is SearchState.Loaded -> UsersList(
-                    users = searchResult.results,
-                    loadingContactId = state.loadingContactId,
-                    onSearchResultClick = onSearchResultClick
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun RecentsList(
-    recents: ImmutableList<RecentChatUiModel>,
-    onRecentClick: (ChatId) -> Unit,
-) {
-    LazyColumn(modifier = Modifier.fillMaxSize()) {
-        items(
-            items = recents,
-            key = { recent -> recent.key }
-        ) { recent ->
-            ChatSearchPersonRow(
-                title = recent.title,
-                avatarModel = recent.avatarModel,
-                status = recent.status,
-                onClick = { onRecentClick(recent.chatId) },
-            )
-        }
-    }
-}
-
-@Composable
-private fun UsersList(
-    users: ImmutableList<UserSearchResultUiModel>,
-    loadingContactId: AccountId?,
-    onSearchResultClick: (UserSearchResultUiModel) -> Unit,
-) {
-    LazyColumn(modifier = Modifier.fillMaxSize()) {
-        items(
-            items = users,
-            key = { user -> user.contactAccountId.value.toHexString() }
-        ) { user ->
-            ChatSearchPersonRow(
-                title = user.username,
-                avatarModel = user.avatarModel,
-                status = NoRowStatus,
-                onClick = { onSearchResultClick(user) },
-                loading = user.contactAccountId == loadingContactId,
-            )
-        }
     }
 }
 

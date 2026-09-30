@@ -9,10 +9,13 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
@@ -38,12 +41,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.paritytech.polkadotapp.common.domain.model.intoAccountId
 import io.paritytech.polkadotapp.common.presentation.notification.rememberAppNotifier
 import io.paritytech.polkadotapp.common.presentation.screens.ObserveViewModelEvents
-import io.paritytech.polkadotapp.common.presentation.search.SearchState
-import io.paritytech.polkadotapp.common.utils.SizedList
 import io.paritytech.polkadotapp.common.utils.randomBytes
-import io.paritytech.polkadotapp.common.utils.toSizedList
 import io.paritytech.polkadotapp.design.components.avatar.AvatarUiModel
 import io.paritytech.polkadotapp.design.components.avatar.Mock
+import io.paritytech.polkadotapp.design.components.bottomsheet.NovaBottomSheetDragHandler
 import io.paritytech.polkadotapp.design.components.button.common.PolkadotButtonShape
 import io.paritytech.polkadotapp.design.components.button.common.PolkadotButtonStyle
 import io.paritytech.polkadotapp.design.components.button.icon.PolkadotIconButton
@@ -58,16 +59,19 @@ import io.paritytech.polkadotapp.design.theme.PolkadotTheme
 import io.paritytech.polkadotapp.feature_chats_api.domain.model.ChatId
 import io.paritytech.polkadotapp.feature_chats_impl.presentation.chatSearch.models.NoRowStatus
 import io.paritytech.polkadotapp.feature_chats_impl.presentation.chatSearch.models.RecentChatUiModel
+import io.paritytech.polkadotapp.feature_chats_impl.presentation.search.AddContactSearchResults
 import io.paritytech.polkadotapp.feature_chats_impl.presentation.search.AddContactUiState
 import io.paritytech.polkadotapp.feature_chats_impl.presentation.search.AddContactViewModel
 import io.paritytech.polkadotapp.feature_chats_impl.presentation.search.compose.components.AddContactSearchContent
 import io.paritytech.polkadotapp.feature_chats_impl.presentation.search.models.UserSearchResultUiModel
 import io.paritytech.polkadotapp.feature_chats_impl.presentation.util.rememberCompositionViewModelStoreOwner
+import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlin.random.Random
 import io.paritytech.polkadotapp.common.R as RCommon
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun AddContactPanel(
     modifier: Modifier = Modifier,
@@ -95,7 +99,10 @@ fun AddContactPanel(
         )
     }
 
-    BackHandler(enabled = searchActive, onBack = actions.onCloseSearch)
+    val imeVisible = WindowInsets.isImeVisible
+    BackHandler(enabled = searchActive) {
+        if (imeVisible) focusManager.clearFocus() else actions.onCloseSearch()
+    }
 
     AddContactPanelInternal(
         modifier = modifier,
@@ -181,11 +188,22 @@ private fun ScannerSearchArea(
             enter = fadeIn(),
             exit = fadeOut(),
         ) {
-            AddContactSearchContent(
-                state = state,
-                onSearchResultClick = actions.onSearchResultClick,
-                onRecentClick = actions.onRecentClick,
-            )
+            Column {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = PolkadotTheme.spacings.tiny),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    NovaBottomSheetDragHandler()
+                }
+
+                AddContactSearchContent(
+                    state = state,
+                    onSearchResultClick = actions.onSearchResultClick,
+                    onRecentClick = actions.onRecentClick,
+                )
+            }
         }
 
         CollapsingScanner(
@@ -295,7 +313,7 @@ private fun AddContactPanelPreview(state: AddContactUiState, searchActive: Boole
 @Composable
 private fun AddContactPanelScannerPreview() {
     AddContactPanelPreview(
-        state = previewState(query = "", searchResult = SearchState.Initial),
+        state = previewState(query = "", results = AddContactSearchResults.Idle),
         searchActive = false,
     )
 }
@@ -304,7 +322,7 @@ private fun AddContactPanelScannerPreview() {
 @Composable
 private fun AddContactPanelNoRecentsPreview() {
     AddContactPanelPreview(
-        state = previewState(query = "", searchResult = SearchState.Initial),
+        state = previewState(query = "", results = AddContactSearchResults.Idle),
         searchActive = true,
     )
 }
@@ -312,20 +330,12 @@ private fun AddContactPanelNoRecentsPreview() {
 @Preview(widthDp = 380)
 @Composable
 private fun AddContactPanelRecentsPreview() {
-    val recents = listOf("mosticRiver.88", "delaware.01", "franz", "dmitry.01", "euclid.01").map { name ->
-        val accountId = Random.randomBytes(32).intoAccountId()
-        RecentChatUiModel(
-            chatId = ChatId.fromContact(accountId),
-            key = name,
-            title = name,
-            avatarModel = AvatarUiModel.Mock.fromName(name),
-            status = NoRowStatus,
-            isMenuOpen = false,
-        )
-    }
-
     AddContactPanelPreview(
-        state = previewState(query = "", searchResult = SearchState.Initial).copy(recents = recents.toImmutableList()),
+        state = previewState(
+            query = "",
+            results = AddContactSearchResults.Idle,
+            recents = previewRecents("mosticRiver.88", "delaware.01", "franz", "dmitry.01", "euclid.01"),
+        ),
         searchActive = true,
     )
 }
@@ -333,26 +343,53 @@ private fun AddContactPanelRecentsPreview() {
 @Preview(widthDp = 380)
 @Composable
 private fun AddContactPanelResultsPreview() {
-    val users = listOf("mosticRiver.88", "monster.01", "molecule", "mostwanted", "morales").map { name ->
-        UserSearchResultUiModel(
-            contactAccountId = Random.randomBytes(32).intoAccountId(),
-            username = name,
-            avatarModel = AvatarUiModel.Mock.fromName(name),
-        )
-    }
-
     AddContactPanelPreview(
-        state = previewState(query = "Mo", searchResult = SearchState.Loaded(users.toSizedList())),
+        state = previewState(
+            query = "Mo",
+            results = AddContactSearchResults.Sections(
+                recents = previewRecents("mosticRiver.88"),
+                allUsers = previewUsers("monster.01", "molecule", "mostwanted", "morales"),
+            ),
+        ),
         searchActive = true,
     )
 }
 
+@Preview(widthDp = 380)
+@Composable
+private fun AddContactPanelLoadingPreview() {
+    AddContactPanelPreview(
+        state = previewState(query = "Mo", results = AddContactSearchResults.Loading),
+        searchActive = true,
+    )
+}
+
+private fun previewRecents(vararg names: String) = names.map { name ->
+    RecentChatUiModel(
+        chatId = ChatId.fromContact(Random.randomBytes(32).intoAccountId()),
+        key = name,
+        title = name,
+        avatarModel = AvatarUiModel.Mock.fromName(name),
+        status = NoRowStatus,
+        isMenuOpen = false,
+    )
+}.toImmutableList()
+
+private fun previewUsers(vararg names: String) = names.map { name ->
+    UserSearchResultUiModel(
+        contactAccountId = Random.randomBytes(32).intoAccountId(),
+        username = name,
+        avatarModel = AvatarUiModel.Mock.fromName(name),
+    )
+}.toImmutableList()
+
 private fun previewState(
     query: String,
-    searchResult: SearchState<SizedList<UserSearchResultUiModel>>,
+    results: AddContactSearchResults,
+    recents: ImmutableList<RecentChatUiModel> = persistentListOf(),
 ) = AddContactUiState(
     searchQuery = query,
-    searchResult = searchResult,
+    results = results,
     loadingContactId = null,
-    recents = persistentListOf(),
+    recents = recents,
 )

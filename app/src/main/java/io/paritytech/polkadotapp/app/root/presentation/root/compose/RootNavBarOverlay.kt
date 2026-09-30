@@ -239,6 +239,7 @@ fun RootNavBarOverlay(
                         onAppClose = onAppClose,
                         onScanClicked = { onScannerTooltipDismiss(); pull.toggleScan() },
                         onScanHandled = { navigate -> pull.collapsePanels(); navigate?.invoke() },
+                        onScanDismiss = { pull.collapsePanels() },
                         onScannerTooltipDismiss = onScannerTooltipDismiss,
                         onRestingHeightChange = { if (!hidden) onBarHeight(it) },
                     )

@@ -1,8 +1,8 @@
 package io.paritytech.polkadotapp.app.root.presentation.root.compose
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.updateTransition
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -28,7 +27,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.ime
-import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -48,8 +46,6 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawWithCache
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
@@ -116,9 +112,6 @@ private val NavBarCornerRadius = 32.dp
 
 private const val CAMERA_START_AT_OPENING_FRACTION = 0.3f
 
-private const val KEYBOARD_SHADOW_START = 0.1f
-private const val KEYBOARD_SHADOW_OPACITY = 0.75f
-
 private val AppMenuIconSize = 20.dp
 private val AppMenuShadowElevation = 8.dp
 
@@ -132,7 +125,6 @@ private val AppMenuShadowElevation = 8.dp
  * the pill to sit as a bare icon — unless [FeatureOption.TAB_BAR_CONNECTIVITY_INDICATOR] is on, whose design
  * keeps the pill and the full width with the labels still off.
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun RootNavBar(
     modifier: Modifier = Modifier,
@@ -151,6 +143,7 @@ fun RootNavBar(
     onAppClose: (Long) -> Unit,
     onScanClicked: () -> Unit,
     onScanHandled: (navigate: (() -> Unit)?) -> Unit,
+    onScanDismiss: () -> Unit,
     onScannerTooltipDismiss: () -> Unit,
     onRestingHeightChange: (Dp) -> Unit,
 ) {
@@ -174,10 +167,6 @@ fun RootNavBar(
 
     val density = LocalDensity.current
     var tabRowHeight by remember { mutableStateOf(0.dp) }
-    val keyboardShadow by animateFloatAsState(
-        targetValue = if (scanPanelShown && WindowInsets.isImeVisible) 1f else 0f,
-        label = "TabRowKeyboardShadow",
-    )
     val topPadding = PolkadotTheme.spacings.small
     val bottomPadding = PolkadotTheme.spacings.small
 
@@ -195,7 +184,7 @@ fun RootNavBar(
             .padding(top = topPadding, bottom = bottomPadding)
             .navigationBarsPadding()
             .modifyIf(scanPanelShown) {
-                windowInsetsPadding(WindowInsets.ime.exclude(WindowInsets(bottom = tabRowHeight / 2 + bottomPadding)))
+                windowInsetsPadding(WindowInsets.ime.exclude(WindowInsets(bottom = tabRowHeight + bottomPadding)))
             },
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
@@ -228,10 +217,18 @@ fun RootNavBar(
                     }
                 }
 
+                BackHandler(enabled = scanExpanded, onBack = onScanDismiss)
+
+                val dragState = rememberScanPanelDragState(onDismiss = onScanDismiss)
+                LaunchedEffect(scanExpanded) {
+                    if (scanExpanded) dragState.reset()
+                }
+
                 val panelPadding = PolkadotTheme.spacings.small
                 ScanPanel(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .dragToDismiss(dragState)
                         .padding(panelPadding),
                     scannerShape = RoundedCornerShape(NavBarCornerRadius - panelPadding),
                     cameraActive = cameraActive,
@@ -241,8 +238,7 @@ fun RootNavBar(
 
             PolkadotNavigationBar(
                 modifier = Modifier
-                    .onSizeChanged { tabRowHeight = with(density) { it.height.toDp() } }
-                    .keyboardShadow { keyboardShadow },
+                    .onSizeChanged { tabRowHeight = with(density) { it.height.toDp() } },
                 selectedIndex = selectedIndex,
                 itemCount = availableTabs.size + if (networkStatusItem) 1 else 0,
                 shape = RoundedCornerShape(NavBarCornerRadius),
@@ -297,17 +293,6 @@ fun RootNavBar(
                 }
             }
         }
-    }
-}
-
-private fun Modifier.keyboardShadow(alpha: () -> Float): Modifier = drawWithCache {
-    val brush = Brush.verticalGradient(
-        KEYBOARD_SHADOW_START to Color.Transparent,
-        1f to Color.Black.copy(alpha = KEYBOARD_SHADOW_OPACITY),
-    )
-    onDrawWithContent {
-        drawContent()
-        drawRect(brush = brush, alpha = alpha())
     }
 }
 
@@ -410,10 +395,9 @@ private fun ScannerButton(
 ) {
     Box(
         modifier = Modifier
-            .height(CenterPillHeight)
+            .size(CenterPillHeight)
             .clip(shape)
-            .clickable(onClick = onScanClicked)
-            .padding(horizontal = PolkadotTheme.spacings.medium),
+            .clickable(onClick = onScanClicked),
         contentAlignment = Alignment.Center,
     ) {
         ScannerIconWithTooltip(
