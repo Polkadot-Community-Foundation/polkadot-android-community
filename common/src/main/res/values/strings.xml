@@ -1053,7 +1053,9 @@ I’m attaching PDF with more information and details regarding the Tattoo Stenc
     <string name="chat_search_error_message">Search failed. Please try again</string>
 
     <string name="add_contact_search_placeholder">Type username</string>
-    <string name="add_contact_search_prompt">Start a conversation with someone \nby typing their username</string>
+    <string name="add_contact_recents_header">RECENTS</string>
+    <string name="add_contact_no_recent_searches">No recent searches</string>
+    <string name="add_contact_users_header">USERS</string>
     <string name="add_contact_bottom_sheet_message">Add a contact\nand start a chat with\n%1$s</string>
     <string name="add_contact_bottom_sheet_description">After you enter the chat, make sure <b>%1$s</b> starts one with you as well, or your message may not be seen.</string>
     <string name="add_contact_bottom_sheet_button_text">Add to Contacts</string>
@@ -1480,6 +1482,7 @@ I’m attaching PDF with more information and details regarding the Tattoo Stenc
     <string name="chain_health_state_not_producing">Not producing blocks</string>
     <string name="chain_health_state_connecting">Connecting…</string>
     <string name="chain_health_state_broken">Chain broken</string>
+    <string name="chain_health_state_disconnected">Disconnected</string>
     <string name="chain_health_state_offline">No internet</string>
     <string name="chain_health_connected_summary">%1$s · Live %2$s · Block %3$s</string>
     <string name="chain_health_live_percent">%1$d%%</string>
@@ -1492,13 +1495,14 @@ I’m attaching PDF with more information and details regarding the Tattoo Stenc
     <string name="chain_health_chain_people">People Chain</string>
     <string name="chain_health_chain_hub">Hub Chain</string>
     <string name="chain_health_chain_bulletin">Bulletin Chain</string>
+    <string name="chain_health_statement_store">Statement Store</string>
     <string name="chain_health_tooltip_title">Network status</string>
-    <string name="chain_health_tooltip_message">These rings track your connection to each chain.</string>
+    <string name="chain_health_tooltip_message">These rings track your connection to each chain and to the statement store.</string>
 
     <string name="splash_waiting_for_network_title">Waiting for network connection…</string>
     <string name="splash_waiting_for_network_message">Turn off Airplane Mode or check your internet</string>
 
-    <string name="pocket_digital_dollar_title">Balance Card</string>
+    <string name="pocket_digital_dollar_title">%1$s Card</string>
     <string name="pocket_digital_dollar_card_title">%1$s</string>
     <string name="pocket_digital_dollar_faucet_top_up">Faucet Top Up</string>
     <string name="pocket_collectibles_open_button">View collectibles</string>
@@ -1507,10 +1511,10 @@ I’m attaching PDF with more information and details regarding the Tattoo Stenc
     <string name="pocket_error_withdraw_unavailable">Withdrawing %1$s isn\'t available right now. Try again later.</string>
     <string name="pocket_error_auto_fund_failed">Couldn\'t add test funds to this account. Try again.</string>
     <string name="pocket_error_share_coinage_logs_failed">Couldn\'t share the coinage logs. Try again.</string>
-    <string name="pocket_coinage_balance_title">Balance</string>
+    <string name="pocket_coinage_balance_title">Total</string>
     <string name="pocket_coinage_ready">Ready</string>
     <string name="pocket_coinage_clearing">Clearing</string>
-    <string name="pocket_coinage_total_balance">Total Balance</string>
+    <string name="pocket_coinage_total_balance">Total</string>
     <string name="pocket_coinage_share_logs">Share Coinage Logs</string>
     <string name="pocket_debug_features_title">Debug features</string>
     <string name="pocket_debug_features_subtitle">Not visible in production</string>
@@ -1525,7 +1529,7 @@ I’m attaching PDF with more information and details regarding the Tattoo Stenc
     <string name="pocket_coinage_key_block">A single block means no past payments at all. The shorter it is, the more fungible the coin.</string>
     <string name="pocket_coinage_key_voucher">Coins that gain privacy. The solid block is how fungible they will be at best; the striped part is the current level.</string>
 
-    <string name="payment_privacy_mode_title">%1$s Privacy Mode</string>
+    <string name="payment_privacy_mode_title">Payments Privacy Mode</string>
     <string name="payment_privacy_mode_fastest_label">Fastest</string>
     <string name="payment_privacy_mode_fastest_description">Fastest payments, lower privacy</string>
     <string name="payment_privacy_mode_fastest_accessibility">Fastest. Fastest payments, lower privacy.</string>

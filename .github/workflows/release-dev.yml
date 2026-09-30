@@ -49,7 +49,7 @@ name: Release (Dev)
 # Optional: R2_UPLOAD_TOKEN + CLOUDFLARE_ACCOUNT_ID (publish APK to the PCF downloads host).
 #
 # Required build variables (upstream reads them with readSecretOrThrow, empty == missing):
-#   APPLICATION_ID, APPLICATION_NAME, CURRENCY_SYMBOL, FIRESTORE_DATABASE_ID,
+#   APPLICATION_ID, APPLICATION_NAME, CURRENCY_SYMBOL, FIAT_SYMBOL, FIRESTORE_DATABASE_ID,
 #   LOG_COLLECTION_EMAIL, PRIVACY_POLICY_URL, TERMS_OF_USE_URL, SENTRY_ORG, SENTRY_PROJECT.
 #   They are NOT secrets. Each is read from a repository Variable of the same name and
 #   falls back to a PCF-owned value (never a paritytech one), so a
@@ -161,6 +161,7 @@ jobs:
           APPLICATION_NAME: ${{ vars.APPLICATION_NAME || 'Polkadot' }}
           CONTACT_EMAIL: ${{ vars.CONTACT_EMAIL || 'info@pcf.network' }}
           CURRENCY_SYMBOL: ${{ vars.CURRENCY_SYMBOL || 'CASH' }}
+          FIAT_SYMBOL: ${{ vars.FIAT_SYMBOL || '$' }}
           FIRESTORE_DATABASE_ID: ${{ vars.FIRESTORE_DATABASE_ID || '(default)' }}
           LOG_COLLECTION_EMAIL: ${{ vars.LOG_COLLECTION_EMAIL || 'logs@example.com' }}
           PRIVACY_POLICY_URL: ${{ vars.PRIVACY_POLICY_URL || 'https://example.com/privacy' }}
