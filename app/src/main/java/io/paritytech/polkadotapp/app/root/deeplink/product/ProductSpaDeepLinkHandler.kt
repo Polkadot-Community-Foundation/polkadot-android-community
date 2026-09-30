@@ -8,7 +8,6 @@ import io.paritytech.polkadotapp.common.presentation.deeplink.DeepLinkHandler.Co
 import io.paritytech.polkadotapp.common.presentation.deeplink.DeeplinkProcessingOutcome
 import io.paritytech.polkadotapp.common.utils.CoroutineDispatchers
 import io.paritytech.polkadotapp.common.utils.FeatureOption
-import io.paritytech.polkadotapp.common.utils.isDisabled
 import io.paritytech.polkadotapp.common.utils.isEnabled
 import io.paritytech.polkadotapp.feature_account_api.data.repository.AccountRepository
 import io.paritytech.polkadotapp.feature_account_api.data.repository.awaitAccountsInitialized
@@ -35,12 +34,8 @@ internal class ProductSpaDeepLinkHandler @Inject constructor(
         return FeatureOption.ARBITRARY_PRODUCTS.isEnabled || data.isBuiltInProduct(tld)
     }
 
-    // The app still owns its own dotNS destinations when arbitrary ones are off, so funding links
-    // keep working. Get CASH is gated off while getcash.<tld> is undeployed — see
-    // FeatureOption.GET_CASH_PRODUCT — so an inbound getcash link is not claimed into a 404.
+    // The app still owns its own dotNS destinations when arbitrary ones are off, so funding links keep working.
     private suspend fun Uri.isBuiltInProduct(tld: DotNsTld): Boolean {
-        if (FeatureOption.GET_CASH_PRODUCT.isDisabled) return false
-
         val fundingProductIds = fundingDomainProvider.getFundingProductIds().getOrNull() ?: return false
 
         return ProductId.fromUrl(asWebUri(), tld).getOrNull() in fundingProductIds
