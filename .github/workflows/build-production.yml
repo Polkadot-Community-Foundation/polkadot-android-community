@@ -221,6 +221,7 @@ jobs:
           APPLICATION_NAME: ${{ vars.APPLICATION_NAME || 'Polkadot' }}
           CONTACT_EMAIL: ${{ vars.CONTACT_EMAIL || 'info@pcf.network' }}
           CURRENCY_SYMBOL: ${{ vars.CURRENCY_SYMBOL || 'CASH' }}
+          FIAT_SYMBOL: ${{ vars.FIAT_SYMBOL || '$' }}
           FIRESTORE_DATABASE_ID: ${{ vars.FIRESTORE_DATABASE_ID || '(default)' }}
           LOG_COLLECTION_EMAIL: ${{ vars.LOG_COLLECTION_EMAIL }}
           PRIVACY_POLICY_URL: ${{ vars.PRIVACY_POLICY_URL }}
