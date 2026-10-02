@@ -21,29 +21,24 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextLayoutResult
-import androidx.compose.ui.text.TextMeasurer
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.TextUnit
-import androidx.compose.ui.unit.sp
 import io.paritytech.polkadotapp.common.presentation.compose.withCurrencyTickerStyle
 import io.paritytech.polkadotapp.common.presentation.paymentAsset.LocalPaymentAssetBrand
 import io.paritytech.polkadotapp.common.presentation.paymentAsset.PaymentAssetBrand
 import io.paritytech.polkadotapp.design.components.spacer.VerticalSpacer
 import io.paritytech.polkadotapp.design.components.text.NovaText
+import io.paritytech.polkadotapp.design.components.text.fitOnOneLine
 import io.paritytech.polkadotapp.design.theme.PolkadotTheme
 import io.paritytech.polkadotapp.design.utils.conditionalNotNull
 import kotlin.math.roundToInt
 import io.paritytech.polkadotapp.common.R as RCommon
 
 private const val LOCKUP_MAX_WIDTH_FRACTION = 0.8f
-private const val FONT_SIZE_FIT_STEPS = 8
 
 internal data class LockupWidths(
     val fiatSymbol: Float,
@@ -185,40 +180,6 @@ internal fun EnterAmountInput(
             textAlign = TextAlign.Center
         )
     }
-}
-
-private fun TextMeasurer.fitOnOneLine(
-    text: AnnotatedString,
-    style: TextStyle,
-    minFontSize: TextUnit,
-    maxWidth: Int,
-): TextLayoutResult {
-    val constraints = Constraints(maxWidth = maxWidth)
-
-    fun measureAt(fontSize: Float) =
-        measure(text, style.copy(fontSize = fontSize.sp), softWrap = false, maxLines = 1, constraints = constraints)
-
-    val atMax = measureAt(style.fontSize.value)
-    if (!atMax.didOverflowWidth) return atMax
-
-    val atMin = measureAt(minFontSize.value)
-    if (atMin.didOverflowWidth) return atMin
-
-    var fits = atMin
-    var low = minFontSize.value
-    var high = style.fontSize.value
-    repeat(FONT_SIZE_FIT_STEPS) {
-        val mid = (low + high) / 2
-        val candidate = measureAt(mid)
-        if (candidate.didOverflowWidth) {
-            high = mid
-        } else {
-            low = mid
-            fits = candidate
-        }
-    }
-
-    return fits
 }
 
 private fun TextLayoutResult.lockupWidths(fiatSymbolLength: Int, amountLength: Int): LockupWidths {
