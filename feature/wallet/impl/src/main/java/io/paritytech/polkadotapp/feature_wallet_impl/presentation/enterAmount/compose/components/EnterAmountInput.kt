@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.text.BasicTextField
@@ -52,21 +51,19 @@ internal data class LockupWidths(
     val ticker: Float,
 )
 
-internal data class LockupPlacement(
-    val amountSlot: Float,
-    val offsetX: Float,
-    val amountOverflows: Boolean,
+internal data class AmountSlot(
+    val width: Float,
+    val overflows: Boolean,
 )
 
 internal fun maxLockupWidth(boxWidth: Int): Int = (boxWidth * LOCKUP_MAX_WIDTH_FRACTION).roundToInt()
 
-internal fun lockupPlacement(boxWidth: Int, widths: LockupWidths): LockupPlacement {
-    val amountSlotLimit = maxLockupWidth(boxWidth) - widths.fiatSymbol - widths.ticker
-    val amountOverflows = widths.amount > amountSlotLimit
-    val amountSlot = if (amountOverflows) amountSlotLimit.coerceAtLeast(0f) else widths.amount
-    val offsetX = ((boxWidth - widths.fiatSymbol - amountSlot - widths.ticker) / 2).coerceAtLeast(0f)
+internal fun amountSlot(boxWidth: Int, widths: LockupWidths): AmountSlot {
+    val limit = maxLockupWidth(boxWidth) - widths.fiatSymbol - widths.ticker
+    val overflows = widths.amount > limit
+    val width = if (overflows) limit.coerceAtLeast(0f) else widths.amount
 
-    return LockupPlacement(amountSlot = amountSlot, offsetX = offsetX, amountOverflows = amountOverflows)
+    return AmountSlot(width = width, overflows = overflows)
 }
 
 @Composable
@@ -100,8 +97,8 @@ internal fun EnterAmountInput(
             val fitted = remember(textMeasurer, lockup, maxStyle, minFontSize, boxWidth) {
                 textMeasurer.fitOnOneLine(lockup, maxStyle, minFontSize, maxLockupWidth(boxWidth))
             }
-            val placement = remember(fitted, boxWidth) {
-                lockupPlacement(boxWidth, fitted.lockupWidths(fiatSymbol.length, measuredAmount.length))
+            val slot = remember(fitted, boxWidth) {
+                amountSlot(boxWidth, fitted.lockupWidths(fiatSymbol.length, measuredAmount.length))
             }
             val style = remember(maxStyle, fitted) { maxStyle.copy(fontSize = fitted.layoutInput.style.fontSize) }
             val amountColor = PolkadotTheme.colors.fg.primary
@@ -118,7 +115,7 @@ internal fun EnterAmountInput(
                 style = maxStyle,
             )
 
-            Row(modifier = Modifier.offset(x = with(density) { placement.offsetX.toDp() })) {
+            Row(modifier = Modifier.align(Alignment.TopCenter)) {
                 NovaText(
                     modifier = Modifier.alignByBaseline(),
                     text = fiatSymbol,
@@ -130,7 +127,7 @@ internal fun EnterAmountInput(
                 Box(
                     modifier = Modifier
                         .alignByBaseline()
-                        .width(with(density) { placement.amountSlot.toDp() })
+                        .width(with(density) { slot.width.toDp() })
                 ) {
                     BasicTextField(
                         value = input,
@@ -139,7 +136,7 @@ internal fun EnterAmountInput(
                         enabled = enabled,
                         modifier = Modifier
                             .then(
-                                if (placement.amountOverflows) {
+                                if (slot.overflows) {
                                     Modifier.fillMaxWidth()
                                 } else {
                                     Modifier.wrapContentWidth(align = Alignment.Start, unbounded = true)
