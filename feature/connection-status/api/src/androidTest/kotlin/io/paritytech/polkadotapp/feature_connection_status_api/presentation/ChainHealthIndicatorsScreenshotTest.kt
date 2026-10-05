@@ -20,11 +20,10 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import io.paritytech.polkadotapp.design.theme.PolkadotTheme
 import io.paritytech.polkadotapp.designsystem.colors.PolkadotColorsPalette
-import io.paritytech.polkadotapp.feature_connection_status_api.presentation.mixin.ChainGlyph
 import io.paritytech.polkadotapp.feature_connection_status_api.presentation.mixin.ChainHealthIndicator
-import io.paritytech.polkadotapp.feature_connection_status_api.presentation.mixin.ChainHealthIndicator.Speed
 import io.paritytech.polkadotapp.feature_connection_status_api.presentation.mixin.ChainHealthIndicatorsModel
 import io.paritytech.polkadotapp.feature_connection_status_api.presentation.mixin.ChainHealthItemModel
+import io.paritytech.polkadotapp.feature_connection_status_api.presentation.mixin.IndicatorRow
 import kotlinx.collections.immutable.persistentListOf
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -44,29 +43,27 @@ class ChainHealthIndicatorsScreenshotTest {
     val compose = createComposeRule()
 
     @Test
-    fun healthyIsAFilledDisc() = renderAndAssert("healthy", ChainHealthIndicator.Healthy, FULL_RING, null) { it.fg.primary }
+    fun healthyIsAFilledDisc() = renderAndAssert("healthy", ChainHealthIndicator.Healthy(liveness = null), FULL_RING, null) { it.fg.primary }
 
     @Test
     fun notProducingBlocksIsAThreeQuarterRing() =
         renderAndAssert("not-producing", ChainHealthIndicator.Outage, THREE_QUARTER_MIN, THREE_QUARTER_MAX) { it.stroke.secondary }
 
     @Test
-    fun goodSpeedIsThreeQuartersColourless() =
-        renderAndAssert("speed-good", ChainHealthIndicator.ConnectionSpeed(Speed.Good, arc = 0.75f), THREE_QUARTER_MIN, THREE_QUARTER_MAX) { it.fg.primary }
+    fun threeQuartersProducedIsAThreeQuarterColourlessArc() =
+        renderAndAssert("production-75", production(0.75f), THREE_QUARTER_MIN, THREE_QUARTER_MAX) { it.fg.primary }
 
     @Test
-    fun fairSpeedIsHalfAWarningArc() =
-        renderAndAssert("speed-fair", ChainHealthIndicator.ConnectionSpeed(Speed.Fair, arc = 0.5f), FAIR_MIN, FAIR_MAX) { it.fg.warning }
+    fun halfProducedIsAHalfColourlessArc() =
+        renderAndAssert("production-50", production(0.5f), HALF_MIN, HALF_MAX) { it.fg.primary }
 
     @Test
-    fun lowSpeedIsAQuarterErrorArc() =
-        renderAndAssert("speed-low", ChainHealthIndicator.ConnectionSpeed(Speed.Low, arc = 0.25f), LOW_MIN, LOW_MAX) { it.fg.error }
+    fun underHalfProducedIsAWarningArc() =
+        renderAndAssert("production-45", production(0.45f), HALF_MIN, HALF_MAX) { it.fg.warning }
 
-    // The band picks the colour, the arc picks the length: a Good score near its floor must draw a shorter
-    // ring than one near its ceiling, or the scale has collapsed back to one length per band.
     @Test
-    fun goodSpeedAtItsBandFloorDrawsAShorterArc() =
-        renderAndAssert("speed-good-floor", ChainHealthIndicator.ConnectionSpeed(Speed.Good, arc = 0.5f), FAIR_MIN, FAIR_MAX) { it.fg.primary }
+    fun underAQuarterProducedIsAnErrorArc() =
+        renderAndAssert("production-20", production(0.2f), QUARTER_MIN, QUARTER_MAX) { it.fg.error }
 
     @Test
     fun connectingIsAColourlessRing() =
@@ -76,15 +73,43 @@ class ChainHealthIndicatorsScreenshotTest {
     fun disconnectedIsADottedRing() =
         renderAndAssert("disconnected", ChainHealthIndicator.Disconnected, DOTTED_MIN, DOTTED_MAX) { it.stroke.secondary }
 
+    @Test
+    fun offlineIsTheSameDottedRing() =
+        renderAndAssert("offline", ChainHealthIndicator.Offline, DOTTED_MIN, DOTTED_MAX) { it.stroke.secondary }
+
+    @Test
+    fun statementStoreConnectedIsAFilledDisc() =
+        renderStatementStore("statement-store-connected", CONNECTED, FULL_RING, null) { it.fg.primary }
+
+    @Test
+    fun statementStoreConnectingIsAColourlessRing() =
+        renderStatementStore("statement-store-connecting", ChainHealthIndicator.Connecting, FULL_RING, null) { it.stroke.secondary }
+
+    @Test
+    fun statementStoreDisconnectedIsADottedRing() = renderStatementStore(
+        "statement-store-disconnected",
+        ChainHealthIndicator.Disconnected,
+        DOTTED_MIN,
+        DOTTED_MAX,
+    ) { it.stroke.secondary }
+
+    @Test
+    fun statementStoreOfflineIsTheSameDottedRing() = renderStatementStore(
+        "statement-store-offline",
+        ChainHealthIndicator.Offline,
+        DOTTED_MIN,
+        DOTTED_MAX,
+    ) { it.stroke.secondary }
+
     // The panel draws the same states larger; a size not threaded through one drawing shows up here as a
     // ring band sampled at the wrong radius.
     @Test
-    fun panelSizeKeepsTheFairArcInItsBand() =
+    fun panelSizeKeepsTheWarningArcInItsBand() =
         renderAndAssert(
-            "speed-fair-panel",
-            ChainHealthIndicator.ConnectionSpeed(Speed.Fair, arc = 0.5f),
-            FAIR_MIN,
-            FAIR_MAX,
+            "production-45-panel",
+            production(0.45f),
+            HALF_MIN,
+            HALF_MAX,
             indicatorSize = ChainIndicatorSize.Panel,
         ) { it.fg.warning }
 
@@ -119,12 +144,28 @@ class ChainHealthIndicatorsScreenshotTest {
         assertTrue("the cross must not be the ring colour", !pixels[x, y].isClose(ring))
     }
 
+    private fun renderStatementStore(
+        name: String,
+        indicator: ChainHealthIndicator,
+        minimumShare: Float,
+        maximumShare: Float?,
+        surround: (PolkadotColorsPalette) -> Color,
+    ) = renderAndAssert(
+        name = name,
+        indicator = indicator,
+        minimumShare = minimumShare,
+        maximumShare = maximumShare,
+        model = { ChainHealthIndicatorsModel(persistentListOf(item(IndicatorRow.StatementStore, it))) },
+        surround = surround,
+    )
+
     private fun renderAndAssert(
         name: String,
         indicator: ChainHealthIndicator,
         minimumShare: Float,
         maximumShare: Float?,
         indicatorSize: ChainIndicatorSize = ChainIndicatorSize.Bar,
+        model: (ChainHealthIndicator) -> ChainHealthIndicatorsModel = ::model,
         surround: (PolkadotColorsPalette) -> Color,
     ) {
         var expected = Color.Unspecified
@@ -158,18 +199,19 @@ class ChainHealthIndicatorsScreenshotTest {
 
     private fun model(indicator: ChainHealthIndicator) = ChainHealthIndicatorsModel(
         persistentListOf(
-            item("people", ChainGlyph.People, indicator),
-            item("hub", ChainGlyph.AssetHub, indicator),
-            item("bulletin", ChainGlyph.Bulletin, indicator),
+            item(IndicatorRow.People, indicator),
+            item(IndicatorRow.AssetHub, indicator),
+            item(IndicatorRow.Bulletin, indicator),
+            item(IndicatorRow.StatementStore, indicator),
         ),
     )
 
-    private fun item(name: String, glyph: ChainGlyph, indicator: ChainHealthIndicator) = ChainHealthItemModel(
-        chainName = name,
-        glyph = glyph,
+    private fun item(row: IndicatorRow, indicator: ChainHealthIndicator) = ChainHealthItemModel(
+        row = row,
         indicator = indicator,
-        lastBlockAt = null,
     )
+
+    private fun production(share: Float) = ChainHealthIndicator.of(share, BLOCK_TIME)
 
     private fun surroundShare(image: ImageBitmap, expected: Color): Float {
         val pixels = image.toPixelMap()
@@ -208,12 +250,14 @@ class ChainHealthIndicatorsScreenshotTest {
         // The broken ring is dashed, so a ring-band sweep only ever lands on part of it.
         const val DOTTED_MIN = 0.35f
         const val DOTTED_MAX = 0.85f
-        // Each speed band drains the ring by a quarter, so each asserts its own slice and no other's.
+        // Each share asserts its own slice of the ring and no other's.
         const val THREE_QUARTER_MIN = 0.68f
         const val THREE_QUARTER_MAX = 0.86f
-        const val FAIR_MIN = 0.43f
-        const val FAIR_MAX = 0.61f
-        const val LOW_MIN = 0.18f
-        const val LOW_MAX = 0.36f
+        const val HALF_MIN = 0.43f
+        const val HALF_MAX = 0.61f
+        const val QUARTER_MIN = 0.18f
+        const val QUARTER_MAX = 0.36f
+        val BLOCK_TIME = 2.seconds
+        val CONNECTED = ChainHealthIndicator.Healthy(liveness = null)
     }
 }

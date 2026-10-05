@@ -22,23 +22,19 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import io.paritytech.polkadotapp.common.presentation.compose.withCurrencyTickerStyle
 import io.paritytech.polkadotapp.common.presentation.loading.LoadingState
 import io.paritytech.polkadotapp.common.presentation.loading.onLoaded
-import io.paritytech.polkadotapp.common.utils.CurrencyConfig
+import io.paritytech.polkadotapp.common.presentation.paymentAsset.LocalPaymentAssetBrand
+import io.paritytech.polkadotapp.common.presentation.paymentAsset.PaymentAssetBrand
 import io.paritytech.polkadotapp.design.components.button.common.PolkadotButtonShape
-import io.paritytech.polkadotapp.design.components.button.common.PolkadotButtonStyle
-import io.paritytech.polkadotapp.design.components.button.default.PolkadotButton
+import io.paritytech.polkadotapp.design.components.button.default.PolkadotButtonSize
+import io.paritytech.polkadotapp.design.components.button.default.PolkadotTextButton
 import io.paritytech.polkadotapp.design.components.button.icon.PolkadotIconButton
 import io.paritytech.polkadotapp.design.components.button.icon.PolkadotIconButtonSize
-import io.paritytech.polkadotapp.design.components.icon.NovaIcon
 import io.paritytech.polkadotapp.design.components.icon.NovaIcons
 import io.paritytech.polkadotapp.design.components.icon.vectors.Add
-import io.paritytech.polkadotapp.design.components.icon.vectors.ArrowUpRight
-import io.paritytech.polkadotapp.design.components.icon.vectors.ArrowUpwards
 import io.paritytech.polkadotapp.design.components.navigationbar.LocalAppNavigationBarInsets
 import io.paritytech.polkadotapp.design.components.spacer.VerticalSpacer
-import io.paritytech.polkadotapp.design.components.text.NovaText
 import io.paritytech.polkadotapp.design.components.topbar.PolkadotTopBar
 import io.paritytech.polkadotapp.design.components.topbar.TopBarTitleAlignment
 import io.paritytech.polkadotapp.design.components.topbar.rememberTopBarAction
@@ -51,12 +47,13 @@ import io.paritytech.polkadotapp.feature_wallet_impl.presentation.pocket.compose
 import io.paritytech.polkadotapp.feature_wallet_impl.presentation.pocket.compose.pocketContentSlide
 import io.paritytech.polkadotapp.feature_wallet_impl.presentation.pocket.models.BalanceRestoreUiState
 import io.paritytech.polkadotapp.feature_wallet_impl.presentation.pocket.models.CoinageBalanceBreakdownUiModel
-import io.paritytech.polkadotapp.feature_wallet_impl.presentation.pocket.models.CoinageCompositionUiModel
 import io.paritytech.polkadotapp.feature_wallet_impl.presentation.pocket.models.CoinageUiState
 import io.paritytech.polkadotapp.feature_wallet_impl.presentation.pocket.models.DigitalDollarCardDetailsUiState
 import io.paritytech.polkadotapp.feature_wallet_impl.presentation.pocket.models.PocketCardUiModel
 import kotlinx.collections.immutable.persistentListOf
 import io.paritytech.polkadotapp.common.R as RCommon
+
+private val ActionButtonMinHeight = 48.dp
 
 @Composable
 fun DigitalDollarCardDetails(
@@ -81,7 +78,6 @@ fun DigitalDollarCardDetails(
         onWithdrawClick = viewModel::onWithdrawClick,
         onAutoFundClick = viewModel::onAutoFundClick,
         onDetailsToggled = viewModel::onDetailsToggled,
-        onKeyToggled = viewModel::onKeyToggled,
         onShareLogsClick = viewModel::onShareLogsClick,
         onBackupUpdateClick = viewModel::onBackupUpdateClick,
         onBackupCloseClick = viewModel::onBackupCloseClick
@@ -100,7 +96,6 @@ private fun DigitalDollarCardDetailsContent(
     onWithdrawClick: () -> Unit,
     onAutoFundClick: () -> Unit,
     onDetailsToggled: () -> Unit,
-    onKeyToggled: () -> Unit,
     onShareLogsClick: () -> Unit,
     onBackupUpdateClick: () -> Unit,
     onBackupCloseClick: () -> Unit
@@ -109,7 +104,7 @@ private fun DigitalDollarCardDetailsContent(
         modifier = Modifier.fillMaxSize()
     ) {
         PolkadotTopBar(
-            title = stringResource(RCommon.string.pocket_digital_dollar_title),
+            title = stringResource(RCommon.string.pocket_digital_dollar_title, LocalPaymentAssetBrand.current.symbol),
             navigationAction = rememberTopBarAction(onBack),
             titleAlignment = TopBarTitleAlignment.Center
         )
@@ -181,7 +176,6 @@ private fun DigitalDollarCardDetailsContent(
                         state = coinageState,
                         onAutoFundClick = onAutoFundClick,
                         onDetailsToggled = onDetailsToggled,
-                        onKeyToggled = onKeyToggled,
                         onShareLogsClick = onShareLogsClick
                     )
                 }
@@ -198,62 +192,36 @@ private fun SendCashActions(
     onWithdrawClick: () -> Unit
 ) {
     Row(
-        modifier = modifier.height(IntrinsicSize.Min),
+        modifier = modifier,
         horizontalArrangement = Arrangement.spacedBy(PolkadotTheme.spacings.small),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        SendCashButton(
-            modifier = Modifier.weight(1f),
+        PolkadotTextButton(
+            text = stringResource(RCommon.string.common_send),
+            modifier = Modifier
+                .weight(1f)
+                .defaultMinSize(minHeight = ActionButtonMinHeight),
+            size = PolkadotButtonSize.large(),
+            shape = PolkadotButtonShape.pill,
             onClick = onSendClick
         )
 
         PolkadotIconButton(
-            modifier = Modifier
-                .fillMaxHeight()
-                .aspectRatio(1f),
             icon = NovaIcons.Add,
             onClick = onGetCashClick,
             shape = PolkadotButtonShape.pill,
-            size = PolkadotIconButtonSize.medium()
+            size = PolkadotIconButtonSize.mediumIncreased()
         )
 
-        PolkadotIconButton(
+        PolkadotTextButton(
+            text = stringResource(RCommon.string.common_withdraw),
             modifier = Modifier
-                .fillMaxHeight()
-                .aspectRatio(1f),
-            icon = NovaIcons.ArrowUpRight,
-            onClick = onWithdrawClick,
+                .weight(1f)
+                .defaultMinSize(minHeight = ActionButtonMinHeight),
+            size = PolkadotButtonSize.large(),
             shape = PolkadotButtonShape.pill,
-            size = PolkadotIconButtonSize.medium()
+            onClick = onWithdrawClick
         )
-    }
-}
-
-@Composable
-private fun SendCashButton(
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit
-) {
-    PolkadotButton(
-        modifier = modifier,
-        onClick = onClick,
-        style = PolkadotButtonStyle.primary(),
-        shape = PolkadotButtonShape.pill
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(PolkadotTheme.spacings.small)
-        ) {
-            NovaIcon(
-                modifier = Modifier.size(16.dp),
-                imageVector = NovaIcons.ArrowUpwards
-            )
-
-            NovaText(
-                stringResource(RCommon.string.pocket_digital_dollar_send_button, CurrencyConfig.symbol)
-                    .withCurrencyTickerStyle(PolkadotTheme.typography.title.large)
-            )
-        }
     }
 }
 
@@ -262,7 +230,8 @@ private fun SendCashButton(
 private fun DigitalDollarCardDetailsPreview() {
     PolkadotTheme {
         CompositionLocalProvider(
-            LocalTokenAmountFormatter provides TokenAmountFormatter.mocked
+            LocalTokenAmountFormatter provides TokenAmountFormatter.mocked,
+            LocalPaymentAssetBrand provides PaymentAssetBrand.mocked
         ) {
             DigitalDollarCardDetailsContent(
                 card = PocketCardUiModel.DigitalDollar(
@@ -280,8 +249,7 @@ private fun DigitalDollarCardDetailsPreview() {
                             totalBalance = TokenAmountModel.mock,
                             readyBalance = TokenAmountModel.mock,
                             clearingBalance = TokenAmountModel.mock,
-                            composition = CoinageCompositionUiModel.EMPTY,
-                            holdings = persistentListOf(),
+                            coins = persistentListOf(),
                             breakdown = CoinageBalanceBreakdownUiModel(
                                 availablePrivate = TokenAmountModel.mock,
                                 gainingPrivacy = TokenAmountModel.mock,
@@ -293,8 +261,7 @@ private fun DigitalDollarCardDetailsPreview() {
                         fundInProgress = false,
                         actionsEnabled = true,
                         shareLogsEnabled = true,
-                        detailsVisible = false,
-                        keyVisible = false
+                        detailsVisible = false
                     )
                 ),
                 state = DigitalDollarCardDetailsUiState(
@@ -305,7 +272,6 @@ private fun DigitalDollarCardDetailsPreview() {
                 onWithdrawClick = {},
                 onAutoFundClick = {},
                 onDetailsToggled = {},
-                onKeyToggled = {},
                 onShareLogsClick = {},
                 onBackupUpdateClick = {},
                 onBackupCloseClick = {}

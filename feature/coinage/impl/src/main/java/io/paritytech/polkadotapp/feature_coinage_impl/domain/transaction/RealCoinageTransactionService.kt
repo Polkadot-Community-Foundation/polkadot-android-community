@@ -2,10 +2,12 @@ package io.paritytech.polkadotapp.feature_coinage_impl.domain.transaction
 
 import io.paritytech.polkadotapp.feature_coinage_api.domain.transaction.CoinageTransactionService
 import io.paritytech.polkadotapp.feature_coinage_api.domain.transaction.model.CoinageAssetState
+import io.paritytech.polkadotapp.feature_coinage_api.domain.transaction.model.CoinageAssetStates
 import io.paritytech.polkadotapp.feature_coinage_api.domain.transaction.model.CoinageHandoffCommit
 import io.paritytech.polkadotapp.feature_coinage_api.domain.transaction.model.CoinageInput
 import io.paritytech.polkadotapp.feature_coinage_api.domain.transaction.model.CoinageOperationGroupId
 import io.paritytech.polkadotapp.feature_coinage_api.domain.transaction.model.CoinageRegistrationError
+import io.paritytech.polkadotapp.feature_coinage_api.domain.transaction.model.CoinageScheduledTransactionRequest
 import io.paritytech.polkadotapp.feature_coinage_api.domain.transaction.model.CoinageTransactionId
 import io.paritytech.polkadotapp.feature_coinage_api.domain.transaction.model.CoinageTransactionRequest
 import io.paritytech.polkadotapp.feature_coinage_api.domain.transaction.model.CoinageTransactionState
@@ -24,11 +26,13 @@ import io.paritytech.polkadotapp.feature_coinage_impl.domain.coinageLogI
 import io.paritytech.polkadotapp.feature_coinage_impl.domain.coinageLogW
 import io.paritytech.polkadotapp.feature_coinage_impl.domain.transaction.shortKey
 import io.paritytech.polkadotapp.feature_transactions.api.data.EnrichedSendableExtrinsic
+import io.paritytech.polkadotapp.feature_transactions.api.domain.durable.DurableSubmission
 import io.paritytech.polkadotapp.feature_transactions.api.domain.durable.DurableTransactionService
 import io.paritytech.polkadotapp.feature_transactions.api.domain.durable.DurableTxRegistrationError
 import io.paritytech.polkadotapp.feature_transactions.api.domain.durable.DurableTxStatus
 import io.paritytech.polkadotapp.feature_transactions.api.domain.durable.TxDomainId
 import kotlinx.coroutines.flow.Flow
+import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -51,6 +55,7 @@ class RealCoinageTransactionService @Inject constructor(
     private val assetLedger: CoinageAssetLedger,
     private val coinKeypairDerivation: CoinKeypairDerivation,
     private val voucherRingDerivation: VoucherRingDerivation,
+    private val handoffGuard: CoinageHandoffGuard,
 ) : CoinageTransactionService {
     override suspend fun submitTransaction(
         extrinsic: EnrichedSendableExtrinsic,
@@ -77,9 +82,28 @@ class RealCoinageTransactionService @Inject constructor(
         val registrations = runCatching { transactions.map { assetRegistration(it.inputs, it.outputs) } }
             .getOrElse { return Result.failure(it) }
 
-        return engine.submitAll(COINAGE_DOMAIN, transactions.map { it.extrinsic }, groupId) { ids ->
+        val submissions = transactions.map { DurableSubmission(it.extrinsic, it.policy) }
+
+        return engine.submitAll(COINAGE_DOMAIN, submissions, groupId) { ids ->
             assetLedger.registerAssets(ids.zip(registrations))
         }.asCoinageError().onFailure(::logRejected)
+    }
+
+    override suspend fun scheduleTransactions(
+        transactions: List<CoinageScheduledTransactionRequest>,
+        groupId: CoinageOperationGroupId,
+    ): Result<List<CoinageTransactionId>> {
+        coinageLogI(
+            "schedule-transactions count=${transactions.size} group=${groupId.value} " +
+                "policies=${transactions.map { it.policy.id }.distinct()}"
+        )
+
+        val registrations = runCatching { transactions.map { assetRegistration(it.inputs, it.outputs) } }
+            .getOrElse { return Result.failure(it) }
+
+        return engine.schedule(COINAGE_DOMAIN, groupId, transactions.map { it.policy }) { ids ->
+            assetLedger.registerAssets(ids.zip(registrations))
+        }.onFailure(::logRejected)
     }
 
     override suspend fun preCommitHandoff(assets: List<OwnAsset>): Result<CoinageHandoffCommit> {
@@ -89,9 +113,12 @@ class RealCoinageTransactionService @Inject constructor(
         val keys = marks.map { it.publicKey }
 
         return assetLedger.markHandedOff(marks)
-            .onSuccess { coinageLogI("handoff-marked assets=${marks.map { it.describe() }}") }
+            .onSuccess {
+                coinageLogI("handoff-marked assets=${marks.map { it.describe() }}")
+                handoffGuard.handoffReserved()
+            }
             .onFailure { logRejected(it) }
-            .map { LedgerHandoffCommit(assetLedger, keys) }
+            .map { LedgerHandoffCommit(assetLedger, keys, handoffGuard) }
     }
 
     override suspend fun releaseUncommittedHandoffs(): Result<Unit> = assetLedger.releaseUncommittedHandoffs()
@@ -115,10 +142,10 @@ class RealCoinageTransactionService @Inject constructor(
     override suspend fun getAssetState(asset: OwnAsset): Result<CoinageAssetState> =
         assetLedger.getAssetState(asset)
 
-    override suspend fun getAssetStates(assets: List<OwnAsset>): Result<Map<OwnAsset, CoinageAssetState>> =
+    override suspend fun getAssetStates(assets: List<OwnAsset>): Result<CoinageAssetStates> =
         assetLedger.getAssetStates(assets)
 
-    override fun subscribeAssetStates(): Flow<Map<OwnAsset, CoinageAssetState>> =
+    override fun subscribeAssetStates(): Flow<CoinageAssetStates> =
         assetLedger.subscribeAssetStates()
 
     private suspend fun assetRegistration(
@@ -166,8 +193,22 @@ class RealCoinageTransactionService @Inject constructor(
 private class LedgerHandoffCommit(
     private val assetLedger: CoinageAssetLedger,
     private val keys: List<AssetPublicKey>,
+    private val handoffGuard: CoinageHandoffGuard,
 ) : CoinageHandoffCommit {
+    private val settled = AtomicBoolean(false)
+
     override suspend fun commit(): Result<Unit> = assetLedger.commitHandoffs(keys)
         .onSuccess { coinageLogI("handoff-committed keys=${keys.map { it.shortKey() }}") }
         .onFailure { error -> coinageLogW("handoff-commit-failed keys=${keys.map { it.shortKey() }} error=$error") }
+        .also { settle() }
+
+    override suspend fun release(): Result<Unit> = assetLedger.releaseUncommittedHandoffs(keys)
+        .onSuccess { coinageLogI("handoff-released keys=${keys.map { it.shortKey() }}") }
+        .onFailure { error -> coinageLogW("handoff-release-failed keys=${keys.map { it.shortKey() }} error=$error") }
+        .also { settle() }
+
+    /** What the guard counts is handles still deciding, so an outcome either way ends this one, once. */
+    private fun settle() {
+        if (settled.compareAndSet(false, true)) handoffGuard.handoffSettled()
+    }
 }

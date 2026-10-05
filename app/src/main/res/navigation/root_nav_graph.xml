@@ -15,11 +15,6 @@
         android:label="ChatFeedFragment" />
 
     <fragment
-        android:id="@+id/addContactFragment"
-        android:name="io.paritytech.polkadotapp.feature_chats_impl.presentation.search.AddContactFragment"
-        android:label="AddContactFragment" />
-
-    <fragment
         android:id="@+id/chatSearchFragment"
         android:name="io.paritytech.polkadotapp.feature_chats_impl.presentation.chatSearch.ChatSearchFragment"
         android:label="ChatSearchFragment" />
@@ -38,6 +33,11 @@
         android:id="@+id/linkedDevicesFragment"
         android:name="io.paritytech.polkadotapp.feature_settings_impl.presentation.linkedDevices.LinkedDevicesFragment"
         android:label="LinkedDevicesFragment" />
+
+    <fragment
+        android:id="@+id/legalAndSupportFragment"
+        android:name="io.paritytech.polkadotapp.feature_settings_impl.presentation.legalAndSupport.LegalAndSupportFragment"
+        android:label="LegalAndSupportFragment" />
 
     <fragment
         android:id="@+id/deviceDetailsFragment"
@@ -182,10 +182,6 @@
         app:popUpTo="@id/mainFragment" />
 
     <action
-        android:id="@+id/action_global_to_addContactFragment"
-        app:destination="@id/addContactFragment" />
-
-    <action
         android:id="@+id/action_global_to_chatSearchFragment"
         app:destination="@id/chatSearchFragment" />
 
@@ -273,6 +269,11 @@
     <action
         android:id="@+id/action_global_to_linkedDevicesFragment"
         app:destination="@id/linkedDevicesFragment" />
+
+    <action
+        android:id="@+id/action_global_to_legalAndSupportFragment"
+        app:destination="@id/legalAndSupportFragment"
+        app:launchSingleTop="true" />
 
     <action
         android:id="@+id/action_global_to_deviceDetailsFragment"

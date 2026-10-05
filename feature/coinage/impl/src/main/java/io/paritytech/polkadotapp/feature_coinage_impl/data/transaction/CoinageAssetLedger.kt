@@ -1,6 +1,7 @@
 package io.paritytech.polkadotapp.feature_coinage_impl.data.transaction
 
 import io.paritytech.polkadotapp.feature_coinage_api.domain.transaction.model.CoinageAssetState
+import io.paritytech.polkadotapp.feature_coinage_api.domain.transaction.model.CoinageAssetStates
 import io.paritytech.polkadotapp.feature_coinage_api.domain.transaction.model.CoinageOperationGroupId
 import io.paritytech.polkadotapp.feature_coinage_api.domain.transaction.model.CoinageTransactionId
 import io.paritytech.polkadotapp.feature_coinage_api.domain.transaction.model.CoinageTransactionState
@@ -64,6 +65,9 @@ interface CoinageAssetLedger {
     /** Drops every mark that was never committed — the payments behind them never happened. */
     suspend fun releaseUncommittedHandoffs(): Result<Unit>
 
+    /** Drops the marks on [keys] that were never committed. */
+    suspend fun releaseUncommittedHandoffs(keys: List<AssetPublicKey>): Result<Unit>
+
     suspend fun getHandoffKeys(): Result<Set<AssetPublicKey>>
 
     /** The assets of each of [ids], in one batched read rather than one per transaction. */
@@ -73,13 +77,9 @@ interface CoinageAssetLedger {
 
     fun subscribeGroupStatuses(groupId: CoinageOperationGroupId): Flow<List<CoinageTransactionState>>
 
-    fun subscribeAssetStates(): Flow<Map<OwnAsset, CoinageAssetState>>
+    fun subscribeAssetStates(): Flow<CoinageAssetStates>
 
     suspend fun getAssetState(asset: OwnAsset): Result<CoinageAssetState>
 
-    /**
-     * The state of each of [assets], including ones the ledger has never heard of — those come back
-     * untracked, since it only holds assets some transaction of ours has touched.
-     */
-    suspend fun getAssetStates(assets: List<OwnAsset>): Result<Map<OwnAsset, CoinageAssetState>>
+    suspend fun getAssetStates(assets: List<OwnAsset>): Result<CoinageAssetStates>
 }
