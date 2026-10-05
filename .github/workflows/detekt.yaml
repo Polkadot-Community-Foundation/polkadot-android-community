@@ -36,9 +36,9 @@ jobs:
 
       - name: Run Detekt
         env:
-          FIRESTORE_DATABASE_ID: ${{ secrets.FIRESTORE_DATABASE_ID || vars.FIRESTORE_DATABASE_ID || '(default)' }}
+          FIRESTORE_DATABASE_ID: ${{ vars.FIRESTORE_DATABASE_ID || '(default)' }}
           GOOGLE_OAUTH_ID: ${{ secrets.GOOGLE_OAUTH_ID }}
           GOOGLE_PROJECT_ID: ${{ secrets.GOOGLE_PROJECT_ID }}
-          NIGHTLY_FUNDING_MNEMONIC: ${{ secrets.NIGHTLY_FUNDING_MNEMONIC || secrets.DEV_FUNDING_MNEMONIC }}
+          NIGHTLY_FUNDING_MNEMONIC: ${{ secrets.DEV_FUNDING_MNEMONIC }}
           W3S_AUTH_KEY: ${{ secrets.W3S_AUTH_KEY }}
         run: ./gradlew detekt --no-daemon --stacktrace
