@@ -4,8 +4,6 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
   cancel-in-progress: true
 
-# PCF fork: the required build variables fall back to the values the fork ships when no
-# repository Variable is set (upstream reads them with readSecretOrThrow, empty == missing).
 env:
   APPLICATION_ID: ${{ vars.APPLICATION_ID || 'io.pcf.polkadotapp' }}
   APPLICATION_NAME: ${{ vars.APPLICATION_NAME || 'Polkadot' }}
