@@ -1,9 +1,11 @@
 package io.paritytech.polkadotapp.feature_coinage_api.domain.transaction
 
 import io.paritytech.polkadotapp.feature_coinage_api.domain.transaction.model.CoinageAssetState
+import io.paritytech.polkadotapp.feature_coinage_api.domain.transaction.model.CoinageAssetStates
 import io.paritytech.polkadotapp.feature_coinage_api.domain.transaction.model.CoinageHandoffCommit
 import io.paritytech.polkadotapp.feature_coinage_api.domain.transaction.model.CoinageInput
 import io.paritytech.polkadotapp.feature_coinage_api.domain.transaction.model.CoinageOperationGroupId
+import io.paritytech.polkadotapp.feature_coinage_api.domain.transaction.model.CoinageScheduledTransactionRequest
 import io.paritytech.polkadotapp.feature_coinage_api.domain.transaction.model.CoinageTransactionId
 import io.paritytech.polkadotapp.feature_coinage_api.domain.transaction.model.CoinageTransactionRequest
 import io.paritytech.polkadotapp.feature_coinage_api.domain.transaction.model.CoinageTransactionState
@@ -48,6 +50,18 @@ interface CoinageTransactionService {
     ): Result<List<CoinageTransactionId>>
 
     /**
+     * Registers transactions that are built and submitted by their policies afterwards, as one operation.
+     *
+     * Their inputs are locked from the moment this commits, so no other transaction can select them while
+     * they wait. Meant to be called inside the database transaction that makes the payment real — building
+     * starts only once that transaction has committed.
+     */
+    suspend fun scheduleTransactions(
+        transactions: List<CoinageScheduledTransactionRequest>,
+        groupId: CoinageOperationGroupId,
+    ): Result<List<CoinageTransactionId>>
+
+    /**
      * Reserves [assets] against being spent again, before their keys reach the transport — a key that arrives
      * at a peer without a mark can be selected again and double-spent.
      *
@@ -80,13 +94,7 @@ interface CoinageTransactionService {
 
     suspend fun getAssetState(asset: OwnAsset): Result<CoinageAssetState>
 
-    /** The state of each of [assets]; ones the ledger has never heard of come back untracked. */
-    suspend fun getAssetStates(assets: List<OwnAsset>): Result<Map<OwnAsset, CoinageAssetState>>
+    suspend fun getAssetStates(assets: List<OwnAsset>): Result<CoinageAssetStates>
 
-    /** An asset absent from the map carries [CoinageAssetState.UNTRACKED]. */
-    fun subscribeAssetStates(): Flow<Map<OwnAsset, CoinageAssetState>>
-}
-
-fun Map<OwnAsset, CoinageAssetState>.getStateOrUntracked(asset: OwnAsset): CoinageAssetState {
-    return get(asset) ?: CoinageAssetState.UNTRACKED
+    fun subscribeAssetStates(): Flow<CoinageAssetStates>
 }

@@ -3,32 +3,41 @@ package io.paritytech.polkadotapp.feature_coinage_impl.domain.usecase
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
+import io.paritytech.polkadotapp.chains.network.binding.BlockNumber
 import io.paritytech.polkadotapp.common.domain.model.AccountId
 import io.paritytech.polkadotapp.common.domain.model.toDataByteArray
 import io.paritytech.polkadotapp.feature_coinage_api.domain.model.Coin
 import io.paritytech.polkadotapp.feature_coinage_api.domain.model.CoinProvenance
+import io.paritytech.polkadotapp.feature_coinage_api.domain.model.CoinageInstallationId
+import io.paritytech.polkadotapp.feature_coinage_api.domain.model.CoinageKeyIndex
 import io.paritytech.polkadotapp.feature_coinage_api.domain.model.ValueExponent
 import io.paritytech.polkadotapp.feature_coinage_api.domain.transaction.model.CheckpointBlock
 import io.paritytech.polkadotapp.feature_coinage_api.domain.transaction.model.CoinageAssetState
 import io.paritytech.polkadotapp.feature_coinage_api.domain.usecase.CoinageAssetsUseCase
 import io.paritytech.polkadotapp.feature_coinage_api.domain.usecase.CoinagePaymentStatus
 import io.paritytech.polkadotapp.feature_coinage_api.domain.usecase.TrackedCoin
+import io.paritytech.polkadotapp.feature_coinage_api.domain.usecase.isTerminal
+import io.paritytech.polkadotapp.feature_coinage_impl.TEST_INSTALLATION
 import io.paritytech.polkadotapp.feature_coinage_impl.data.model.OnChainCoinInfo
 import io.paritytech.polkadotapp.feature_coinage_impl.data.transaction.CoinageStateReader
 import io.paritytech.polkadotapp.feature_coinage_impl.data.transaction.CoinageStateReaderFactory
-import io.paritytech.polkadotapp.feature_coinage_impl.testKey
 import io.paritytech.polkadotapp.feature_tokens_api.domain.ChainAssetProvider
 import io.paritytech.polkadotapp.feature_transactions.api.domain.durable.DurableTxStatus
 import io.paritytech.polkadotapp.feature_transactions.api.domain.durable.DurableTxStatus.FAILURE
 import io.paritytech.polkadotapp.feature_transactions.api.domain.durable.DurableTxStatus.FINALIZED_SUCCESS
 import io.paritytech.polkadotapp.feature_transactions.api.domain.durable.DurableTxStatus.PENDING
+import io.paritytech.polkadotapp.feature_transactions.api.domain.durable.DurableTxStatus.PENDING_SUBMISSION
 import io.paritytech.polkadotapp.feature_transactions.api.domain.durable.DurableTxStatus.PENDING_SUCCESS
 import io.paritytech.polkadotapp.feature_transactions.api.domain.durable.PinnedChainView
 import io.paritytech.polkadotapp.feature_transactions.api.domain.durable.PinnedChainViewFactory
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.take
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Test
 
 /**
@@ -145,12 +154,70 @@ class RealCoinagePaymentStatusUseCaseTest {
     }
 
     /**
+     * The payment is saved and its transaction waits to be built — or to be built again after an attempt that
+     * could never land. The coin does not exist yet, and nothing has decided it never will.
+     */
+    @Test
+    fun `a coin whose minter is waiting to be built reads as detecting`() = runTest {
+        givenCoin(onChain = false, everSeen = false, minter = PENDING_SUBMISSION, atFinalized = ABSENT)
+
+        val status = statusOfCoin()
+
+        assertEquals(CoinagePaymentStatus.Detecting, status)
+        assertFalse("a payment waiting on a rebuild must stay open", status.isTerminal)
+    }
+
+    /**
      * Absent, with a mint in a block, and nothing has ever seen the coin on chain — so its absence is
      * ignorance rather than evidence, and guessing "claimed" from it would be guessing from nothing.
      */
     @Test
     fun `a coin nothing has ever seen is not guessed to be claimed`() = runTest {
         givenCoin(onChain = false, everSeen = false, minter = PENDING_SUCCESS, atFinalized = ABSENT)
+
+        assertEquals(CoinagePaymentStatus.Detecting, statusOfCoin())
+    }
+
+    /**
+     * An exact-coins payment hands over coins whose mint finalized long ago, and the claim is the peer's own
+     * transaction, so nothing local changes when it finalizes. Only a new finalized head can prove it.
+     */
+    @Test
+    fun `a claim finalizing with nothing local changing is proven at the next finalized head`() = runTest {
+        givenCoin(onChain = false, everSeen = true, minter = FINALIZED_SUCCESS, atFinalized = PRESENT)
+        every { chainViewFactory.finalizedHeads(any()) } returns flowOf(BlockNumber(101.toBigInteger()))
+        coEvery { stateReader.coinsAt(any(), any()) } returnsMany listOf(
+            Result.success(mapOf(ACCOUNT to OnChainCoinInfo(instanceId = 0, value = 3, age = 0))),
+            Result.success(emptyMap()),
+        )
+
+        val statuses = useCase.subscribeStatuses(listOf(ACCOUNT)).take(2).toList().map { it.getValue(ACCOUNT).status }
+
+        assertEquals(listOf(CoinagePaymentStatus.Claimed(finalized = false), CoinagePaymentStatus.Claimed(finalized = true)), statuses)
+    }
+
+    /**
+     * A coin recovered from a previous installation's backup, once the peer has taken it.
+     *
+     * No entry of ours minted it, so the ledger is what decides its minter status: it hands back
+     * FINALIZED_SUCCESS, since recovery only ever saves what the finalized chain already held. That is all
+     * this use case needs to settle the payment — read as an unfinished mint it would sit at Detecting for
+     * good, and its payment would never close.
+     */
+    @Test
+    fun `a coin recovered from a previous installation is proven claimed once it is gone`() = runTest {
+        givenCoin(onChain = false, everSeen = true, minter = FINALIZED_SUCCESS, atFinalized = ABSENT, installation = PREVIOUS_INSTALLATION)
+
+        assertEquals(CoinagePaymentStatus.Claimed(finalized = true), statusOfCoin())
+    }
+
+    /**
+     * Nothing is guessed from a minter the ledger reports as unknown: which mints count as settled is the
+     * ledger's rule, and a status invented here would apply it a second time and differently.
+     */
+    @Test
+    fun `a coin the ledger reports no minter for is still detecting`() = runTest {
+        givenCoin(onChain = false, everSeen = true, minter = null, atFinalized = ABSENT)
 
         assertEquals(CoinagePaymentStatus.Detecting, statusOfCoin())
     }
@@ -171,9 +238,10 @@ class RealCoinagePaymentStatusUseCaseTest {
         everSeen: Boolean,
         minter: DurableTxStatus?,
         atFinalized: FinalizedRead,
+        installation: CoinageInstallationId = TEST_INSTALLATION,
     ) {
         val coin = Coin(
-            derivationIndex = testKey(0),
+            derivationIndex = CoinageKeyIndex(installation, 0),
             valueExponent = ValueExponent(3),
             // An age is kept once the chain has been seen to hold the coin, and never cleared after.
             age = if (everSeen) Coin.Age.Known(0) else Coin.Age.Unknown,
@@ -188,6 +256,7 @@ class RealCoinagePaymentStatusUseCaseTest {
         )
 
         every { coinageAssetsUseCase.subscribeCoinsBy(any()) } returns flowOf(listOf(tracked))
+        every { chainViewFactory.finalizedHeads(any()) } returns emptyFlow()
 
         coEvery { chainViewFactory.pin(any()) } returns when (atFinalized) {
             UNREADABLE -> Result.failure(IllegalStateException("no view"))
@@ -208,5 +277,7 @@ class RealCoinagePaymentStatusUseCaseTest {
         val UNREADABLE = FinalizedRead.UNREADABLE
 
         val ACCOUNT: AccountId = byteArrayOf(7).toDataByteArray()
+
+        val PREVIOUS_INSTALLATION = CoinageInstallationId(ByteArray(CoinageInstallationId.SIZE_BYTES) { 0x01 }.toDataByteArray())
     }
 }

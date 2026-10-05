@@ -97,6 +97,7 @@
     <string name="home_citizenship_registering_person">Registering as a person</string>
 
     <string name="common_send">Send</string>
+    <string name="common_withdraw">Withdraw</string>
     <string name="common_edit">Edit</string>
     <string name="common_reply">Reply</string>
 
@@ -409,7 +410,8 @@ I’m attaching PDF with more information and details regarding the Tattoo Stenc
     <string name="bottom_nav_menu_pocket">Pocket</string>
     <string name="bottom_nav_menu_explore">Browse</string>
     <string name="bottom_nav_menu_settings">Settings</string>
-    <string name="bottom_nav_scanner_tooltip">Use this button to add contacts, send funds, and more</string>
+    <string name="bottom_nav_scanner_tooltip_title">Scan a QR code</string>
+    <string name="bottom_nav_scanner_tooltip_message">Scan to pay or add a contact.</string>
     <string name="tab_bar_no_open_products">No open products</string>
     <string name="tab_bar_close_tab">Close tab</string>
 
@@ -428,7 +430,7 @@ I’m attaching PDF with more information and details regarding the Tattoo Stenc
     <string name="manual_backup_confirm_description">Tap on the words below</string>
     <string name="manual_backup_confirm_reveal_action_title">Tap to reveal</string>
     <string name="manual_backup_confirm_reveal_action_description">Make sure no one can see your screen and do not take a screenshot</string>
-    <string name="manual_backup_confirm_warning">Keep your recovery phrase stored in a safe place and never ahare it with anyone</string>
+    <string name="manual_backup_confirm_warning">Keep your recovery phrase stored in a safe place and never share it with anyone</string>
 
     <string name="recover_mnemonic_title">Restore your account</string>
     <string name="recover_mnemonic_description">Enter your 12 or 24-word recovery phrase</string>
@@ -621,7 +623,7 @@ I’m attaching PDF with more information and details regarding the Tattoo Stenc
     <string name="settings_backup_override_title">Remove the existing backup and create a new one?</string>
     <string name="settings_backup_override_description">If you haven\'t written down the recovery phrase for the account being replaced, you will no longer be able to access it.</string>
     <string name="settings_backup_override_confirmation">I fully understand the risk</string>
-    <string name="settings_backup_override_continue_action">Create a new nackup</string>
+    <string name="settings_backup_override_continue_action">Create a new backup</string>
 
     <string name="settings_backup_not_backed_up">Not backed up.\nSet up a backup to stay protected</string>
 
@@ -724,15 +726,15 @@ I’m attaching PDF with more information and details regarding the Tattoo Stenc
     <string name="identity_card_rank_member">Member</string>
     <string name="pocket_id_share_subtitle">Show this QR to someone who wants to add you as a contact or send you %1$s</string>
     <string name="pocket_id_share_scan_title">Scan with a camera</string>
+    <string name="pocket_id_share_message">Hey! I’m using the Polkadot app for chat. It’s private and easy to use. Download it at %1$s and add me – my username is %2$s.</string>
 
-    <string name="send_payment_toolbar_title">Send payment</string>
+    <string name="send_payment_toolbar_title">Send Payment</string>
     <string name="send_payment_search_placeholder">Type username or wallet address</string>
     <string name="send_payment_to">To:</string>
     <string name="send_payment_open_chat_message">You need to first establish a chat before sending a payment</string>
 
-    <string name="send_enter_amount_title">Enter amount</string>
     <string name="send_enter_amount_placeholder">Enter Amount</string>
-    <string name="send_enter_amount_max_balance_prefix">Max:</string>
+    <string name="send_enter_amount_ready_to_send">Ready</string>
     <string name="send_enter_amount_privacy_cost_hint">Extra %1$s is spendable, but at the risk of reducing your privacy</string>
     <string name="send_enter_amount_not_enough_funds_error">You don’t have enough funds</string>
     <string name="send_enter_amount_cash_title">%1$s</string>
@@ -902,6 +904,7 @@ I’m attaching PDF with more information and details regarding the Tattoo Stenc
     <string name="scan_invalid_code_error_message">The scanned QR code is not recognized</string>
     <string name="scan_invalid_code_error_action">Got it</string>
     <string name="scan_point_camera_at_qr_code">Scan the QR code to continue</string>
+    <string name="scan_panel_camera_permission_hint">Allow camera access to scan QR codes</string>
 
     <string name="chat_message_unsupported">Unsupported message content. Please update the app.</string>
     <string name="chat_message_compaction_unavailable">Some messages could not be retrieved and are permanently unavailable.</string>
@@ -1033,8 +1036,8 @@ I’m attaching PDF with more information and details regarding the Tattoo Stenc
     <string name="app_not_found_error">No App found</string>
 
     <string name="chats_toolbar_title" translatable="false">Chats</string>
-    <string name="chats_empty_state_title">No active chats</string>
-    <string name="chats_empty_state_message">Start a conversation with someone \nby typing their username</string>
+    <string name="chats_empty_state_title">Add your first contact</string>
+    <string name="chats_empty_state_message">Tap + below to find someone by username</string>
 
     <string name="chat_search_empty_state_title">No results</string>
     <string name="chat_search_empty_state_message">There is no result for “%1$s”. Try a new search</string>
@@ -1042,15 +1045,17 @@ I’m attaching PDF with more information and details regarding the Tattoo Stenc
     <string name="chat_search_section_apps">APPS</string>
     <string name="chat_search_section_chats">CHATS AND CONTACTS</string>
     <string name="chat_search_section_messages">MESSAGES</string>
-    <string name="address_section_previous_payments">Previous payments</string>
-    <string name="address_section_my_contacts">My Contacts</string>
-    <string name="send_payment_section_global_search">Global search</string>
     <string name="chat_search_recents_header">RECENT</string>
     <string name="chat_search_recents_clear">CLEAR</string>
     <string name="chat_search_recent_menu_remove">Remove from Recents</string>
     <string name="chat_search_error_message">Search failed. Please try again</string>
 
+    <string name="search_section_recent">RECENT</string>
+    <string name="search_section_contacts">CONTACTS</string>
+    <string name="search_section_all_users">ALL USERS</string>
+
     <string name="add_contact_search_placeholder">Type username</string>
+    <string name="add_contact_no_recent_searches">No recent searches</string>
     <string name="add_contact_bottom_sheet_message">Add a contact\nand start a chat with\n%1$s</string>
     <string name="add_contact_bottom_sheet_description">After you enter the chat, make sure <b>%1$s</b> starts one with you as well, or your message may not be seen.</string>
     <string name="add_contact_bottom_sheet_button_text">Add to Contacts</string>
@@ -1241,6 +1246,8 @@ I’m attaching PDF with more information and details regarding the Tattoo Stenc
     <string name="asset_details_balance_CTA_update">Update</string>
 
     <string name="transaction_success_title">Your transaction was sent successfully</string>
+    <string name="transaction_success_finality_pending">The payment went through. You can wait here for the final confirmation report, it usually arrives in ~30 seconds</string>
+    <string name="transaction_success_finality_confirmed">The payment is confirmed</string>
     <string name="send_transaction_failure_title">Payment failed</string>
     <string name="send_transaction_failure_description">Please review the details of your transaction and try to send it again</string>
 
@@ -1272,9 +1279,10 @@ I’m attaching PDF with more information and details regarding the Tattoo Stenc
     <string name="settings_section_general">General</string>
     <string name="settings_section_connections">Connections</string>
     <string name="settings_section_security">Security &amp; privacy</string>
-    <string name="settings_section_legal">Legal</string>
     <string name="settings_section_payments">Payments</string>
     <string name="settings_section_debug">Debug</string>
+    <string name="settings_section_legal">Legal</string>
+    <string name="settings_section_support">Support</string>
 
     <string name="settings_notifications">Notifications</string>
     <string name="settings_theme">Theme</string>
@@ -1291,6 +1299,7 @@ I’m attaching PDF with more information and details regarding the Tattoo Stenc
     <string name="settings_privacy_policy">Privacy policy</string>
     <string name="settings_products">Apps</string>
     <string name="settings_blocked_contacts">Blocked contacts</string>
+    <string name="settings_legal_and_support">Legal &amp; Support</string>
     <string name="settings_contact_us">Contact us</string>
     <string name="settings_email_copied">Email copied to clipboard</string>
     <string name="settings_currency">Currency</string>
@@ -1469,29 +1478,32 @@ I’m attaching PDF with more information and details regarding the Tattoo Stenc
     <string name="collectibles_title">Collectibles</string>
     <string name="collectibles_unavailable">Collectibles are temporarily unavailable. Please try again later.</string>
 
-    <string name="chain_health_state_speed_high">Speed is High</string>
-    <string name="chain_health_state_speed_good">Speed is Good</string>
-    <string name="chain_health_state_speed_fair">Speed is Fair</string>
-    <string name="chain_health_state_speed_low">Speed is Low</string>
+    <string name="chain_health_state_connected">Connected</string>
     <string name="chain_health_state_not_producing">Not producing blocks</string>
     <string name="chain_health_state_connecting">Connecting…</string>
     <string name="chain_health_state_broken">Chain broken</string>
-    <string name="chain_health_summary">%1$s · Last block %2$s ago</string>
+    <string name="chain_health_state_disconnected">Disconnected</string>
+    <string name="chain_health_state_offline">No internet</string>
+    <string name="chain_health_connected_summary">%1$s · Live %2$s · Block %3$s</string>
+    <string name="chain_health_live_percent">%1$d%%</string>
+    <string name="chain_health_block_interval">~%1$s</string>
+    <string name="chain_health_value_unknown">—</string>
     <string name="chain_health_panel_title">Network Status</string>
-    <string name="chain_health_block_age_seconds">%1$ds</string>
-    <string name="chain_health_block_age_minutes">%1$dm %2$ds</string>
-    <string name="chain_health_block_age_unknown">—</string>
+    <string name="chain_health_duration_seconds">%1$ds</string>
+    <string name="chain_health_duration_minutes">%1$dm %2$ds</string>
     <string name="chain_health_indicator_description">%1$s, %2$s</string>
     <string name="chain_health_chain_people">People Chain</string>
     <string name="chain_health_chain_hub">Hub Chain</string>
     <string name="chain_health_chain_bulletin">Bulletin Chain</string>
+    <string name="chain_health_statement_store">Statement Store</string>
+    <string name="chain_health_tooltip_title">Network status</string>
+    <string name="chain_health_tooltip_message">These rings track your connection to each chain and to the statement store.</string>
 
     <string name="splash_waiting_for_network_title">Waiting for network connection…</string>
     <string name="splash_waiting_for_network_message">Turn off Airplane Mode or check your internet</string>
 
-    <string name="pocket_digital_dollar_title">Balance Card</string>
+    <string name="pocket_digital_dollar_title">%1$s Card</string>
     <string name="pocket_digital_dollar_card_title">%1$s</string>
-    <string name="pocket_digital_dollar_send_button">Send %1$s</string>
     <string name="pocket_digital_dollar_faucet_top_up">Faucet Top Up</string>
     <string name="pocket_collectibles_open_button">View collectibles</string>
     <string name="pocket_collectibles_title">Collectibles</string>
@@ -1499,9 +1511,11 @@ I’m attaching PDF with more information and details regarding the Tattoo Stenc
     <string name="pocket_error_withdraw_unavailable">Withdrawing %1$s isn\'t available right now. Try again later.</string>
     <string name="pocket_error_auto_fund_failed">Couldn\'t add test funds to this account. Try again.</string>
     <string name="pocket_error_share_coinage_logs_failed">Couldn\'t share the coinage logs. Try again.</string>
-    <string name="pocket_coinage_balance_title">Balance</string>
+    <string name="pocket_error_share_id_failed">Couldn\'t share your ID. Try again.</string>
+    <string name="pocket_coinage_balance_title">Total</string>
     <string name="pocket_coinage_ready">Ready</string>
     <string name="pocket_coinage_clearing">Clearing</string>
+    <string name="pocket_coinage_total_balance">Total</string>
     <string name="pocket_coinage_share_logs">Share Coinage Logs</string>
     <string name="pocket_debug_features_title">Debug features</string>
     <string name="pocket_debug_features_subtitle">Not visible in production</string>
@@ -1510,13 +1524,8 @@ I’m attaching PDF with more information and details regarding the Tattoo Stenc
     <string name="pocket_debug_breakdown_pending">Pending</string>
     <string name="pocket_debug_breakdown_can_spend_gaining">Can spend gaining privacy</string>
     <string name="pocket_coinage_show_details">Show Details</string>
-    <string name="pocket_coinage_key_title">How to read this</string>
-    <string name="pocket_coinage_key_hops">Coins show one circle per past payment. Dots represent other coins that moved with the payment.</string>
-    <string name="pocket_coinage_key_unknown">A thin red and orange line means we have no record for that part of the coin\'s past.</string>
-    <string name="pocket_coinage_key_block">A single block means no past payments at all. The shorter it is, the more fungible the coin.</string>
-    <string name="pocket_coinage_key_voucher">Coins that gain privacy. The solid block is how fungible they will be at best; the striped part is the current level.</string>
 
-    <string name="payment_privacy_mode_title">%1$s Privacy Mode</string>
+    <string name="payment_privacy_mode_title">Payments Privacy Mode</string>
     <string name="payment_privacy_mode_fastest_label">Fastest</string>
     <string name="payment_privacy_mode_fastest_description">Fastest payments, lower privacy</string>
     <string name="payment_privacy_mode_fastest_accessibility">Fastest. Fastest payments, lower privacy.</string>

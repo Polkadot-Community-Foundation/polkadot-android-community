@@ -9,12 +9,15 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import io.paritytech.polkadotapp.common.presentation.paymentAsset.LocalPaymentAssetBrand
+import io.paritytech.polkadotapp.common.presentation.paymentAsset.PaymentAssetBrand
 import io.paritytech.polkadotapp.design.components.icon.NovaIcons
 import io.paritytech.polkadotapp.design.components.icon.vectors.BlockOutlined
 import io.paritytech.polkadotapp.design.components.icon.vectors.FileOutlined
@@ -34,9 +37,9 @@ import io.paritytech.polkadotapp.design.components.topbar.TopBarTitleSize
 import io.paritytech.polkadotapp.design.theme.PolkadotTheme
 import io.paritytech.polkadotapp.designsystem.themes.PolkadotAppTheme
 import io.paritytech.polkadotapp.feature_coinage_api.domain.recycling.RecyclingStrategyType
+import io.paritytech.polkadotapp.feature_settings_impl.presentation.common.BackupSettingsMenuItem
+import io.paritytech.polkadotapp.feature_settings_impl.presentation.common.SettingsMenuItem
 import io.paritytech.polkadotapp.feature_settings_impl.presentation.main.components.AppDeviceInfoSection
-import io.paritytech.polkadotapp.feature_settings_impl.presentation.main.components.BackupSettingsMenuItem
-import io.paritytech.polkadotapp.feature_settings_impl.presentation.main.components.SettingsMenuItem
 import io.paritytech.polkadotapp.feature_settings_impl.presentation.main.components.privacyMode.PaymentPrivacyModeSelector
 import io.paritytech.polkadotapp.common.R as RCommon
 
@@ -55,8 +58,7 @@ fun SettingsScreen() {
         onProductsClick = viewModel::onProductsClick,
         onBlockedUsersClick = viewModel::onBlockedUsersClick,
         onConnectedDevicesClick = viewModel::onLinkedDevicesClick,
-        onPrivacyPolicyClick = viewModel::onPrivacyPolicyClick,
-        onTermsOfUseClick = viewModel::onTermsOfUseClick,
+        onLegalAndSupportClick = viewModel::onLegalAndSupportClick,
         onDebugMenuClick = viewModel::onDebugMenuClick
     )
 }
@@ -72,8 +74,7 @@ private fun SettingsScreenInternal(
     onProductsClick: () -> Unit,
     onBlockedUsersClick: () -> Unit,
     onConnectedDevicesClick: () -> Unit,
-    onPrivacyPolicyClick: () -> Unit,
-    onTermsOfUseClick: () -> Unit,
+    onLegalAndSupportClick: () -> Unit,
     onDebugMenuClick: () -> Unit
 ) {
     PolkadotSurface {
@@ -162,17 +163,12 @@ private fun SettingsScreenInternal(
                 VerticalSpacer { large }
 
                 PolkadotMenuList(
-                    headerText = stringResource(RCommon.string.settings_section_legal)
+                    headerText = stringResource(RCommon.string.settings_legal_and_support)
                 ) {
                     SettingsMenuItem(
                         icon = NovaIcons.FileOutlined,
-                        title = stringResource(RCommon.string.settings_privacy_policy),
-                        onClick = onPrivacyPolicyClick
-                    )
-                    SettingsMenuItem(
-                        icon = NovaIcons.FileOutlined,
-                        title = stringResource(RCommon.string.settings_terms_of_use),
-                        onClick = onTermsOfUseClick
+                        title = stringResource(RCommon.string.settings_legal_and_support),
+                        onClick = onLegalAndSupportClick
                     )
                 }
 
@@ -200,7 +196,9 @@ private fun SettingsScreenInternal(
 
 @Preview(device = "spec:width=1080px,height=3000px,dpi=440")
 @Composable
-private fun SettingsScreenPreview() {
+private fun SettingsScreenPreview() = CompositionLocalProvider(
+    LocalPaymentAssetBrand provides PaymentAssetBrand.mocked
+) {
     PolkadotTheme {
         SettingsScreenInternal(
             state = SettingsUiState(
@@ -222,8 +220,7 @@ private fun SettingsScreenPreview() {
             onProductsClick = {},
             onBlockedUsersClick = {},
             onConnectedDevicesClick = {},
-            onPrivacyPolicyClick = {},
-            onTermsOfUseClick = {},
+            onLegalAndSupportClick = {},
             onDebugMenuClick = {}
         )
     }
