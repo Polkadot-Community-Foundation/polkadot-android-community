@@ -36,14 +36,14 @@ jobs:
       - name: Prepare Android build files
         uses: ./.github/actions/prepare-android-build
         with:
-          google_services_json_base64: ${{ secrets.GOOGLE_SERVICES_JSON_BASE64 || secrets.GOOGLE_SERVICES_JSON_DEV_BASE64 }}
+          google_services_json_base64: ${{ secrets.GOOGLE_SERVICES_JSON_DEV_BASE64 }}
 
       - name: Run tests
         env:
-          FIRESTORE_DATABASE_ID: ${{ secrets.FIRESTORE_DATABASE_ID || vars.FIRESTORE_DATABASE_ID || '(default)' }}
+          FIRESTORE_DATABASE_ID: ${{ vars.FIRESTORE_DATABASE_ID || '(default)' }}
           GOOGLE_OAUTH_ID: ${{ secrets.GOOGLE_OAUTH_ID }}
           GOOGLE_PROJECT_ID: ${{ secrets.GOOGLE_PROJECT_ID }}
-          NIGHTLY_FUNDING_MNEMONIC: ${{ secrets.NIGHTLY_FUNDING_MNEMONIC || secrets.DEV_FUNDING_MNEMONIC }}
+          NIGHTLY_FUNDING_MNEMONIC: ${{ secrets.DEV_FUNDING_MNEMONIC }}
         run: ./gradlew testGpDebugUnitTest testGpReleaseUnitTest testDebugUnitTest testReleaseUnitTest --no-daemon --stacktrace
 
   build:
@@ -60,8 +60,8 @@ jobs:
       - name: Prepare Android build files
         uses: ./.github/actions/prepare-android-build
         with:
-          google_services_json_base64: ${{ secrets.GOOGLE_SERVICES_JSON_BASE64 || secrets.GOOGLE_SERVICES_JSON_DEV_BASE64 }}
-          keystore_file_base64: ${{ secrets.CI_GITHUB_KEYSTORE_KEY_FILE || secrets.DEV_KEYSTORE_BASE64 }}
+          google_services_json_base64: ${{ secrets.GOOGLE_SERVICES_JSON_DEV_BASE64 }}
+          keystore_file_base64: ${{ secrets.DEV_KEYSTORE_BASE64 }}
           keystore_path: develop_key.jks
 
       - name: Build
@@ -69,8 +69,8 @@ jobs:
           CI_KEYSTORE_KEY_ALIAS: ${{ secrets.CI_KEYSTORE_KEY_ALIAS }}
           CI_KEYSTORE_KEY_PASS: ${{ secrets.CI_KEYSTORE_KEY_PASS }}
           CI_KEYSTORE_PASS: ${{ secrets.CI_KEYSTORE_PASS }}
-          FIRESTORE_DATABASE_ID: ${{ secrets.FIRESTORE_DATABASE_ID || vars.FIRESTORE_DATABASE_ID || '(default)' }}
+          FIRESTORE_DATABASE_ID: ${{ vars.FIRESTORE_DATABASE_ID || '(default)' }}
           GOOGLE_OAUTH_ID: ${{ secrets.GOOGLE_OAUTH_ID }}
           GOOGLE_PROJECT_ID: ${{ secrets.GOOGLE_PROJECT_ID }}
-          NIGHTLY_FUNDING_MNEMONIC: ${{ secrets.NIGHTLY_FUNDING_MNEMONIC || secrets.DEV_FUNDING_MNEMONIC }}
+          NIGHTLY_FUNDING_MNEMONIC: ${{ secrets.DEV_FUNDING_MNEMONIC }}
         run: ./gradlew assembleGpDebug --no-daemon --stacktrace
