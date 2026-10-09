@@ -2,6 +2,7 @@ package io.paritytech.polkadotapp.feature_products_impl.domain.pocket
 
 import android.content.Context
 import android.content.res.AssetManager
+import io.paritytech.polkadotapp.common.data.network.TestnetEnvironment
 import io.paritytech.polkadotapp.feature_dotns_api.domain.DotNsTld
 import io.paritytech.polkadotapp.feature_dotns_api.domain.DotNsTldProvider
 import io.paritytech.polkadotapp.feature_products_api.domain.pocket.PocketCardId
@@ -29,13 +30,13 @@ class AssetPinnedPocketCardsTest {
     // vocabulary would otherwise be found by the user at their first launch, never by a test.
     private val bundledHumanityFace = File("src/main/assets/pocket/humanity.json")
 
-    private suspend fun pinnedCards(): List<CachedPocketCard> {
+    private suspend fun pinnedCards(environment: TestnetEnvironment = TestnetEnvironment.TESTNET): List<CachedPocketCard> {
         whenever(context.assets).thenReturn(assets)
         whenever(assets.open("pocket/humanity.json")).thenReturn(bundledHumanityFace.inputStream())
         whenever(context.getString(anyInt())).thenReturn("Humanity")
         whenever(tldProvider.getTld()).thenReturn(Result.success(tld))
 
-        return AssetPinnedPocketCards(context, tldProvider).cards()
+        return AssetPinnedPocketCards(context, tldProvider, environment).cards()
     }
 
     // Balance and Scarcity were dropped: the products behind them publish no Pocket cards, so pinning
@@ -71,10 +72,15 @@ class AssetPinnedPocketCardsTest {
         val neverAnswers: DotNsTldProvider = mock()
         val pinnedKey = PocketCardKey(ReservedProductIds.personhood(tld), PocketCardId("humanity"))
 
-        val cards = AssetPinnedPocketCards(context, neverAnswers)
+        val cards = AssetPinnedPocketCards(context, neverAnswers, TestnetEnvironment.TESTNET)
 
         assertEquals(pinnedKey, cards.pinned(pinnedKey)?.card?.key)
         assertNull(cards.pinned(PocketCardKey(ProductId.fromStoredValue("game.testnet"), PocketCardId("humanity"))))
         assertNull(cards.pinned(PocketCardKey(ReservedProductIds.personhood(tld), PocketCardId("loyalty"))))
+    }
+
+    @Test
+    fun `the PCF devnet pins no card, having no personhood product`() = runBlocking {
+        assertTrue(pinnedCards(TestnetEnvironment.DEV).isEmpty())
     }
 }

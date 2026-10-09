@@ -3,6 +3,7 @@ package io.paritytech.polkadotapp.feature_products_impl.domain.pocket
 import android.content.Context
 import androidx.annotation.StringRes
 import dagger.hilt.android.qualifiers.ApplicationContext
+import io.paritytech.polkadotapp.common.data.network.TestnetEnvironment
 import io.paritytech.polkadotapp.feature_dotns_api.domain.DotNsTld
 import io.paritytech.polkadotapp.feature_dotns_api.domain.DotNsTldProvider
 import io.paritytech.polkadotapp.feature_dotns_api.domain.getTldRetrying
@@ -39,6 +40,7 @@ interface PinnedPocketCards {
 class AssetPinnedPocketCards @Inject constructor(
     @param:ApplicationContext private val context: Context,
     private val dotNsTldProvider: DotNsTldProvider,
+    environment: TestnetEnvironment,
 ) : PinnedPocketCards {
     private class Definition(
         val cardId: String,
@@ -46,9 +48,14 @@ class AssetPinnedPocketCards @Inject constructor(
         val backingProduct: (DotNsTld) -> ProductId,
     )
 
-    private val definitions = listOf(
-        Definition("humanity", RCommon.string.pocket_pinned_card_humanity, ReservedProductIds::personhood),
-    )
+    // The PCF devnet has no personhood product (peopl.dot) to back Humanity.
+    private val definitions = if (environment == TestnetEnvironment.DEV) {
+        emptyList()
+    } else {
+        listOf(
+            Definition("humanity", RCommon.string.pocket_pinned_card_humanity, ReservedProductIds::personhood),
+        )
+    }
 
     private val loading = Mutex()
     private var loaded: List<CachedPocketCard>? = null
