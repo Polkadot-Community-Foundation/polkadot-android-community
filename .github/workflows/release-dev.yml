@@ -112,6 +112,44 @@ jobs:
         with:
           targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android
 
+      # :bindings:truapi-host compiles the TrUAPI core from a checkout at the
+      # truapi_ref pin of the install action, which setup-truapi.py also reads.
+      - name: Resolve the TrUAPI core pin
+        id: truapi
+        run: |
+          ref="$(yq -r '.inputs.truapi_ref.default' .github/actions/install/action.yaml)"
+          if ! [[ "$ref" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::truapi_ref default in .github/actions/install/action.yaml is not a full SHA: '$ref'"
+            exit 1
+          fi
+          echo "ref=$ref" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout the TrUAPI core
+        uses: actions/checkout@v4
+        with:
+          repository: paritytech/trinity-user-agents
+          ref: ${{ steps.truapi.outputs.ref }}
+          path: .truapi
+
+      - name: Point the build at the TrUAPI core
+        run: echo "TRUAPI_DIR=$GITHUB_WORKSPACE/.truapi" >> "$GITHUB_ENV"
+
+      - name: Cache the TrUAPI core build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: .truapi -> target
+          key: truapi-${{ steps.truapi.outputs.ref }}
+
+      # The core codegen needs the dated nightly's rustdoc JSON and rustfmt.
+      - name: Add nightly for the core codegen
+        run: |
+          nightly="$(sed -n 's/^truapi.rustNightly=//p' gradle.properties)"
+          if [ -z "$nightly" ]; then
+            echo "::error::truapi.rustNightly is not set in gradle.properties"
+            exit 1
+          fi
+          rustup toolchain install "$nightly" --profile minimal --component rustfmt
+
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
         with:
