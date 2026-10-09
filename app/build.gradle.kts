@@ -78,6 +78,13 @@ android {
         getByName("debug") {
             signingConfig = signingConfigs.getByName("dev")
             applicationIdSuffix = ".debug"
+            // A preview build has to be able to name the commit it came from,
+            // or a reviewer cannot tell it apart from a cached artifact. Scoped
+            // to this build type so no shipped variant can carry it, whatever
+            // is set in the environment.
+            versionNameSuffix = System.getenv("PREVIEW_COMMIT")
+                ?.takeIf { Regex("^[0-9a-f]{40}$").matches(it) }
+                ?.let { "+$it" }
             manifestPlaceholders["appName"] = localProperties.readSecretOrNull("DEBUG_APPLICATION_NAME")
                 ?: "[Debug] ${localProperties.readSecretOrThrow("APPLICATION_NAME")}"
 
@@ -231,11 +238,21 @@ dependencies {
     "gpImplementation"(libs.google.play.services.mlkit)
     "vanillaImplementation"(libs.google.mlkit.barcode.scanning)
 
+    testImplementation(project(":test-shared"))
+    testImplementation(libs.squareup.okhttp3.mockwebserver)
+    testImplementation(libs.squareup.okhttp3.tls)
+
     androidTestImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(project(":bindings:truapi-host"))
     androidTestImplementation(libs.androidx.work.testing)
     androidTestImplementation(libs.hilt.android.testing)
+    androidTestImplementation(libs.mockk.android) {
+        // JUnit 4 runs these tests; mockk's JUnit 5 jars only collide when the test APK is packaged.
+        exclude(group = "org.junit.jupiter")
+        exclude(group = "org.junit.platform")
+    }
     kspAndroidTest(libs.hilt.android.compiler)
 }
 

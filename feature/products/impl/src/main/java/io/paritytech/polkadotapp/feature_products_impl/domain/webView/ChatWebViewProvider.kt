@@ -12,6 +12,7 @@ import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import dagger.hilt.android.qualifiers.ApplicationContext
+import io.parity.truapi.TrUAPIProductExecution
 import io.paritytech.polkadotapp.common.utils.CoroutineDispatchers
 import io.paritytech.polkadotapp.feature_dotns_api.domain.DotNsResolver
 import io.paritytech.polkadotapp.feature_dotns_api.domain.DotNsTldProvider
@@ -77,9 +78,8 @@ class ChatWebViewProvider @AssistedInject constructor(
                     notifyOnPageStarted(url)
                 }
 
-                override fun onRenderProcessGone(view: WebView?, detail: RenderProcessGoneDetail?): Boolean {
-                    notifyRenderProcessGone()
-                    resetWebView()
+                override fun onRenderProcessGone(view: WebView, detail: RenderProcessGoneDetail?): Boolean {
+                    discardDeadWebView(view)
                     return true
                 }
 
@@ -90,6 +90,10 @@ class ChatWebViewProvider @AssistedInject constructor(
             }
             webChromeClient = chromeClient
         }
+    }
+
+    fun useTrUAPIPermissions(execution: TrUAPIProductExecution) {
+        permissionClient.useTrUAPIPermissions(productId, execution, scope)
     }
 
     override suspend fun loadInitialContent() {
