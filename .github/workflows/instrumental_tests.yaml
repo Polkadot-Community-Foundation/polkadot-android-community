@@ -8,7 +8,7 @@ concurrency:
 # repository Variable is set (upstream reads them with readSecretOrThrow, empty == missing).
 env:
   APPLICATION_ID: ${{ vars.APPLICATION_ID || 'io.pcf.polkadotapp' }}
-  IOS_BUNDLE_ID: ${{ vars.IOS_BUNDLE_ID }}
+  IOS_BUNDLE_ID: ${{ vars.IOS_BUNDLE_ID || 'io.pcf.polkadotapp' }}
   APPLICATION_NAME: ${{ vars.APPLICATION_NAME || 'Polkadot' }}
   CONTACT_EMAIL: ${{ vars.CONTACT_EMAIL || 'info@pcf.network' }}
   CURRENCY_SYMBOL: ${{ vars.CURRENCY_SYMBOL || 'CASH' }}
