@@ -12,6 +12,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import timber.log.Timber
+import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -62,7 +63,9 @@ interface EnabledChainConnectionReference {
 @Singleton
 class RealChainConnectionRefCounter @Inject constructor() : ChainConnectionRefCounter {
     private val mutex = Mutex()
-    private val refCounts = mutableMapOf<ChainId, MutableStateFlow<Int>>()
+
+    // Read outside the mutex by shouldConnectionBeEnabled, so a plain map could hand two callers different counters
+    private val refCounts = ConcurrentHashMap<ChainId, MutableStateFlow<Int>>()
 
     override fun shouldConnectionBeEnabled(chainId: ChainId): Flow<Boolean> {
         return getOrCreateRefCountFlow(chainId)

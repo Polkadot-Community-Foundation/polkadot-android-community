@@ -105,7 +105,13 @@ class RealFundingProductsWarmUpTest {
             app = ProductExecutable.App(host = ExecutableHost(appHost), appVersion = SemVer.ZERO),
             widget = null,
             worker = workerScriptUrl?.let {
-                ProductExecutable.Worker(scriptUrl = it, appVersion = SemVer.ZERO, includesChat = true, includesPocket = false)
+                ProductExecutable.Worker(
+                    scriptUrl = it,
+                    appVersion = SemVer.ZERO,
+                    includesChat = true,
+                    includesPocket = false,
+                    pocketCards = emptyList(),
+                )
             },
         )
         val resolved = ResolvedProduct(

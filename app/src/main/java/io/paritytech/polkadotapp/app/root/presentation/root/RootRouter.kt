@@ -13,9 +13,14 @@ interface RootRouter : ReturnableRouter {
 
     fun openDebugMenu()
 
+    fun openIssueReport(screenshotPath: String)
+
     fun openVideoGame()
 
     fun openProductBotsManagement()
+
+    /** Debug: draw a renderer tree served over HTTP at Pocket card size. */
+    fun openPocketFacePreview()
 
     fun openSpaBrowser(payload: SpaBrowserPayload)
 

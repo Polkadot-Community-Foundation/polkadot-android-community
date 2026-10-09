@@ -43,6 +43,7 @@ import org.junit.After
 import org.junit.Before
 import org.junit.Test
 import java.math.BigInteger
+import kotlin.time.Duration.Companion.days
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
@@ -130,16 +131,18 @@ class CoinagePaymentProcessingExtensionTest {
     }
 
     /**
-     * Nothing can prove a payment's coins will never arrive, and the app may not get a look at the chain
-     * for hours, so a claim is never given a deadline to give up by.
+     * A payment whose coins never land would otherwise keep a claim and its chain connection alive forever,
+     * across every restart. The deadline counts from the message, so reopening the app cannot push it back.
      */
     @Test
-    fun `a claim is never given a deadline`() = runTest {
+    fun `a claim waits a week from the payment for coins to appear`() = runTest {
         givenClaimReports(CoinageTransferDetection.Claimed(FULL, finalized = true))
+        val message = incomingPayment()
 
-        startWork(incomingPayment())
+        startWork(message)
 
-        coVerify { claimReceivedCoinsUseCase.claim(any(), any(), Instant.DISTANT_FUTURE) }
+        val sentAt = Instant.fromEpochMilliseconds(message.timestamp)
+        coVerify { claimReceivedCoinsUseCase.claim(any(), any(), sentAt + 7.days) }
     }
 
     /** The group is the message's own, so a retry rejoins the claims an earlier attempt registered. */
