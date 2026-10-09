@@ -101,5 +101,5 @@ internal fun ByteArray.hexKey(): String = toHexString()
  */
 private fun TestnetEnvironment.ecosystem(): String = when (this) {
     TestnetEnvironment.PRODUCTION -> "polkadot"
-    TestnetEnvironment.NIGHTLY, TestnetEnvironment.TESTNET -> "paseo"
+    TestnetEnvironment.NIGHTLY, TestnetEnvironment.TESTNET, TestnetEnvironment.DEV -> "paseo"
 }
