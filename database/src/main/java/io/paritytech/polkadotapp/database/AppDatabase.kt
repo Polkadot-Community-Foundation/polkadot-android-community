@@ -150,7 +150,7 @@ import io.paritytech.polkadotapp.database.model.chain.ChainNodeLocal
 import io.paritytech.polkadotapp.database.model.chain.ChainRuntimeInfoLocal
 
 @Database(
-    version = 66,
+    version = 67,
     entities = [
         ProductFundingOperationLocal::class,
         ChainLocal::class,
@@ -286,6 +286,8 @@ import io.paritytech.polkadotapp.database.model.chain.ChainRuntimeInfoLocal
         AutoMigration(from = 61, to = 62),
         // Key external_payments by (origin, id); add claimedPlanks for partially claimed payments
         AutoMigration(from = 64, to = 65),
+        // Add chat_messages.sortOrder (local storage order) and its indices
+        AutoMigration(from = 66, to = 67),
     ]
 )
 @TypeConverters(
