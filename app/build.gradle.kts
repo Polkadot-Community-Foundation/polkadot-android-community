@@ -110,6 +110,8 @@ android {
             matchingFallbacks.add("debug")
 
             signingConfig = signingConfigs.getByName("dev")
+            // The ABIs :bindings:truapi-host builds the TrUAPI core for.
+            ndk.abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64")
             // The full applicationId (io.pcf.polkadotapp.dev) is set via
             // androidComponents.onVariants below rather than an applicationIdSuffix,
             // so this public DEV build carries the PCF identity independent of the
