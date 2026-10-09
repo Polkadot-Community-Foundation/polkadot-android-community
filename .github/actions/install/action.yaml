@@ -7,12 +7,10 @@ inputs:
       SHA so an unrelated merge there cannot turn this build red; bump it
       deliberately.
       The app's HostCallbacks implementation must match the native API surface
-      at this commit. Currently seven commits past the 0.16.0 release tag that
-      polkadot-app-ios-v2 pins, for the Pocket collection (#706) the Android
-      Pocket modality needs. Drop back to the tag once Pocket ships in a
-      release; iOS pins its own ref and the two are bumped independently.
+      at this commit. Currently the @parity/truapi@0.24.0 release tag, whose
+      hosts/android this tree is vendored from; bump the two together.
     required: false
-    default: "b0d95f0d4d2526f7dd0a58b78452667e9b22b99d"
+    default: "c00c50679061073421e9c050d7ae274d35bb311a"
 
 runs:
   using: "composite"
