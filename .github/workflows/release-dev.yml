@@ -213,6 +213,46 @@ jobs:
           for F in $FLAVORS; do TASKS="$TASKS assemble${F^}Dev"; done
           ./gradlew $TASKS --no-daemon --stacktrace
 
+      # The stripped core carries no version string, so tie each shipped
+      # libtruapi.so to the pinned checkout's build output and that checkout's
+      # generated wire schema.
+      - name: Fingerprint the TrUAPI core in the APKs
+        env:
+          TRUAPI_REF: ${{ steps.truapi.outputs.ref }}
+          TRUAPI_SCHEMA_HASH: c130fa60ef495768
+        run: |
+          fail() { echo "::error::$*"; exit 1; }
+
+          head="$(git -C "$TRUAPI_DIR" rev-parse HEAD)"
+          [ "$head" = "$TRUAPI_REF" ] || fail "TrUAPI checkout is at $head, expected $TRUAPI_REF"
+          grep -qF "TRUAPI_WIRE_SCHEMA_HASH: &str = \"$TRUAPI_SCHEMA_HASH\";" \
+            "$TRUAPI_DIR/rust/crates/truapi/src/generated/wire_table.rs" \
+            || fail "TrUAPI wire schema is not $TRUAPI_SCHEMA_HASH"
+
+          declare -A triple=(
+            [arm64-v8a]=aarch64-linux-android
+            [armeabi-v7a]=armv7-linux-androideabi
+            [x86_64]=x86_64-linux-android
+          )
+          shopt -s nullglob
+          apks=(app/build/outputs/apk/*/dev/*.apk)
+          [ "${#apks[@]}" -gt 0 ] || fail "no dev APK was built"
+          for apk in "${apks[@]}"; do
+            abis="$(unzip -Z1 "$apk" | sed -n 's#^lib/\([^/]*\)/.*#\1#p' | sort -u)"
+            [ -n "$abis" ] || fail "$apk ships no native libraries"
+            for abi in $abis; do
+              target="${triple[$abi]:-}"
+              [ -n "$target" ] || fail "$apk ships $abi, which the TrUAPI core is not built for"
+              unzip -Z1 "$apk" "lib/$abi/libtruapi.so" > /dev/null 2>&1 \
+                || fail "$apk has no lib/$abi/libtruapi.so"
+              shipped="$(unzip -p "$apk" "lib/$abi/libtruapi.so" | sha256sum | cut -d' ' -f1)"
+              built="$(sha256sum "$TRUAPI_DIR/target/$target/release/libtruapi.so" | cut -d' ' -f1)"
+              [ "$shipped" = "$built" ] || fail "$apk lib/$abi/libtruapi.so is not the core built from $TRUAPI_REF"
+              echo "$apk lib/$abi/libtruapi.so sha256=$shipped"
+            done
+          done
+          echo "TrUAPI core $TRUAPI_REF (schema $TRUAPI_SCHEMA_HASH) in ${#apks[@]} APK(s)" >> "$GITHUB_STEP_SUMMARY"
+
       - name: Locate + rename APKs (product-facing names)
         id: apk
         run: |
