@@ -97,6 +97,7 @@ class ChatMessageMappersTest {
         chatId = CHAT_ID,
         timestamp = TIMESTAMP_MILLIS,
         updatedAt = TIMESTAMP_MILLIS,
+        sortOrder = ChatMessageLocal.UNORDERED,
         origin = ChatMessageLocal.Origin(type = ChatMessageLocal.OriginType.USER, key = null),
         status = ChatMessageLocal.Status.IS_READ,
         type = ChatMessageLocal.Type.DEVICE_ADDED,
