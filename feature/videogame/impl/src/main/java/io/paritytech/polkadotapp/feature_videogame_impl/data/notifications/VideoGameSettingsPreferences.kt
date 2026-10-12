@@ -22,10 +22,6 @@ class VideoGameSettingsPreferences @Inject constructor(
         return GameStartAlarmOffset.fromSeconds(seconds)
     }
 
-    fun setAlarmOffset(offset: GameStartAlarmOffset) {
-        preferences.putInt(KEY_ALARM_OFFSET_SECONDS, offset.seconds)
-    }
-
     fun getScheduledProductGames(): List<ScheduledProductGame> = preferences.getString(KEY_PRODUCT_GAME_SLOTS).toScheduledGames()
 
     fun scheduledProductGamesFlow(): Flow<List<ScheduledProductGame>> = preferences.stringFlow(KEY_PRODUCT_GAME_SLOTS)

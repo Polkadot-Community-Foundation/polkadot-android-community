@@ -11,10 +11,8 @@ env:
   CONTACT_EMAIL: ${{ vars.CONTACT_EMAIL || 'info@pcf.network' }}
   CURRENCY_SYMBOL: ${{ vars.CURRENCY_SYMBOL || 'CASH' }}
   FIAT_SYMBOL: ${{ vars.FIAT_SYMBOL || '$' }}
-  GAME_RESULTS_FALLBACK_URL: ${{ vars.GAME_RESULTS_FALLBACK_URL }}
   LOG_COLLECTION_EMAIL: ${{ vars.LOG_COLLECTION_EMAIL || 'logs@example.com' }}
   PRIVACY_POLICY_URL: ${{ vars.PRIVACY_POLICY_URL || 'https://example.com/privacy' }}
-  REFERRAL_WEB_HOST: ${{ vars.REFERRAL_WEB_HOST }}
   SENTRY_DSN: ${{ vars.SENTRY_DSN }}
   SENTRY_ORG: ${{ vars.SENTRY_ORG || 'your-sentry-org' }}
   SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT || 'your-sentry-project' }}

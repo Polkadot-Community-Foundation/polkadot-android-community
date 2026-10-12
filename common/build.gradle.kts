@@ -17,13 +17,8 @@ android {
         buildConfigString("APP_NAME", localProperties.readSecretOrThrow("APPLICATION_NAME"))
 
         buildConfigField("String", "TESTNET_ENVIRONMENT", "\"TESTNET\"")
-        buildConfigField("boolean", "ALLOW_SHORT_EVIDENCE_VIDEO", "true")
-        buildConfigField("boolean", "DIM1_ENABLED", "true")
-        buildConfigField("boolean", "FAQ_ENABLED", "true")
         buildConfigField("boolean", "COINAGE_DEBUG_FEATURES", "true")
         buildConfigField("boolean", "TESTNET_FUND_ENABLED", "true")
-        buildConfigField("boolean", "PEER_BOT_BY_DEFAULT", "true")
-        buildConfigField("boolean", "DIM1_BOT_BY_DEFAULT", "true")
         buildConfigField("boolean", "SAMPLE_BOT", "true")
         buildConfigField("boolean", "SAFETY_MODE", "false")
         buildConfigField("boolean", "TAB_BAR_CONNECTIVITY_INDICATOR", "false")
@@ -36,30 +31,19 @@ android {
             buildConfigField("boolean", "SAFETY_MODE", "true")
             buildConfigField("boolean", "TAB_BAR_CONNECTIVITY_INDICATOR", "true")
             buildConfigField("String", "TESTNET_ENVIRONMENT", "\"PRODUCTION\"")
-            buildConfigField("boolean", "ALLOW_SHORT_EVIDENCE_VIDEO", "false")
-            buildConfigField("boolean", "DIM1_ENABLED", "false")
-            buildConfigField("boolean", "FAQ_ENABLED", "false")
             buildConfigField("boolean", "COINAGE_DEBUG_FEATURES", "false")
             buildConfigField("boolean", "TESTNET_FUND_ENABLED", "false")
-            buildConfigField("boolean", "PEER_BOT_BY_DEFAULT", "false")
-            buildConfigField("boolean", "DIM1_BOT_BY_DEFAULT", "false")
             buildConfigField("boolean", "SAMPLE_BOT", "false")
             buildConfigField("boolean", "DEBUG_TOOLS_ENABLED", "false")
         }
         getByName("nightly") {
             buildConfigField("String", "TESTNET_ENVIRONMENT", "\"NIGHTLY\"")
-            buildConfigField("boolean", "ALLOW_SHORT_EVIDENCE_VIDEO", "false")
-            buildConfigField("boolean", "PEER_BOT_BY_DEFAULT", "false")
-            buildConfigField("boolean", "DIM1_BOT_BY_DEFAULT", "false")
             buildConfigField("boolean", "SAMPLE_BOT", "false")
         }
         getByName("safetynet") {
             buildConfigField("boolean", "SAFETY_MODE", "true")
             buildConfigField("boolean", "TAB_BAR_CONNECTIVITY_INDICATOR", "true")
             buildConfigField("String", "TESTNET_ENVIRONMENT", "\"NIGHTLY\"")
-            buildConfigField("boolean", "ALLOW_SHORT_EVIDENCE_VIDEO", "false")
-            buildConfigField("boolean", "PEER_BOT_BY_DEFAULT", "false")
-            buildConfigField("boolean", "DIM1_BOT_BY_DEFAULT", "false")
             buildConfigField("boolean", "SAMPLE_BOT", "false")
         }
         // Public DEV build uses the dedicated DEV testnet environment, which mirrors
@@ -68,9 +52,6 @@ android {
         // SAFETY_MODE stays at the defaultConfig `false`, exactly like `nightly`.
         getByName("dev") {
             buildConfigField("String", "TESTNET_ENVIRONMENT", "\"DEV\"")
-            buildConfigField("boolean", "ALLOW_SHORT_EVIDENCE_VIDEO", "false")
-            buildConfigField("boolean", "PEER_BOT_BY_DEFAULT", "false")
-            buildConfigField("boolean", "DIM1_BOT_BY_DEFAULT", "false")
             buildConfigField("boolean", "SAMPLE_BOT", "false")
         }
     }
