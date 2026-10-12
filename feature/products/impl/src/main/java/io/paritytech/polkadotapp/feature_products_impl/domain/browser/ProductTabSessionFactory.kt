@@ -2,6 +2,7 @@ package io.paritytech.polkadotapp.feature_products_impl.domain.browser
 
 import android.net.Uri
 import io.paritytech.polkadotapp.feature_products_api.domain.runtime.ProductRuntimeSettings
+import io.paritytech.polkadotapp.feature_products_impl.domain.runtime.LegacyRuntimeProducts
 import io.paritytech.polkadotapp.feature_products_impl.domain.webView.BrowserWebViewProvider
 import kotlinx.coroutines.CoroutineScope
 import javax.inject.Inject
@@ -18,7 +19,7 @@ class ProductTabSessionFactory @Inject constructor(
     private val runtimeSettings: ProductRuntimeSettings,
 ) {
     fun create(url: String, scope: CoroutineScope, onDeeplink: (Uri) -> Unit): BrowserWebViewProvider =
-        if (runtimeSettings.isTrUAPIRuntimeEnabled()) {
+        if (runtimeSettings.isTrUAPIRuntimeEnabled() && !LegacyRuntimeProducts.runsNative(url)) {
             truapi.create(url, scope, onDeeplink)
         } else {
             native.create(url, scope, onDeeplink)
