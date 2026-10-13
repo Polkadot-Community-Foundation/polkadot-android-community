@@ -931,7 +931,7 @@
     <string name="pocket_coinage_trace_quality_good">Good</string>
     <string name="pocket_coinage_trace_quality_high">High</string>
 
-    <string name="payment_privacy_mode_title">Payments Privacy Mode</string>
+    <string name="payment_privacy_mode_title">%1$s Privacy Mode</string>
     <string name="payment_privacy_mode_fastest_label">Fastest</string>
     <string name="payment_privacy_mode_fastest_description">Fastest payments, lower privacy</string>
     <string name="payment_privacy_mode_fastest_accessibility">Fastest. Fastest payments, lower privacy.</string>
