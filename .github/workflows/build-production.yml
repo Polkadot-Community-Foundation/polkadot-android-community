@@ -1,13 +1,16 @@
 name: Build (Production)
 
-# Builds the PRODUCTION variant (`gpRelease`) of the Polkadot App and PUBLISHES NOTHING.
+# Builds the PRODUCTION variant (`gpRelease`) of the Polkadot App and, unless `distribute` is set,
+# PUBLISHES NOTHING.
 #
 # This lane exists so a production-configured build can be produced on demand, in parallel with
-# the devnet lane (`release-dev.yml`), without any possibility of reaching a user. There is no
-# Firebase App Distribution, no R2 upload, no GitHub Release, no Play upload and no GitHub Actions
-# artifact anywhere in this file. This repository is public, and its Actions artifacts can be
-# downloaded by any signed-in GitHub user, so every output goes to a private Cloud Storage bucket
-# instead (see "Private output" below).
+# the devnet lane (`release-dev.yml`). There is no R2 upload, no GitHub Release, no Play upload and
+# no GitHub Actions artifact anywhere in this file. This repository is public, and its Actions
+# artifacts can be downloaded by any signed-in GitHub user, so every output goes to a private
+# Cloud Storage bucket instead (see "Private output" below).
+#
+# `distribute: true` sends the signed APK to the invite-only Firebase App Distribution group in
+# `FIREBASE_TESTER_GROUPS_PROD`, behind a second approval on `production-internal-tester-distribution`.
 #
 # ── Why `workflow_dispatch` only ────────────────────────────────────────────────────────────
 # No `push`, no `tags`, no `schedule`, no `pull_request`. Nothing here can fire by accident;
@@ -69,6 +72,10 @@ on:
         description: 'versionCode. For a Play upload use the latest in Play Console + 1. Defaults to the run number.'
         type: string
         default: ''
+      distribute:
+        description: 'Send the signed APK to the production Firebase tester group. Requires signing=production.'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -330,6 +337,8 @@ jobs:
     permissions:
       contents: read
       id-token: write
+    outputs:
+      apk: ${{ steps.upload_signed.outputs.apk }}
     steps:
       - name: Set up JDK 21
         uses: actions/setup-java@v4
@@ -455,6 +464,7 @@ jobs:
           fi
 
       - name: Upload the signed build to the private bucket
+        id: upload_signed
         env:
           BUILD_BUCKET: ${{ vars.BUILD_BUCKET }}
         run: |
@@ -469,11 +479,104 @@ jobs:
             echo "gs://${BUILD_BUCKET}/${PREFIX}/$(basename "$f")" >> "$GITHUB_STEP_SUMMARY"
           done
           echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo "apk=${PREFIX}/$(basename "$(find unsigned -name '*.apk' | head -1)")" >> "$GITHUB_OUTPUT"
 
-      - name: State plainly that nothing was published
+      - name: State plainly what happens to this build
         run: |
           {
-            echo "### Nothing was published"
-            echo "The signed build exists only in a private bucket readable by PCF operators. No GitHub"
-            echo "Actions artifact, no Play upload, no Firebase App Distribution, no R2 copy, no GitHub Release."
+            if [ "${{ inputs.distribute }}" = "true" ]; then
+              echo "### Handed to the distribute job"
+              echo "The signed build is in a private bucket readable by PCF operators, and \`distribute\`"
+              echo "will send it to the production Firebase tester group once that job's approval clears."
+              echo "No Play upload, no R2 copy, no GitHub Release, no GitHub Actions artifact."
+            else
+              echo "### Nothing was published"
+              echo "The signed build exists only in a private bucket readable by PCF operators. No GitHub"
+              echo "Actions artifact, no Play upload, no Firebase App Distribution, no R2 copy, no GitHub Release."
+            fi
           } >> "$GITHUB_STEP_SUMMARY"
+
+  # The only job that reaches a person: the signed APK goes to the invite-only production tester
+  # group, behind a second approval on `production-internal-tester-distribution`.
+  distribute:
+    name: Distribute to the internal production tester group
+    needs: sign
+    if: ${{ inputs.distribute && github.event.inputs.signing == 'production' }}
+    runs-on: ubuntu-latest
+    environment:
+      name: production-internal-tester-distribution
+      url: https://console.firebase.google.com/project/polkadot-community-foundation/appdistribution
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      # Not the repo-level FIREBASE_TESTER_GROUPS: that is the devnet group, and falling back to it
+      # would ship a production build to devnet testers.
+      - name: Require the production distribution configuration
+        env:
+          FIREBASE_APP_ID_ANDROID_PROD: ${{ vars.FIREBASE_APP_ID_ANDROID_PROD }}
+          FIREBASE_TESTER_GROUPS_PROD: ${{ vars.FIREBASE_TESTER_GROUPS_PROD }}
+          BUILD_BUCKET: ${{ vars.BUILD_BUCKET }}
+          APK_OBJECT: ${{ needs.sign.outputs.apk }}
+        run: |
+          set -euo pipefail
+          fail=0
+          for name in FIREBASE_APP_ID_ANDROID_PROD FIREBASE_TESTER_GROUPS_PROD BUILD_BUCKET; do
+            if [ -z "${!name}" ]; then
+              echo "::error::$name is not set on the 'production-internal-tester-distribution' environment."
+              fail=1
+            fi
+          done
+          if [ -z "$APK_OBJECT" ]; then
+            echo "::error::the sign job did not report a signed APK object."
+            fail=1
+          fi
+          [ "$fail" -eq 0 ] || exit 1
+          echo "Distributing to group(s): $FIREBASE_TESTER_GROUPS_PROD"
+
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts/ci
+          sparse-checkout-cone-mode: false
+
+      - uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@v3
+
+      - name: Fetch the signed APK from the private bucket
+        env:
+          BUILD_BUCKET: ${{ vars.BUILD_BUCKET }}
+          APK_OBJECT: ${{ needs.sign.outputs.apk }}
+        run: |
+          set -euo pipefail
+          mkdir -p signed
+          gcloud storage cp "gs://${BUILD_BUCKET}/${APK_OBJECT}" signed/
+
+      - name: Compose App Distribution release notes
+        id: notes
+        env:
+          BUILT_REF: ${{ github.event.inputs.ref || github.ref_name }}
+          VERSION_CODE: ${{ inputs.version_code || github.run_number }}
+        run: |
+          set -euo pipefail
+          APK=$(find signed -name '*.apk' | head -1)
+          [ -n "$APK" ] || { echo "::error::no APK downloaded from the private bucket"; exit 1; }
+          echo "apk=$APK" >> "$GITHUB_OUTPUT"
+          NOTES="$RUNNER_TEMP/release-notes.txt"
+          {
+            echo "Polkadot app PRODUCTION build (Android), versionCode ${VERSION_CODE}."
+            echo
+            echo "Built from ${BUILT_REF}. Signed with the production release key."
+          } > "$NOTES"
+          echo "notes=$NOTES" >> "$GITHUB_OUTPUT"
+
+      - name: Distribute the signed APK to the internal production tester group
+        run: |
+          scripts/ci/firebase-app-distribution.sh \
+            "${{ steps.notes.outputs.apk }}" \
+            "${{ vars.FIREBASE_APP_ID_ANDROID_PROD }}" \
+            "${{ vars.FIREBASE_TESTER_GROUPS_PROD }}" \
+            "${{ steps.notes.outputs.notes }}"
