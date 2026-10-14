@@ -65,6 +65,10 @@ on:
         description: 'Git ref to build (branch, tag or SHA). Defaults to the ref this workflow was dispatched on.'
         type: string
         default: ''
+      version_code:
+        description: 'versionCode. For a Play upload use the latest in Play Console + 1. Defaults to the run number.'
+        type: string
+        default: ''
 
 permissions:
   contents: read
@@ -180,7 +184,8 @@ jobs:
 
       - name: Assemble + bundle gpRelease
         env:
-          CI_BUILD_ID: ${{ github.run_number }}
+          # Play needs a versionCode above every one already uploaded, and the run number is not.
+          CI_BUILD_ID: ${{ inputs.version_code || github.run_number }}
           # ── NO RELEASE_KEYSTORE_* HERE, BY DESIGN ──────────────────────────────────────────
           # app/build.gradle.kts leaves the release variant UNSIGNED when RELEASE_KEYSTORE_FILE
           # is absent. Signing, when requested, happens in the gated `sign` job below, so the
@@ -213,6 +218,11 @@ jobs:
           W3S_AUTH_KEY: 'unused-in-production'
           NIGHTLY_FUNDING_MNEMONIC: 'unused in production faucet disabled in release builds'
         run: |
+          # Versions.kt falls back to a fixed versionCode when CI_BUILD_ID is not an integer.
+          if ! [[ "$CI_BUILD_ID" =~ ^[1-9][0-9]*$ ]]; then
+            echo "::error::version_code must be a positive integer, got '$CI_BUILD_ID'."
+            exit 1
+          fi
           for V in LOG_COLLECTION_EMAIL PRIVACY_POLICY_URL TERMS_OF_USE_URL GOOGLE_OAUTH_ID GOOGLE_PROJECT_ID; do
             if [ -z "${!V}" ]; then
               echo "::error::Missing '$V' in the 'production' environment. See guides/production/builds/android.md."
