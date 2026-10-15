@@ -2,9 +2,7 @@ package io.paritytech.polkadotapp.common.data.network
 
 // Should be kept in-tact with common/build.gradle
 enum class TestnetEnvironment {
-    // DEV = the public io.pcf.polkadotapp.dev build. Network-wise it mirrors NIGHTLY
-    // (same chains_v2 Remote Config key + nightly-* chain ids); kept as a distinct value
-    // so the dev build is identifiable in-app and can diverge from nightly later.
+    // DEV is the io.pcf.polkadotapp.dev build; it uses the NIGHTLY network setup.
     TESTNET, NIGHTLY, DEV, PRODUCTION;
 
     companion object {

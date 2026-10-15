@@ -2,14 +2,12 @@
 #
 # Upload an APK to Firebase App Distribution and hand it to tester groups.
 #
-# Talks to the App Distribution REST API directly, with an OAuth token minted by
-# gcloud. That is deliberate: the `firebase-tools` CLI wants a service-account key
-# *file*, whereas CI authenticates keylessly through Workload Identity Federation —
-# `gcloud auth print-access-token` bridges the two without a long-lived secret.
+# Talks to the App Distribution REST API with a gcloud access token, so keyless CI
+# (Workload Identity Federation) needs no service-account key file, which the
+# `firebase-tools` CLI would require.
 #
-# Note we do NOT send an `x-goog-user-project` header. It is required when calling
-# this API with end-user ADC, but with a service account it demands
-# `serviceusage.services.use`, which the CI service account intentionally lacks.
+# No `x-goog-user-project` header: with a service account it requires
+# `serviceusage.services.use`, which the CI identity does not have.
 #
 # Usage:
 #   firebase-app-distribution.sh <apk> <firebase-app-id> <tester-groups-csv> [notes-file]

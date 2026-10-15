@@ -11,12 +11,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import io.paritytech.polkadotapp.design.components.text.NovaText
 import io.paritytech.polkadotapp.design.theme.PolkadotTheme
 
-/**
- * Shown in the Polkadot Prizes footer when the game schedule is known to be empty.
- *
- * Without it the footer simply renders nothing, which reads as a broken screen rather than as
- * "there is nothing on yet" — the state a testnet sits in whenever no games are scheduled.
- */
+/** Shown in the Polkadot Prizes footer when the game schedule is known to be empty. */
 @Composable
 fun NoScheduledGamesPlaceholder(
     text: String,

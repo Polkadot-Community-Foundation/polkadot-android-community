@@ -16,34 +16,9 @@ import kotlin.time.Instant
 import io.paritytech.polkadotapp.feature_chats_api.domain.model.ContactWithRequestTimestamp as DomainContactWithRequestTimestamp
 
 /**
- * PCF FORK-LOCAL — keep on upstream conflict; see `LegacyEcdhKeyCleanup` for why.
- *
- * Maps a stored contact, or `null` when its chat key cannot be parsed.
- *
- * `contacts.chatKey` is a plain BLOB, so it can hold bytes that are not a valid X25519 public key —
- * concretely, the 65-byte uncompressed P-256 point that pre-X25519 builds copied here from the
- * peer's on-chain `ConsumerInfo.identifierKey`. No schema migration rewrote them, because the
- * column's *structure* never changed, only the rule about its *value*. This mapper feeds Room
- * Flows, where a throw escapes onto a background dispatcher, cannot be caught by any collector, and
- * kills the process; so an unparseable row is reported as "no such contact" instead.
- *
- * ## What this costs, on purpose
- *
- * On an install upgraded across that change, *every* contact is affected, so the app comes up with
- * an empty contact and chat list rather than crashing. That is the deliberate trade — do not read
- * it as a recoverable state:
- *
- * - The stored bytes are a P-256 point. Nothing can convert one into an X25519 key, so there is no
- *   "later value migration" that brings these contacts back.
- * - The rows are nevertheless **not** deleted (unlike `contact_devices` / `sso_sessions`, see
- *   `LegacyEcdhKeyCleanup`): `contacts` is the FK parent of the chat history, and dropping a row
- *   would cascade the user's messages away for no gain.
- * - A contact returns when its chat key is written afresh with a peer that has itself migrated:
- *   a new incoming chat request (`IncomingChatRequestProcessor`), or
- *   `AddContactUseCase.addAlreadyEstablishedContactsById`, which re-reads `identifierKey` from the
- *   People chain. Neither runs on its own for an existing contact — there is no self-heal here.
- *
- * Do not simplify this back into a non-null mapper.
+ * Maps a stored contact, or returns `null` when its chat key is not a valid X25519 public key,
+ * such as a legacy 65-byte P-256 key. These mappers feed Room flows, where a throw would crash the
+ * app. The row is kept because `contacts` is the parent of the chat history.
  */
 fun ContactLocal.toDomainOrNull(): Contact? {
     val parsedChatKey = X25519PublicKey.fromBytes(chatKey.toDataByteArray()).getOrElse {

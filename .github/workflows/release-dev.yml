@@ -1,65 +1,11 @@
 name: Release (Dev)
 
-# ⭐ FORK POLICY — four inherited upstream workflows are deliberately DELETED here.
-# Do not restore them on a future sync without re-reading this:
-#   nightly_release.yaml            daily 17:00 cron; runs `gh release delete --cleanup-tag`
-#                                   + `gh release create` with github.token — which always
-#                                   works on OUR fork — and distributes to Parity/Nova's
-#                                   tester groups + s3://polkadot-app-artefacts.
-#   genesis_hash_monitor.yml        cron 4x/weekday with contents+pull-requests: write;
-#                                   opens PRs on the fork unattended.
-#   firebase_debug_distribution.yml fires on `pull_request: [closed]` when merged to main —
-#                                   i.e. on the sync merge itself — and distributes.
-#   firebase_release_distribution.yml Parity-wired distribution for `release-*` branches.
-# They were inert only because a Parity secret is absent and the build failed first; that is
-# defence by accident. Adding GOOGLE_SERVICES_JSON_BASE64 (e.g. to green pr.yml) would arm them.
-# Rule: testers are served ONLY by a run that publishes a release — never a cron, never a merge.
-# Kept: pr.yml, detekt.yaml, instrumental_tests.yaml, collect_prs_summary.yml (monthly, inert),
-# release_prepare.yml (workflow_dispatch only).
-#
-# Builds the public DEV variant — a builder/preview build pointed at the bespoke
-# Paseo testnet chain set and (optionally) published. The `dev` buildType uses the
-# dedicated DEV testnet environment (common/build.gradle.kts sets TESTNET_ENVIRONMENT=DEV
-# for it), which MIRRORS NIGHTLY — it reads the `chains_v2` Remote Config key and resolves
-# chains by the fixed ids nightly-relay / nightly-ah / nightly-people / nightly-bulletin —
-# but is a distinct TestnetEnvironment value. It differs from nightly in identity + Firebase:
-#   - applicationId = io.pcf.polkadotapp.dev (set via androidComponents in app/build.gradle.kts;
-#     installs side-by-side with prod and with the io.paritytech.polkadotapp.nightly build).
-#   - its own Firebase app (1:165923692956:android:ec22ad44f6b3de6ed72859) in the shared
-#     polkadot-community-foundation project (# 165923692956, alongside prod io.pcf.polkadotapp,
-#     .nightly and .debug) → its own google-services.json, and an RC condition
-#     `App ID == io.pcf.polkadotapp.dev` serves the Paseo values
-#     (summit-deployer-skills guides/_tools/paseo-remote-config.json). Keep prod RC defaults sacred.
-#   - dev signs with the *dev* signingConfig, so the CI_KEYSTORE_* secrets below must be REAL
-#     (matching the provided keystore), not placeholders.
-# This pipeline leaves the production release.yml AND the nightly release-paseo.yml untouched.
-#
-# Lanes: a dispatch on the `devnet` branch is a release. It builds in the `devnet` environment,
-# tags the built commit `devnet/<YYYY-MM-DD>.<n>`, and publishes behind `tester-distribution`.
-# A dispatch on any other branch only uploads the APKs as run artifacts: no tag, no publishing.
-#
-# Required secrets (environment `devnet`; repository level is the fallback):
-#   DEV_KEYSTORE_BASE64             base64 of the signing keystore (`base64 -w0 key.jks`)
-#   CI_KEYSTORE_PASS               keystore store password   (dev signingConfig)
-#   CI_KEYSTORE_KEY_ALIAS          key alias
-#   CI_KEYSTORE_KEY_PASS           key password
-#   GOOGLE_SERVICES_JSON_DEV_BASE64 base64 of the DEV Firebase app's google-services.json
-#   GOOGLE_OAUTH_ID                Google OAuth client id   (throwing secret)
-#   GOOGLE_PROJECT_ID              Google Cloud project id  (throwing secret)
-#   W3S_AUTH_KEY                   auth keypair seed (hex)  (throwing secret; use a FRESH Paseo-only key)
-#   DEV_FUNDING_MNEMONIC           faucet account mnemonic (throwing secret since upstream
-#                                  "Make important build variables required"; an EMPTY value
-#                                  now fails the build instead of falling back to a dev seed)
-# Optional: R2_UPLOAD_TOKEN + CLOUDFLARE_ACCOUNT_ID (publish APK to the PCF downloads host).
-#
-# Required build variables (upstream reads them with readSecretOrThrow, empty == missing):
-#   APPLICATION_ID, APPLICATION_NAME, CURRENCY_SYMBOL, FIAT_SYMBOL, FIRESTORE_DATABASE_ID,
-#   LOG_COLLECTION_EMAIL, PRIVACY_POLICY_URL, TERMS_OF_USE_URL, SENTRY_ORG, SENTRY_PROJECT.
-#   They are NOT secrets. Each is read from a repository Variable of the same name and
-#   falls back to a PCF-owned value (never a paritytech one), so a
-#   variable is only needed to CHANGE one. The DEV applicationId stays io.pcf.polkadotapp.dev
-#   (pinned in app/build.gradle.kts onVariants) whatever APPLICATION_ID says; the other build
-#   types derive io.pcf.polkadotapp{.debug,.nightly,.safetynet} from it.
+# Devnet Android release. A dispatch on `devnet` builds the `dev` variant (io.pcf.polkadotapp.dev),
+# tags the commit `devnet/<YYYY-MM-DD>.<n>`, then publishes it and sends it to testers, each behind
+# `tester-distribution`. A dispatch on any other branch only uploads the APKs as run artifacts.
+# Upstream's nightly_release, genesis_hash_monitor, firebase_debug_distribution and
+# firebase_release_distribution workflows are deleted on purpose (they publish or open PRs
+# unattended); do not restore them.
 
 on:
   workflow_dispatch:
@@ -70,9 +16,7 @@ on:
         default: gp vanilla
         options: [gp vanilla, gp, vanilla]
       distribute:
-        # Opt-OUT only. This can SUPPRESS distribution, never force it: the gate below
-        # ANDs it with "this is a devnet-branch run", so it has no effect elsewhere. It
-        # exists so a devnet release can skip re-notifying testers.
+        # Opt-out only: it can skip distribution on a devnet run, never enable it elsewhere.
         description: 'Allow App Distribution (only takes effect on a devnet-branch run)'
         type: boolean
         default: true
@@ -138,24 +82,21 @@ jobs:
       - name: Assemble dev APKs (${{ env.FLAVORS }}, Paseo)
         env:
           CI_BUILD_ID: ${{ github.run_number }}
-          # dev signs with the dev signingConfig → point it at the decoded keystore
-          # with REAL credentials (used at build time, unlike a release build).
+          # The dev signingConfig signs at build time with the decoded keystore.
           DEV_KEYSTORE_FILE: ${{ github.workspace }}/dev_key.jks
           CI_KEYSTORE_PASS: ${{ secrets.CI_KEYSTORE_PASS }}
           CI_KEYSTORE_KEY_ALIAS: ${{ secrets.CI_KEYSTORE_KEY_ALIAS }}
           CI_KEYSTORE_KEY_PASS: ${{ secrets.CI_KEYSTORE_KEY_PASS }}
-          # release signingConfig is read at configuration time even though a dev
-          # build never uses it — placeholders suffice here.
+          # The release signingConfig is only read at configuration time.
           RELEASE_KEYSTORE_PASS: placeholder
           RELEASE_KEYSTORE_KEY_ALIAS: placeholder
           RELEASE_KEYSTORE_KEY_PASS: placeholder
           # throwing app secrets (readSecret)
           GOOGLE_OAUTH_ID: ${{ secrets.GOOGLE_OAUTH_ID }}
           GOOGLE_PROJECT_ID: ${{ secrets.GOOGLE_PROJECT_ID }}
-          W3S_AUTH_KEY: ${{ secrets.W3S_AUTH_KEY }}
           # faucet (throwing secret: an empty value fails the build)
           NIGHTLY_FUNDING_MNEMONIC: ${{ secrets.DEV_FUNDING_MNEMONIC }}
-          # build variables upstream made required (see header); Variable overrides default
+          # Required build variables
           APPLICATION_ID: ${{ vars.APPLICATION_ID || 'io.pcf.polkadotapp' }}
           APPLICATION_NAME: ${{ vars.APPLICATION_NAME || 'Polkadot' }}
           CONTACT_EMAIL: ${{ vars.CONTACT_EMAIL || 'info@pcf.network' }}
@@ -233,11 +174,7 @@ jobs:
           echo "### Tagged \`$TAG\` at ${GITHUB_SHA:0:8}" >> "$GITHUB_STEP_SUMMARY"
 
   # ---- Publishing — MANUAL APPROVAL GATE ------------------------------------------------
-  # The build above stays automatic; everything that makes a build public (the GitHub
-  # Release with the APKs attached, the downloads-host copy + `latest.apk`) now sits in this
-  # job behind the protected `tester-distribution` environment, so a devnet release pauses
-  # here until a reviewer approves. The gate is the environment's protection rule, not this
-  # file: if the environment is deleted GitHub recreates it UNPROTECTED on first use.
+  # The GitHub Release and the downloads-host copy wait for the `tester-distribution` approval.
   publish:
     needs: [release, tag]
     if: github.ref == 'refs/heads/devnet'
@@ -297,25 +234,8 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
   # ---- Firebase App Distribution — MANUAL APPROVAL GATE ------------------------------
-  # Separate job so it can sit behind a protected GitHub Environment. The environment
-  # `tester-distribution` carries a REQUIRED REVIEWER, so every push to the 20 testers in
-  # `android-devnet-testers` waits for a human to approve it in the Actions UI — the same
-  # shape as an npm publish approval. Nothing reaches testers unattended, including any
-  # future weekly cron.
-  #
-  # ⚠️ The gate lives in the ENVIRONMENT, not in this file. If `tester-distribution` does
-  # not exist, GitHub auto-creates it UNPROTECTED on first use and this job runs straight
-  # through. Configure it (Settings → Environments → required reviewers) or the approval
-  # step silently does not exist.
-  #
-  # POLICY, unchanged: testers are served ONLY by a run that publishes a release. The devnet
-  # branch gate is ANDed with the `distribute` opt-out, never ORed — a dispatch on any other
-  # branch cannot notify testers whatever inputs it is given, which is what makes branch
-  # builds safe.
-  #
-  # gp only: both flavors share applicationId io.pcf.polkadotapp.dev, so they map to ONE
-  # Firebase app and would overwrite each other. Devices without Google Play services take
-  # the -nogms APK from the GitHub Release instead.
+  # gp only: both flavors share one application id, so one Firebase app. Devices without Google
+  # Play services take the -nogms APK from the GitHub Release.
   distribute:
     needs: [tag, publish]
     if: ${{ github.ref == 'refs/heads/devnet' && vars.FIREBASE_APP_ID_ANDROID_DEV != '' && inputs.distribute }}

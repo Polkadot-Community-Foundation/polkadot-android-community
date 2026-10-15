@@ -42,13 +42,8 @@ class MigrationTest {
     }
 
     /**
-     * PCF FORK-LOCAL. Covers [io.paritytech.polkadotapp.database.cleanup.LegacyEcdhKeyCleanup], the
-     * one destructive step in the fork's P-256 -> X25519 repair, against the real schema: it is
-     * installed by [addAppCallbacks] and swallows its own failures, so a table or column typo in
-     * its SQL would otherwise be silent until a user's device came up with a stale row.
-     *
-     * The seeded rows are what an install upgraded across that change actually holds: a 65-byte
-     * uncompressed P-256 key in a BLOB column that no schema migration rewrote.
+     * Runs [io.paritytech.polkadotapp.database.cleanup.LegacyEcdhKeyCleanup] against the real
+     * schema. The cleanup swallows its own failures, so a SQL typo would otherwise go unnoticed.
      */
     @Test
     fun purgesLegacyEcdhKeysOnOpen() {
@@ -113,7 +108,7 @@ class MigrationTest {
     companion object {
         private const val TEST_DB = "migration-test"
 
-        /** Must track `AppDatabase`'s `@Database(version = ...)`, which is shared with upstream. */
+        /** Must match `AppDatabase`'s `@Database(version = ...)`. */
         private const val LATEST_VERSION = 54
 
         private val ACCOUNT_ID_A = ByteArray(32) { 1 }
