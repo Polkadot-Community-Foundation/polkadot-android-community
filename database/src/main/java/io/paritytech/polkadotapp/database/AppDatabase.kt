@@ -309,13 +309,8 @@ abstract class AppDatabase : RoomDatabase() {
         }
 
         /**
-         * PCF FORK-LOCAL. Deliberately separate from [addAppMigrations]: these callbacks repair row
-         * *values* that no schema migration can reach, and must not be mistaken for migrations. See
-         * [LegacyEcdhKeyCleanup] for why such a repair is needed at all.
-         *
-         * Exposed for re-usage in tests — `MigrationTest` builds the database through this so the
-         * callbacks run against the real schema; a table or column typo in their SQL would
-         * otherwise only be discovered on a user's device.
+         * Callbacks that repair row values on open, which no schema migration can reach. Public so
+         * that `MigrationTest` runs them against the real schema.
          */
         fun <T : RoomDatabase> Builder<T>.addAppCallbacks(): Builder<T> {
             return addCallback(LegacyEcdhKeyCleanup)

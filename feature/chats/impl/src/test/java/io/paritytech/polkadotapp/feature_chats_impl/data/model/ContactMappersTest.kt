@@ -10,16 +10,7 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Test
 
-/**
- * Pins the read boundary of the `contacts` mappers against rows written before the
- * P-256 -> X25519 migration.
- *
- * `contacts.chatKey` is a plain BLOB, so older builds' 65-byte keys survive the schema migration
- * untouched. This mapper feeds Room Flows, so a strict parse here throws onto a background
- * dispatcher and kills the process; an unparseable row must be reported as "no such contact"
- * instead. The row is only hidden, never deleted — deleting it would destroy the chat and cascade
- * away its devices.
- */
+/** Legacy 65-byte chat keys map to `null` instead of throwing. */
 class ContactMappersTest {
     @Test
     fun `a legacy 65-byte chatKey maps to null instead of throwing`() {

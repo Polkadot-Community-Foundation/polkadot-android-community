@@ -280,17 +280,6 @@ but the `gp` flavor block is still evaluated when configuring a `vanilla` build,
 both variables must be present for any build. For a `vanilla`-only fork any
 non-empty value works (`GOOGLE_PROJECT_ID` must still parse as an integer).
 
-> **`W3S_AUTH_KEY` (historical).** Since
-> [Paseo v2.5.2](https://github.com/paseo-network/runtimes/releases/tag/v2.5.2)
-> ([paseo-network/runtimes#421](https://github.com/paseo-network/runtimes/pull/421))
-> the devnet runtimes (People and Asset Hub) no longer include the
-> `AuthorizeValueTransfer` transaction extension (removed in v2.5.2; slot 0 is now
-> the unit extension): plain signed origins can move pUSD and coinage without a
-> Web3 Summit signature. As of upstream `v1.0.0-1025` the `feature/web3summit`
-> module has been removed from the app entirely, so `W3S_AUTH_KEY` is **no longer a
-> build input** — no Gradle or Kotlin code reads it. The `W3S_AUTH_KEY` entries still
-> present in the CI workflows are inert leftovers and can be dropped in a follow-up.
-
 #### 5.2.1 App identity, endpoints and values
 
 Depending on the consumer, these become the application ID, a manifest placeholder,

@@ -37,8 +37,6 @@ android {
             buildConfigString("BACKUP_KEY_SUFFIX", "-safetynet")
         }
 
-        // Public DEV build: keep its own backup namespace so it never collides
-        // with nightly/production data (distinct io.pcf.polkadotapp.dev identity).
         getByName("dev") {
             buildConfigField("String", "BACKUP_FILE_SUFFIX", "\"dev\"")
             buildConfigField("String", "BACKUP_KEY_SUFFIX", "\"-dev\"")

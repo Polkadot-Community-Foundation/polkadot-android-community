@@ -63,22 +63,9 @@ class RealContactDevicesRepository @Inject constructor(
 }
 
 /**
- * PCF FORK-LOCAL — keep on upstream conflict; see `LegacyEcdhKeyCleanup` for why.
- *
- * Maps a stored device row, or `null` when its encryption key cannot be parsed.
- *
- * `contact_devices.encryptionPublicKey` is a plain BLOB, so the column can hold bytes that are not
- * a valid X25519 public key. Concretely: rows written by an older build that used a different key
- * format and were never rewritten, because no schema migration inspects row *values* — only the
- * column's structure, which did not change. Parsing therefore must not throw here. These rows are
- * read inside Room Flows, where an exception escapes onto a background dispatcher, cannot be caught
- * by any collector, and takes the process down.
- *
- * A row we cannot decode is treated as "this device is unknown". That is safe: a key we cannot
- * parse is a key we cannot encrypt to, and the roster is re-populated whenever the peer
- * re-announces the device.
- *
- * Do not simplify this back into a non-null mapper.
+ * Maps a stored device, or returns `null` when its encryption key is not a valid X25519 public
+ * key. These rows are read inside Room flows, where a throw would crash the app; the peer
+ * re-announces the device with a valid key.
  */
 private fun ContactDeviceLocal.toDomainOrNull(): ContactDevice? {
     val parsedKey = X25519PublicKey.fromBytes(encryptionPublicKey.toDataByteArray()).getOrElse {

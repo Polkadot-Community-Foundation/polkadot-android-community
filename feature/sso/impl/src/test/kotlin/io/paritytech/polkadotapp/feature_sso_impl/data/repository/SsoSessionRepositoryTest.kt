@@ -19,16 +19,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
 
-/**
- * Pins the read boundary of [SsoSessionRepository] against rows written before the P-256 -> X25519
- * migration.
- *
- * `sso_sessions.sharedSecretPublicKey` is a plain BLOB, so no schema migration rewrote the 65-byte
- * uncompressed P-256 keys that older builds stored there for a linked device. Parsing them strictly
- * throws out of a Room Flow, on a background dispatcher, where no collector can catch it — which
- * kills the process on launch, since `observeSessions` is collected from the device-sync
- * initializer. Every read path here must skip such a row instead.
- */
+/** Every read path skips sessions with a legacy 65-byte key instead of throwing. */
 class SsoSessionRepositoryTest {
     private val dao = FakeSsoSessionDao()
 
