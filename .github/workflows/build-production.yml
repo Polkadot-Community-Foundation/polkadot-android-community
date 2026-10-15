@@ -1,60 +1,9 @@
 name: Build (Production)
 
-# Builds the PRODUCTION variant (`gpRelease`) of the Polkadot App and, unless `distribute` is set,
-# PUBLISHES NOTHING.
-#
-# This lane exists so a production-configured build can be produced on demand, in parallel with
-# the devnet lane (`release-dev.yml`). There is no R2 upload, no GitHub Release, no Play upload and
-# no GitHub Actions artifact anywhere in this file. This repository is public, and its Actions
-# artifacts can be downloaded by any signed-in GitHub user, so every output goes to a private
-# Cloud Storage bucket instead (see "Private output" below).
-#
-# `distribute: true` sends the signed APK to the invite-only Firebase App Distribution group in
-# `FIREBASE_TESTER_GROUPS_PROD`, behind a second approval on `production-internal-tester-distribution`.
-#
-# ── Why `workflow_dispatch` only ────────────────────────────────────────────────────────────
-# No `push`, no `tags`, no `schedule`, no `pull_request`. Nothing here can fire by accident;
-# a production build is always a deliberate human action.
-#
-# ── The two-environment model (PCF-239) ─────────────────────────────────────────────────────
-#   `production`               UNGATED. Holds production *configuration* (application id, app
-#                              name, policy URLs, Firebase ids). All of it ships inside the APK
-#                              and is public, so gating it would only add an approval click to
-#                              every build for no security benefit.
-#   `production-distribution`  GATED (required reviewers). Holds production *key material*: the
-#                              release keystore and its passwords.
-#
-# ⚠️ DEVIATION FROM THE SHARED SPEC, deliberate: the spec asks for "the step that signs" to
-# declare `production-distribution`. GitHub Actions has no step-level `environment` key — it is
-# job-level only, and a job may declare exactly one. Signing material is therefore isolated in
-# its own job (`sign`) which declares the gated environment, while `build` declares the ungated
-# config environment. This is strictly stronger than the spec intended: with `signing: none` the
-# gated environment is never touched at all, and the keystore never enters the build job's
-# filesystem even when signing IS requested.
-#
-# ⚠️ The gate lives in the ENVIRONMENT, not in this file. If `production-distribution` does not
-# exist, GitHub auto-creates it UNPROTECTED on first use and the `sign` job runs straight
-# through. Configure required reviewers or the approval step silently does not exist.
-#
-# ── Lane isolation from the devnet build ────────────────────────────────────────────────────
-#   concurrency group  `build-production-<ref>`  — release-dev.yml sets NO concurrency at all, so
-#                      the two can never cancel each other.
-#   outputs            a private bucket (`vars.BUILD_BUCKET`, prefix `android/`) vs devnet's
-#                      `app-polkadot-devnet*` Actions artifacts.
-#   application id     `io.pcf.polkadotapp` (pinned in app/build.gradle.kts via androidComponents)
-#                      vs devnet's `io.pcf.polkadotapp.dev` — installable side by side.
-#   variables          read from the `production` environment. GitHub resolves vars/secrets as
-#                      environment → repository → organisation, so this job sees production values
-#                      while every devnet job keeps seeing the repo-level ones. NOTHING production
-#                      is ever set at repository level.
-#
-# ── Private output ──────────────────────────────────────────────────────────────────────────
-#   Both jobs sign in to Google Cloud without keys (GitHub OIDC -> Workload Identity Federation),
-#   using `GCP_WORKLOAD_IDENTITY_PROVIDER` and `GCP_SERVICE_ACCOUNT` from their environment. The
-#   identity is only issued to this repository's production environments, and it can only create
-#   and read objects under `android/` in `BUILD_BUCKET`: it cannot list, overwrite or delete.
-#   `build` uploads to `android/<run>/unsigned/` and passes the exact object names to `sign`,
-#   which reads them and uploads to `android/<run>/signed/`.
+# Builds the production variant (`gpRelease`) on dispatch. Outputs go only to a private Cloud
+# Storage bucket, since Actions artifacts are public in this repository. Signing runs in its own
+# job behind the `production-distribution` approval; `distribute` sends the signed APK to the
+# internal tester group behind a second approval.
 
 on:
   workflow_dispatch:
@@ -81,14 +30,11 @@ permissions:
   contents: read
 
 concurrency:
-  # Distinct from every other workflow in the repo. Never cancels in progress: a production build
-  # is expensive and deliberate, and two dispatches should queue rather than kill each other.
   group: build-production-${{ github.event.inputs.ref || github.ref }}
   cancel-in-progress: false
 
 env:
-  # Uploads to the private bucket must not use parallel composite uploads: their temporary parts live outside
-  # this repository's prefix and need delete to clean up, which the build identity deliberately lacks.
+  # Composite uploads delete their temporary parts, and the build identity cannot delete.
   CLOUDSDK_STORAGE_PARALLEL_COMPOSITE_UPLOAD_ENABLED: "False"
   NDK_VERSION: "29.0.14206865"
   PRODUCTION_APPLICATION_ID: io.pcf.polkadotapp
@@ -97,7 +43,6 @@ jobs:
   build:
     name: Build gpRelease (unsigned)
     runs-on: ubuntu-latest
-    # Ungated: production CONFIGURATION only. No key material is readable from this job.
     environment: production
     permissions:
       contents: read
@@ -153,25 +98,18 @@ jobs:
       - name: Set up Gradle (with cache)
         uses: gradle/actions/setup-gradle@v4
 
-      # The production Firebase app for io.pcf.polkadotapp already exists in project
-      # polkadot-community-foundation (165923692956). No google-services.json is committed
-      # anywhere in this repository, so the release source set must be populated at build time.
       - name: Decode google-services.json (release source set)
         env:
           GS_B64: ${{ secrets.GOOGLE_SERVICES_JSON_PROD_BASE64 }}
         run: |
           if [ -z "$GS_B64" ]; then
-            echo "::error::Missing secret GOOGLE_SERVICES_JSON_PROD_BASE64 in the 'production' environment. \
-          This is the base64 of the production Firebase google-services.json for io.pcf.polkadotapp \
-          (Firebase project polkadot-community-foundation, 165923692956). Set it with: \
-          gh secret set GOOGLE_SERVICES_JSON_PROD_BASE64 --env production --repo <owner>/<repo>"
+            echo "::error::GOOGLE_SERVICES_JSON_PROD_BASE64 is not set in the 'production' environment."
             exit 1
           fi
           mkdir -p app/src/release
           echo "$GS_B64" | base64 --decode > app/src/release/google-services.json
 
-      # Guard against wiring the DEV (or any other) Firebase file into the production build: a
-      # mismatched google-services.json builds fine and then misroutes Crashlytics/Analytics.
+      # A mismatched google-services.json builds fine and then misroutes Crashlytics and Analytics.
       - name: Verify google-services.json targets the production package
         run: |
           FILE=app/src/release/google-services.json
@@ -193,15 +131,7 @@ jobs:
         env:
           # Play needs a versionCode above every one already uploaded, and the run number is not.
           CI_BUILD_ID: ${{ inputs.version_code || github.run_number }}
-          # ── NO RELEASE_KEYSTORE_* HERE, BY DESIGN ──────────────────────────────────────────
-          # app/build.gradle.kts leaves the release variant UNSIGNED when RELEASE_KEYSTORE_FILE
-          # is absent. Signing, when requested, happens in the gated `sign` job below, so the
-          # keystore never touches this job.
-          #
-          # Production application id. Pinned in app/build.gradle.kts, overridable here.
           PRODUCTION_APPLICATION_ID: ${{ vars.PRODUCTION_APPLICATION_ID || 'io.pcf.polkadotapp' }}
-          # Build variables read with readSecretOrThrow (empty == missing == build failure).
-          # Each falls back to a PCF-owned production value, never a paritytech one.
           APPLICATION_ID: ${{ vars.APPLICATION_ID || 'io.pcf.polkadotapp' }}
           APPLICATION_NAME: ${{ vars.APPLICATION_NAME || 'Polkadot' }}
           CONTACT_EMAIL: ${{ vars.CONTACT_EMAIL || 'info@pcf.network' }}
@@ -215,14 +145,7 @@ jobs:
           SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT || 'polkadot-android' }}
           GOOGLE_OAUTH_ID: ${{ secrets.GOOGLE_OAUTH_ID_PROD || secrets.GOOGLE_OAUTH_ID }}
           GOOGLE_PROJECT_ID: ${{ secrets.GOOGLE_PROJECT_ID_PROD || secrets.GOOGLE_PROJECT_ID }}
-          # Required at CONFIGURATION time by modules whose runtime surface is switched OFF in a
-          # release build, so a placeholder is correct and a real value would be wrong:
-          #   W3S_AUTH_KEY           — the Web3 Summit extension was removed upstream (PR #86);
-          #                            the module still demands the variable, nothing reads it.
-          #   NIGHTLY_FUNDING_MNEMONIC — the in-app faucet is disabled in release
-          #                            (TESTNET_FUND_ENABLED=false + environment != PRODUCTION
-          #                            guard). NEVER put a real mnemonic here.
-          W3S_AUTH_KEY: 'unused-in-production'
+          # Required at configuration time; the faucet is disabled in release builds.
           NIGHTLY_FUNDING_MNEMONIC: 'unused in production faucet disabled in release builds'
         run: |
           # Versions.kt falls back to a fixed versionCode when CI_BUILD_ID is not an integer.
@@ -232,7 +155,7 @@ jobs:
           fi
           for V in LOG_COLLECTION_EMAIL PRIVACY_POLICY_URL TERMS_OF_USE_URL GOOGLE_OAUTH_ID GOOGLE_PROJECT_ID; do
             if [ -z "${!V}" ]; then
-              echo "::error::Missing '$V' in the 'production' environment. See guides/production/builds/android.md."
+              echo "::error::Missing '$V' in the 'production' environment."
               exit 1
             fi
           done
@@ -296,14 +219,7 @@ jobs:
             echo "- signing input: \`${{ github.event.inputs.signing || 'none' }}\`"
           } >> "$GITHUB_STEP_SUMMARY"
 
-  # ── Pre-flight — fail BEFORE anyone is asked to approve ───────────────────────────────────
-  # Runs ungated (environment: production) and only when production signing was requested. Its
-  # job is to refuse a run that could only ever fail, so a reviewer is never paged to approve a
-  # `sign` job that will die on missing key material two seconds later.
-  #
-  # It cannot read the gated secrets themselves — that is the whole point of the gate — so it
-  # keys off a NON-SECRET flag variable in the `production` environment, which an operator flips
-  # to 'true' once PCF-220 has produced a real keystore and the four secrets are set.
+  # Fails before the signing approval is requested when no production keystore is configured.
   preflight:
     name: Pre-flight (production signing material)
     if: ${{ github.event.inputs.signing == 'production' }}
@@ -316,18 +232,12 @@ jobs:
         run: |
           if [ "$SIGNING_AVAILABLE" != "true" ]; then
             echo "::error::signing=production was requested, but the 'production' environment does \
-          not declare PRODUCTION_SIGNING_AVAILABLE=true. PCF does not yet hold a production release \
-          keystore — Linear PCF-220 tracks the Play upload key mismatch. Failing here deliberately, \
-          BEFORE the production-distribution approval is requested, so no reviewer is asked to \
-          approve a job that cannot succeed. Re-run with signing=none for an unsigned artifact."
+          not declare PRODUCTION_SIGNING_AVAILABLE=true. Re-run with signing=none for an unsigned artifact."
             exit 1
           fi
           echo "production signing material is declared available; the approval gate is next."
 
-  # ── Signing — MANUAL APPROVAL GATE ────────────────────────────────────────────────────────
-  # Runs ONLY when the dispatcher explicitly asked for `signing: production`. Declares the gated
-  # environment, so the run pauses here for a reviewer before any key material is decrypted.
-  # Still publishes nothing: the signed artifact goes back to GitHub Actions artifacts.
+  # Pauses for the `production-distribution` approval before any key material is read.
   sign:
     name: Sign with the production keystore
     needs: [build, preflight]
@@ -385,9 +295,7 @@ jobs:
           [ -n "$KEY_PASS" ]     || MISSING="$MISSING RELEASE_KEYSTORE_KEY_PASS"
           if [ -n "$MISSING" ]; then
             echo "::error::signing=production was requested but the 'production-distribution' \
-          environment is missing:$MISSING. PCF does not yet hold a production release keystore \
-          (Linear PCF-220 tracks the Play upload key mismatch). Re-run with signing=none to \
-          produce an unsigned artifact."
+          environment is missing:$MISSING. Re-run with signing=none to produce an unsigned artifact."
             exit 1
           fi
           echo "$KEYSTORE_B64" | base64 --decode > "$RUNNER_TEMP/release.jks"
@@ -421,9 +329,7 @@ jobs:
               "$AAB" "$KEY_ALIAS"
           fi
 
-      # The certificate fingerprint is PUBLIC information (it is embedded in every copy of the
-      # APK); printing it is not a secret leak, and it is the only way an operator can confirm
-      # which key actually signed the build.
+      # The certificate fingerprint is public: every copy of the APK carries it.
       - name: Print the signing certificate and reject the dev key
         env:
           DEV_KEYSTORE_B64: ${{ secrets.DEV_KEYSTORE_BASE64 }}
@@ -460,7 +366,7 @@ jobs:
             echo "Confirmed: the signing certificate is NOT the dev keystore."
           else
             echo "::warning::DEV_KEYSTORE_BASE64 is not readable here, so the dev-key comparison was skipped. \
-          Verify the fingerprint above against PCF's key inventory by hand."
+          Verify the fingerprint above by hand."
           fi
 
       - name: Upload the signed build to the private bucket
@@ -496,8 +402,7 @@ jobs:
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
-  # The only job that reaches a person: the signed APK goes to the invite-only production tester
-  # group, behind a second approval on `production-internal-tester-distribution`.
+  # Sends the signed APK to the internal tester group, behind a second approval.
   distribute:
     name: Distribute to the internal production tester group
     needs: sign
@@ -510,8 +415,6 @@ jobs:
       contents: read
       id-token: write
     steps:
-      # Not the repo-level FIREBASE_TESTER_GROUPS: that is the devnet group, and falling back to it
-      # would ship a production build to devnet testers.
       - name: Require the production distribution configuration
         env:
           FIREBASE_APP_ID_ANDROID_PROD: ${{ vars.FIREBASE_APP_ID_ANDROID_PROD }}

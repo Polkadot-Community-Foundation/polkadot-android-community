@@ -1,9 +1,5 @@
 name: Genesis Hash Monitor
 
-# PCF production branch: restored from upstream v1.0.0-1028 with ONLY the workflow_dispatch trigger.
-# Upstream's pull_request / schedule triggers are removed so nothing publishes unattended. The jobs are
-# upstream's, unchanged: running this still distributes the way upstream does (and uploads Actions
-# artifacts, which are public in this repository). Production builds come from build-production.yml.
 on:
   workflow_dispatch:
 
