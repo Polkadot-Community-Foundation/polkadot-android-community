@@ -30,33 +30,17 @@ name: Release (Dev)
 #     .nightly and .debug) → its own google-services.json, and an RC condition
 #     `App ID == io.pcf.polkadotapp.dev` serves the Paseo values
 #     (summit-deployer-skills guides/_tools/paseo-remote-config.json). Keep prod RC defaults sacred.
-#   - dev signs with the *dev* signingConfig, so the CI_KEYSTORE_* secrets below must be REAL
-#     (matching the provided keystore), not placeholders.
+#   - dev signs with the *dev* signingConfig.
 # This pipeline leaves the production release.yml AND the nightly release-paseo.yml untouched.
 #
 # Lanes: a dispatch on the `devnet` branch is a release. It builds in the `devnet` environment,
 # tags the built commit `devnet/<YYYY-MM-DD>.<n>`, and publishes behind `tester-distribution`.
 # A dispatch on any other branch only uploads the APKs as run artifacts: no tag, no publishing.
 #
-# Required secrets (environment `devnet`; repository level is the fallback):
-#   DEV_KEYSTORE_BASE64             base64 of the signing keystore (`base64 -w0 key.jks`)
-#   CI_KEYSTORE_PASS               keystore store password   (dev signingConfig)
-#   CI_KEYSTORE_KEY_ALIAS          key alias
-#   CI_KEYSTORE_KEY_PASS           key password
-#   GOOGLE_SERVICES_JSON_DEV_BASE64 base64 of the DEV Firebase app's google-services.json
-#   GOOGLE_OAUTH_ID                Google OAuth client id   (throwing secret)
-#   GOOGLE_PROJECT_ID              Google Cloud project id  (throwing secret)
-#   W3S_AUTH_KEY                   auth keypair seed (hex)  (throwing secret; use a FRESH Paseo-only key)
-#   DEV_FUNDING_MNEMONIC           faucet account mnemonic (throwing secret since upstream
-#                                  "Make important build variables required"; an EMPTY value
-#                                  now fails the build instead of falling back to a dev seed)
-# Optional: R2_UPLOAD_TOKEN + CLOUDFLARE_ACCOUNT_ID (publish APK to the PCF downloads host).
-#
 # Required build variables (upstream reads them with readSecretOrThrow, empty == missing):
 #   APPLICATION_ID, APPLICATION_NAME, CURRENCY_SYMBOL, FIAT_SYMBOL, FIRESTORE_DATABASE_ID,
 #   LOG_COLLECTION_EMAIL, PRIVACY_POLICY_URL, TERMS_OF_USE_URL, SENTRY_ORG, SENTRY_PROJECT.
-#   They are NOT secrets. Each is read from a repository Variable of the same name and
-#   falls back to a PCF-owned value (never a paritytech one), so a
+#   Each falls back to a PCF-owned value (never a paritytech one), so a
 #   variable is only needed to CHANGE one. The DEV applicationId stays io.pcf.polkadotapp.dev
 #   (pinned in app/build.gradle.kts onVariants) whatever APPLICATION_ID says; the other build
 #   types derive io.pcf.polkadotapp{.debug,.nightly,.safetynet} from it.
