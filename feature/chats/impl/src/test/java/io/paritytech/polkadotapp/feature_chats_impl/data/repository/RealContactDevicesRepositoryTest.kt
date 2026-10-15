@@ -16,15 +16,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/**
- * Pins the read boundary of [RealContactDevicesRepository] against rows written before the
- * P-256 -> X25519 migration.
- *
- * `contact_devices.encryptionPublicKey` is a plain BLOB, so no schema migration rewrote the
- * 65-byte uncompressed P-256 keys that older builds stored there. Parsing them strictly used to
- * throw out of a Room Flow, on a background dispatcher, where no collector can catch it — which
- * killed the process on launch. Every read path here must skip such a row instead.
- */
+/** Every read path skips devices with a legacy 65-byte key instead of throwing. */
 class RealContactDevicesRepositoryTest {
     private val dao = FakeContactDeviceDao()
 
