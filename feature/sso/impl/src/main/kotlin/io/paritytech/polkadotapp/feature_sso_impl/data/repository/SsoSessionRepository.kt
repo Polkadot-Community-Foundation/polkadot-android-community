@@ -55,23 +55,9 @@ class SsoSessionRepository @Inject constructor(
     }
 
     /**
-     * PCF FORK-LOCAL — keep on upstream conflict; see `LegacyEcdhKeyCleanup` for why.
-     *
-     * Maps a stored SSO session, or `null` when its shared-secret key cannot be parsed.
-     *
-     * `sso_sessions.sharedSecretPublicKey` is a plain BLOB, so it can hold bytes that are not a
-     * valid X25519 public key — concretely, the 65-byte uncompressed P-256 point that pre-X25519
-     * builds wrote for a linked desktop/web device. No schema migration rewrote them: the column's
-     * *structure* never changed, only the rule about its *value*, and Room's schema diff compares
-     * structure only. Parsing therefore must not throw here — [observeSessions] is collected on a
-     * background dispatcher from the app initializer, where an exception escapes every collector
-     * and takes the process down.
-     *
-     * A key we cannot parse is a key we cannot run ECDH against, so the session it describes is
-     * already dead; reporting it as "no such session" loses nothing that still worked. The row is
-     * dropped by `LegacyEcdhKeyCleanup` on the next database open, and the device can be re-linked.
-     *
-     * Do not simplify this back into a non-null mapper.
+     * Maps a stored session, or returns `null` when its shared-secret key is not a valid X25519
+     * public key. [observeSessions] is collected from the app initializer, where a throw would
+     * crash the app. `LegacyEcdhKeyCleanup` deletes such rows, and the device can be linked again.
      */
     private fun SsoSessionWithMetadata.toDomainOrNull(): SsoSessionData? {
         val sharedSecretPublicKey = X25519PublicKey

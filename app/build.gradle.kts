@@ -11,10 +11,7 @@ plugins {
 
 val localProperties = gradleLocalProperties(rootDir, providers)
 
-// Release signing material is optional. It exists only when the gated
-// `production-distribution` environment supplies it; absent, the release variant is built
-// deliberately UNSIGNED rather than falling back to the dev keystore or to a path that does
-// not exist on the builder.
+// The release variant is left unsigned when no release keystore is supplied.
 val releaseKeystoreFile: String? = localProperties.readSecretOrNull("RELEASE_KEYSTORE_FILE")
 
 android {
@@ -58,8 +55,6 @@ android {
         }
 
         create("release") {
-            // Upstream defaulted storeFile to `../release_key.jks`, a file no builder holds, so a
-            // release build broke at packaging time. Point at a keystore only when there is one.
             releaseKeystoreFile?.let { storeFile = file(it) }
             keyPassword = localProperties.readSecretOrDefault("RELEASE_KEYSTORE_KEY_PASS", "")
             keyAlias = localProperties.readSecretOrDefault("RELEASE_KEYSTORE_KEY_ALIAS", "")
@@ -69,8 +64,6 @@ android {
 
     buildTypes {
         getByName("release") {
-            // Unsigned when no release keystore was supplied (see signingConfigs above). This is
-            // what lets `signing: none` configure AND build without production key material.
             signingConfig = releaseKeystoreFile?.let { signingConfigs.getByName("release") }
 
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
@@ -218,11 +211,7 @@ sentry {
     ignoredBuildTypes.set(setOf("release"))
 }
 
-// Pin the PRODUCTION build to the PCF application id. defaultConfig.applicationId comes from the
-// APPLICATION_ID build variable, so without this a release build silently inherits whatever that
-// variable holds (upstream's value is a paritytech id). Driven by PRODUCTION_APPLICATION_ID and
-// defaulting to the id on PCF's Play record. `namespace` is intentionally unchanged: it is the
-// compile-time package for generated classes, not the installed identity.
+// The release build installs as the production application id, whatever APPLICATION_ID holds.
 androidComponents {
     onVariants(selector().withBuildType("release")) { variant ->
         variant.applicationId.set(
