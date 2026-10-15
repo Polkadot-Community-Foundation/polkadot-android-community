@@ -34,7 +34,11 @@ name: Release (Dev)
 #     (matching the provided keystore), not placeholders.
 # This pipeline leaves the production release.yml AND the nightly release-paseo.yml untouched.
 #
-# Required repository secrets:
+# Lanes: a dispatch on the `devnet` branch is a release. It builds in the `devnet` environment,
+# tags the built commit `devnet/<YYYY-MM-DD>.<n>`, and publishes behind `tester-distribution`.
+# A dispatch on any other branch only uploads the APKs as run artifacts: no tag, no publishing.
+#
+# Required secrets (environment `devnet`; repository level is the fallback):
 #   DEV_KEYSTORE_BASE64             base64 of the signing keystore (`base64 -w0 key.jks`)
 #   CI_KEYSTORE_PASS               keystore store password   (dev signingConfig)
 #   CI_KEYSTORE_KEY_ALIAS          key alias
@@ -67,19 +71,14 @@ on:
         options: [gp vanilla, gp, vanilla]
       distribute:
         # Opt-OUT only. This can SUPPRESS distribution, never force it: the gate below
-        # ANDs it with "this run publishes a release", so clearing it on a dispatch is
-        # meaningless (a dispatch never distributes anyway) and setting it on a dispatch
-        # does not override the release gate. It exists so a tag can be re-run for the
-        # artifacts alone without re-notifying testers.
-        description: 'Allow App Distribution (only takes effect on a release-publishing run)'
+        # ANDs it with "this is a devnet-branch run", so it has no effect elsewhere. It
+        # exists so a devnet release can skip re-notifying testers.
+        description: 'Allow App Distribution (only takes effect on a devnet-branch run)'
         type: boolean
         default: true
-  push:
-    tags: ['dev-v*']
 
 permissions:
-  contents: write
-  id-token: write   # Workload Identity Federation → Firebase App Distribution
+  contents: read
 
 env:
   NDK_VERSION: "29.0.14206865"
@@ -88,11 +87,11 @@ env:
   HAS_R2: ${{ secrets.R2_UPLOAD_TOKEN != '' }}
   # Keyless (Workload Identity Federation) — no service-account JSON key in the repo.
   HAS_FIREBASE: ${{ secrets.GCP_WIP_GITHUB != '' && secrets.GCP_SA_GITHUB != '' }}
-  IS_TAG: ${{ startsWith(github.ref, 'refs/tags/dev-v') }}
 
 jobs:
   release:
     runs-on: ubuntu-latest
+    environment: devnet
     steps:
       - uses: actions/checkout@v4
 
@@ -204,15 +203,44 @@ jobs:
           name: app-polkadot-devnet-nogms
           path: app/build/outputs/apk/vanilla/dev/*.apk
 
+  # ---- Tag — devnet branch only -----------------------------------------------------------
+  # The build creates the tag: every devnet release tags the commit it built, before the
+  # approval gates below, so a rejected publish still records what was built.
+  tag:
+    needs: release
+    if: github.ref == 'refs/heads/devnet'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Tag the built commit
+        id: tag
+        run: |
+          set -euo pipefail
+          DATE=$(date -u +%Y-%m-%d)
+          LAST=$(git ls-remote --tags origin "refs/tags/devnet/${DATE}.*" \
+            | sed -n "s#.*refs/tags/devnet/${DATE}\.\([0-9]*\)\$#\1#p" | sort -n | tail -1)
+          TAG="devnet/${DATE}.$(( ${LAST:-0} + 1 ))"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" "$GITHUB_SHA" -m "Android devnet build ${GITHUB_RUN_NUMBER} (run ${GITHUB_RUN_ID})"
+          git push origin "refs/tags/$TAG"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "### Tagged \`$TAG\` at ${GITHUB_SHA:0:8}" >> "$GITHUB_STEP_SUMMARY"
+
   # ---- Publishing — MANUAL APPROVAL GATE ------------------------------------------------
   # The build above stays automatic; everything that makes a build public (the GitHub
   # Release with the APKs attached, the downloads-host copy + `latest.apk`) now sits in this
-  # job behind the protected `tester-distribution` environment, so a `dev-v*` tag pauses
+  # job behind the protected `tester-distribution` environment, so a devnet release pauses
   # here until a reviewer approves. The gate is the environment's protection rule, not this
   # file: if the environment is deleted GitHub recreates it UNPROTECTED on first use.
   publish:
-    needs: release
-    if: startsWith(github.ref, 'refs/tags/dev-v')
+    needs: [release, tag]
+    if: github.ref == 'refs/heads/devnet'
     runs-on: ubuntu-latest
     environment:
       name: tester-distribution
@@ -222,6 +250,7 @@ jobs:
     env:
       FLAVORS: ${{ github.event.inputs.flavor || 'gp vanilla' }}
       HAS_R2: ${{ secrets.R2_UPLOAD_TOKEN != '' && secrets.CLOUDFLARE_ACCOUNT_ID != '' }}
+      TAG: ${{ needs.tag.outputs.tag }}
     steps:
       # Only the release body template is needed; skip the full history.
       - uses: actions/checkout@v4
@@ -238,7 +267,8 @@ jobs:
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          name: ${{ github.ref_name }}
+          tag_name: ${{ env.TAG }}
+          name: ${{ env.TAG }}
           files: apk/*/*.apk
           generate_release_notes: true
           body_path: docs/SUPPORTED_DEVICES.md
@@ -253,7 +283,7 @@ jobs:
           BUCKET: pcf-downloads
           APK: apk/app-polkadot-devnet/app-polkadot-devnet.apk
         run: |
-          VERSION="${GITHUB_REF_NAME#dev-v}"
+          VERSION="${TAG#devnet/}"
           NAME="polkadot-android-dev-${VERSION}.apk"
           CT="application/vnd.android.package-archive"
           sha256sum "$APK" | awk '{print $1}' > "$NAME.sha256"
@@ -278,16 +308,17 @@ jobs:
   # through. Configure it (Settings → Environments → required reviewers) or the approval
   # step silently does not exist.
   #
-  # POLICY, unchanged: testers are served ONLY by a run that publishes a release. The tag
-  # gate is ANDed with the `distribute` opt-out, never ORed — a dispatch on a branch cannot
-  # notify testers whatever inputs it is given, which is what makes branch builds safe.
+  # POLICY, unchanged: testers are served ONLY by a run that publishes a release. The devnet
+  # branch gate is ANDed with the `distribute` opt-out, never ORed — a dispatch on any other
+  # branch cannot notify testers whatever inputs it is given, which is what makes branch
+  # builds safe.
   #
   # gp only: both flavors share applicationId io.pcf.polkadotapp.dev, so they map to ONE
   # Firebase app and would overwrite each other. Devices without Google Play services take
   # the -nogms APK from the GitHub Release instead.
   distribute:
-    needs: publish
-    if: ${{ startsWith(github.ref, 'refs/tags/dev-v') && vars.FIREBASE_APP_ID_ANDROID_DEV != '' && (github.event_name != 'workflow_dispatch' || inputs.distribute) }}
+    needs: [tag, publish]
+    if: ${{ github.ref == 'refs/heads/devnet' && vars.FIREBASE_APP_ID_ANDROID_DEV != '' && inputs.distribute }}
     runs-on: ubuntu-latest
     environment:
       name: tester-distribution
@@ -310,6 +341,8 @@ jobs:
 
       - name: Compose App Distribution release notes
         id: notes
+        env:
+          TAG: ${{ needs.tag.outputs.tag }}
         run: |
           APK=$(find apk -name '*.apk' | head -1)
           [ -n "$APK" ] || { echo "::error::no APK in the release artifact"; exit 1; }
@@ -317,7 +350,7 @@ jobs:
 
           NOTES="$RUNNER_TEMP/release-notes.txt"
           {
-            echo "Polkadot app devnet build \`$GITHUB_REF_NAME\` (Android)."
+            echo "Polkadot app devnet build \`$TAG\` (Android)."
             echo
             echo "Commit ${GITHUB_SHA:0:8} · build ${GITHUB_RUN_NUMBER}"
             echo
@@ -327,7 +360,7 @@ jobs:
             echo "Running a device without Google Play services? App Distribution only"
             echo "carries the Google-services build — take the -nogms APK from the"
             echo "GitHub Release instead:"
-            echo "https://github.com/${GITHUB_REPOSITORY}/releases/tag/${GITHUB_REF_NAME}"
+            echo "https://github.com/${GITHUB_REPOSITORY}/releases/tag/${TAG}"
             echo
             echo "Something broken? Report it:"
             echo "https://github.com/Polkadot-Community-Foundation/products-devnet-issues/issues/new/choose"
