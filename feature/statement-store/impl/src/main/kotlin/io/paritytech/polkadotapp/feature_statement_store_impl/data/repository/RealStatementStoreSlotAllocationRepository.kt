@@ -5,6 +5,7 @@ package io.paritytech.polkadotapp.feature_statement_store_impl.data.repository
 import io.paritytech.polkadotapp.chains.multiNetwork.chain.model.ChainId
 import io.paritytech.polkadotapp.common.domain.model.AccountId
 import io.paritytech.polkadotapp.common.domain.model.toDataByteArray
+import io.paritytech.polkadotapp.common.utils.mapToSet
 import io.paritytech.polkadotapp.database.dao.StatementStoreSlotAllocationDao
 import io.paritytech.polkadotapp.database.model.StatementStoreSlotAllocationLocal
 import io.paritytech.polkadotapp.feature_people_api.domain.PeopleCollection
@@ -76,6 +77,10 @@ class RealStatementStoreSlotAllocationRepository @Inject constructor(
         currentPeriod: UInt,
     ): Boolean {
         return dao.hasRenewedFor(chainId, accountId.value, currentPeriod.toLong())
+    }
+
+    override suspend fun accountsWithPriority(chainId: ChainId, priority: SlotPriority): Set<AccountId> {
+        return dao.accountsWithPriority(chainId, priority.level).mapToSet { it.toDataByteArray() }
     }
 
     override suspend fun maxPriorityLevelsFor(

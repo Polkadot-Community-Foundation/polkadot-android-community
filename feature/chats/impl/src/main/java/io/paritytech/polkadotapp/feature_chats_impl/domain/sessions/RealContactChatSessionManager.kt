@@ -25,7 +25,9 @@ import io.paritytech.polkadotapp.feature_chats_api.domain.model.ContactAccountId
 import io.paritytech.polkadotapp.feature_chats_api.domain.model.ContactDevice
 import io.paritytech.polkadotapp.feature_chats_api.domain.sessions.ContactChatSessionRefCounter
 import io.paritytech.polkadotapp.feature_chats_api.domain.sessions.withSessionsEnabled
+import io.paritytech.polkadotapp.feature_chats_impl.data.model.decodeChatMessageStatement
 import io.paritytech.polkadotapp.feature_chats_impl.data.notifications.ChatNotificationPayloadEncoder
+import io.paritytech.polkadotapp.feature_chats_impl.data.repository.ChatAcceptanceRepository
 import io.paritytech.polkadotapp.feature_chats_impl.data.repository.ChatMessageRepository
 import io.paritytech.polkadotapp.feature_chats_impl.data.repository.ContactDevicesRepository
 import io.paritytech.polkadotapp.feature_chats_impl.data.repository.ContactsRepository
@@ -36,9 +38,13 @@ import io.paritytech.polkadotapp.feature_chats_impl.domain.notifications.PushSub
 import io.paritytech.polkadotapp.feature_chats_impl.domain.sessions.signer.ContactChatSigners
 import io.paritytech.polkadotapp.feature_chats_impl.domain.usecase.SyncContactUsernameUseCase
 import io.paritytech.polkadotapp.feature_chats_impl.utils.ChatPushTokenUtils
+import io.paritytech.polkadotapp.feature_chats_transport_protocol.scale.ChatMessageStatementContent
+import io.paritytech.polkadotapp.feature_chats_transport_protocol.scale.VersionedChatMessage
 import io.paritytech.polkadotapp.feature_statement_store_api.data.encryption.CommunicationEncryption
 import io.paritytech.polkadotapp.feature_statement_store_api.domain.CommunicationSessionCreator
 import io.paritytech.polkadotapp.feature_statement_store_api.domain.StatementStoreMessageProver
+import io.paritytech.polkadotapp.feature_statement_store_api.domain.models.EncodedMessage
+import io.paritytech.polkadotapp.feature_statement_store_api.domain.models.IncomingRequestResponsePolicy
 import io.paritytech.polkadotapp.feature_statement_store_api.domain.models.SessionAccount
 import io.paritytech.polkadotapp.tools_push_notifications_api.PushNotificationsHelper
 import kotlinx.coroutines.CoroutineScope
@@ -67,8 +73,19 @@ private enum class SessionType { Pairwise, MultiDevice }
 private data class ContactWithSessionType(
     val contact: Contact,
     val sessionType: SessionType,
+    val generation: Int,
 ) : Identifiable {
-    override val identifier: String = "${contact.identifier}:$sessionType"
+    override val identifier: String = "${contact.identifier}:$sessionType:$generation"
+}
+
+// Acceptances are never acknowledged: the response would be the only statement we sign on the identity route.
+private val ACCEPTANCES_UNACKNOWLEDGED = IncomingRequestResponsePolicy { messages ->
+    messages.any { message -> !message.isAcceptance() }
+}
+
+private fun EncodedMessage.isAcceptance(): Boolean {
+    val versioned = decodeChatMessageStatement().getOrNull()?.versioned as? VersionedChatMessage.V1 ?: return false
+    return versioned.message.content is ChatMessageStatementContent.DeviceChatAccepted
 }
 
 private class EstablishedChatSession(
@@ -99,8 +116,9 @@ internal class RealContactChatSessionManager @Inject constructor(
     private val notificationPayloadEncoder: ChatNotificationPayloadEncoder,
     private val proverFactory: StatementStoreMessageProver.Factory,
     private val chatSigners: ContactChatSigners,
+    private val chatAcceptanceRepository: ChatAcceptanceRepository,
     dispatchers: CoroutineDispatchers
-) : ContactChatSessionManager, CoroutineScope, ChatSessionCallbacks {
+) : ContactChatSessionManager, ContactChatSessionRestarter, CoroutineScope, ChatSessionCallbacks {
     companion object {
         private val MAX_STATEMENT_SIZE = 100.kilobytes
     }
@@ -108,6 +126,8 @@ internal class RealContactChatSessionManager @Inject constructor(
     override val coroutineContext = dispatchers.io + SupervisorJob()
 
     private val sessionsFlow = MutableStateFlow<Map<AccountId, RealContactChatSession>>(emptyMap())
+
+    private val sessionGenerations = MutableStateFlow<Map<AccountId, Int>>(emptyMap())
 
     private val sessionCreatorsCache: MapCache<Long, SessionCreatorWithAccount> = MapCache(this) { ourMetaAccountId ->
         val account = accountRepository.getAccountById(ourMetaAccountId)!!
@@ -140,6 +160,14 @@ internal class RealContactChatSessionManager @Inject constructor(
         subscribeToEnabledContacts()
         subscribeToEstablishedChats()
         subscribeToTokenUpdates()
+    }
+
+    override fun restartSession(accountId: AccountId) {
+        sessionGenerations.update { generations -> generations + (accountId to (generations[accountId] ?: 0) + 1) }
+    }
+
+    override suspend fun onContactSeenOnDeviceRoute(contactAccountId: AccountId) {
+        chatAcceptanceRepository.remove(contactAccountId)
     }
 
     override suspend fun onShouldNotifyNewMessageSent(
@@ -188,7 +216,8 @@ internal class RealContactChatSessionManager @Inject constructor(
             accountRepository.walletAccountFlow(),
             contactsRepository.subscribeContactsWithChatRequests(),
             contactDevicesRepository.subscribeAllDevices(),
-        ) { enabledIds, walletAccount, contacts, devicesByContact ->
+            sessionGenerations,
+        ) { enabledIds, walletAccount, contacts, devicesByContact, generations ->
             val byAccountId = contacts
                 .associateBy { it.contact.accountId }
             enabledIds.mapNotNull { accountId -> byAccountId[accountId]?.contact }
@@ -196,6 +225,7 @@ internal class RealContactChatSessionManager @Inject constructor(
                     ContactWithSessionType(
                         contact = contact,
                         sessionType = determineSessionType(walletAccount, contact, devicesByContact),
+                        generation = generations[contact.accountId] ?: 0,
                     )
                 }
         }
@@ -285,20 +315,32 @@ internal class RealContactChatSessionManager @Inject constructor(
 
     // Pending chats sign nothing until accepted, so an unanswered request never claims a chat slot.
     private fun subscribeToEstablishedChats() {
-        combine(sessionsFlow, contactsRepository.subscribeContactsWithChatRequests()) { sessions, contacts ->
-            contacts.mapNotNull { establishedChatSessionOrNull(it.contact, sessions) }
+        combine(
+            sessionsFlow,
+            contactsRepository.subscribeContactsWithChatRequests(),
+            contactDevicesRepository.subscribeAllDevices(),
+            accountRepository.walletAccountFlow(),
+        ) { sessions, contacts, devicesByContact, walletAccount ->
+            contacts.mapNotNull { establishedChatSessionOrNull(it.contact, sessions, devicesByContact, walletAccount) }
         }
             .diffed()
             .onEach { diff -> diff.added.forEach { onChatEstablished(it) } }
             .launchIn(this)
     }
 
+    // An acceptance switches the session from pairwise to multi-device; the stale pairwise one must not send our
+    // token, or it would go out on the identity route instead of the device route the acceptor waits on.
     private fun establishedChatSessionOrNull(
         contact: Contact,
         sessions: Map<AccountId, RealContactChatSession>,
+        devicesByContact: Map<ContactAccountId, List<ContactDevice>>,
+        walletAccount: MetaAccount,
     ): EstablishedChatSession? {
         if (contact.establishedAt == null) return null
         val session = sessions[contact.accountId] ?: return null
+
+        val expectsMultiDevice = determineSessionType(walletAccount, contact, devicesByContact) == SessionType.MultiDevice
+        if (session.isMultiDevice != expectsMultiDevice) return null
 
         return EstablishedChatSession(contact, session)
     }
@@ -387,6 +429,7 @@ internal class RealContactChatSessionManager @Inject constructor(
                     compactor = chatMessageCompactor,
                 )
 
+                // Never signs an acceptance: ours go out as one-shot statements and incoming ones are not acknowledged.
                 val identitySession = sessionCreatorWithAccount.creator.createSession(
                     scope = scope,
                     localAccount = localAccount,
@@ -394,6 +437,7 @@ internal class RealContactChatSessionManager @Inject constructor(
                     encryption = identityEncryption,
                     maxStatementSize = MAX_STATEMENT_SIZE,
                     compactor = chatMessageCompactor,
+                    responsePolicy = ACCEPTANCES_UNACKNOWLEDGED,
                 )
 
                 CommunicationSessions.MultiDevice(main = mainSession, identity = identitySession)
@@ -407,6 +451,7 @@ internal class RealContactChatSessionManager @Inject constructor(
                     encryption = identityEncryption,
                     maxStatementSize = MAX_STATEMENT_SIZE,
                     compactor = chatMessageCompactor,
+                    responsePolicy = ACCEPTANCES_UNACKNOWLEDGED,
                 )
                 CommunicationSessions.Pairwise(session)
             }

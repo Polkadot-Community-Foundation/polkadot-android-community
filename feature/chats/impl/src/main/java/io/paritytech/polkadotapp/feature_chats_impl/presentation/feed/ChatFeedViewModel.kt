@@ -50,7 +50,6 @@ import io.paritytech.polkadotapp.feature_chats_impl.domain.error.asChatRequestEr
 import io.paritytech.polkadotapp.feature_chats_impl.domain.interactors.ChatFeedInteractor
 import io.paritytech.polkadotapp.feature_chats_impl.domain.models.ChatUserInputState
 import io.paritytech.polkadotapp.feature_chats_impl.domain.models.InitiateCallResult
-import io.paritytech.polkadotapp.feature_chats_impl.domain.sessions.signer.ChatSignerKind
 import io.paritytech.polkadotapp.feature_chats_impl.presentation.error.BusyInAnotherChatPresentationError
 import io.paritytech.polkadotapp.feature_chats_impl.presentation.error.toPresentationError
 import io.paritytech.polkadotapp.feature_chats_impl.presentation.feed.draft.ChatDraftController
@@ -196,8 +195,7 @@ class ChatFeedViewModel @Inject constructor(
         menuActionsProvider.getToolbarActions(openChatRequest, inputStateType, addMenuIconForcibly = hasRenderer)
     }.stateInBackground(initialValue = persistentListOf())
 
-    override val showPrivacyWarning = interactor.subscribeChatSignerKind(chatId)
-        .map { kind -> kind == ChatSignerKind.USERNAME }
+    override val showPrivacyWarning = interactor.subscribeIsIdentitySigningAllowed(chatId)
         .stateInBackground(initialValue = false)
 
     override val popupState = combine(
@@ -372,6 +370,7 @@ class ChatFeedViewModel @Inject constructor(
 
                 ChatUserInputState.AcceptChatRequest,
                 ChatUserInputState.UnblockUser,
+                ChatUserInputState.IdentitySigningConsentRequired,
                 ChatUserInputState.Nothing,
                 ChatUserInputState.PeerLeft,
                 ChatUserInputState.UserDeclinedChatRequest,
@@ -422,6 +421,16 @@ class ChatFeedViewModel @Inject constructor(
 
     override fun onUnblockUserClick() = launchUnit {
         interactor.unblockUser(chatId)
+            .onFailure { showPresentationError(UnexpectedPresentationError(it)) }
+    }
+
+    override fun onAllowIdentitySigningClick() = launchUnit {
+        interactor.allowIdentitySigning(chatId)
+            .onFailure { showPresentationError(UnexpectedPresentationError(it)) }
+    }
+
+    override fun onDeclineIdentitySigningClick() = launchUnit {
+        interactor.declineIdentitySigning(chatId)
             .onFailure { showPresentationError(UnexpectedPresentationError(it)) }
     }
 
@@ -734,6 +743,7 @@ class ChatFeedViewModel @Inject constructor(
             is ChatUserInputState.Nothing, ChatUserInputState.UserDeclinedChatRequest -> ChatInputUiState.Hidden
             is ChatUserInputState.PeerLeft -> ChatInputUiState.PeerLeft
             is ChatUserInputState.UnblockUser -> ChatInputUiState.UnblockUser
+            is ChatUserInputState.IdentitySigningConsentRequired -> ChatInputUiState.IdentitySigningConsent
             is ChatUserInputState.WaitChatRequestApproval -> ChatInputUiState.WaitChatRequestApproval
             is ChatUserInputState.SendChatRequest -> {
                 ChatInputUiState.SendMessage(messageInputState.clearRelation(), isChatRequest = true)

@@ -69,6 +69,14 @@ interface StatementStoreSlotAllocationDao {
         currentPeriod: Long,
     ): Boolean
 
+    @Query(
+        """
+        SELECT DISTINCT accountId FROM statement_store_slot_allocations
+        WHERE chainId = :chainId AND priorityLevel = :priorityLevel
+        """
+    )
+    suspend fun accountsWithPriority(chainId: String, priorityLevel: Int): List<ByteArray>
+
     /**
      * Bulk lookup of "highest priority level seen locally" per account. Returns one row
      * per account that has at least one local row in [accountIds]; accounts with no rows

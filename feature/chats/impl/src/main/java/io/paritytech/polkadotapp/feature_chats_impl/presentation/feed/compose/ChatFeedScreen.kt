@@ -117,6 +117,8 @@ fun ChatFeedScreen(contract: ChatFeedContract) {
         onAcceptChatRequest = contract::onAcceptChatRequest,
         onDeclineChatRequest = contract::onDeclineChatRequest,
         onUnblockUserClick = contract::onUnblockUserClick,
+        onAllowIdentitySigningClick = contract::onAllowIdentitySigningClick,
+        onDeclineIdentitySigningClick = contract::onDeclineIdentitySigningClick,
         isActionMenuVisible = popupState is MessagePopUpUiState.ActionMenu,
         onMessageLongPress = { message, layoutInfo ->
             menuLayoutInfo = layoutInfo
@@ -185,6 +187,8 @@ private fun ChatFeedScreenInternal(
     onAcceptChatRequest: () -> Unit,
     onDeclineChatRequest: () -> Unit,
     onUnblockUserClick: () -> Unit,
+    onAllowIdentitySigningClick: () -> Unit,
+    onDeclineIdentitySigningClick: () -> Unit,
     isActionMenuVisible: Boolean,
     onMessageLongPress: (ChatMessageUiModel, MessageLayoutInfo) -> Unit
 ) {
@@ -265,6 +269,8 @@ private fun ChatFeedScreenInternal(
                         onAcceptChatRequest = onAcceptChatRequest,
                         onDeclineChatRequest = onDeclineChatRequest,
                         onUnblockUserClick = onUnblockUserClick,
+                        onAllowIdentitySigningClick = onAllowIdentitySigningClick,
+                        onDeclineIdentitySigningClick = onDeclineIdentitySigningClick,
                         onHeightChanged = { footerHeight = it },
                     )
                 }
@@ -356,6 +362,8 @@ private fun ChatFeedPreview() {
                     onAcceptChatRequest = {},
                     onDeclineChatRequest = {},
                     onUnblockUserClick = {},
+                    onAllowIdentitySigningClick = {},
+                    onDeclineIdentitySigningClick = {},
                     isActionMenuVisible = false,
                     onMessageLongPress = { _, _ -> }
                 )

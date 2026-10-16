@@ -1359,7 +1359,11 @@ I’m attaching PDF with more information and details regarding the Tattoo Stenc
     <string name="blocked_users_unblock">Unblock</string>
     <string name="chat_leave_chat_question">Leave chat?</string>
     <string name="chat_privacy_disclaimer_title">This chat isn\'t fully private</string>
-    <string name="chat_privacy_disclaimer_body">On the free tier only a limited number of chats can be fully private. This chat is still end-to-end encrypted, but some activity, like when you send messages, may be linked to your username.</string>
+    <string name="chat_privacy_disclaimer_body">You allowed this chat to use your username while no private slot was free. It\'s still end-to-end encrypted, but some activity, like when you send messages, may be linked to your username.</string>
+    <string name="chat_identity_signing_consent_title">This chat can\'t be fully private right now</string>
+    <string name="chat_identity_signing_consent_body">All private slots are taken. You can send with your username instead: the chat stays end-to-end encrypted, but some activity, like when you send messages, may be linked to your username. If you don\'t, waiting messages won\'t be sent.</string>
+    <string name="chat_identity_signing_consent_allow">Use username</string>
+    <string name="chat_identity_signing_consent_decline">Don\'t send</string>
     <string name="chat_leave_chat_confirmation">Are you sure you want to leave\nthe chat with %1$s?</string>
     <string name="chat_block_user_question">Block %1$s?</string>
     <string name="chat_block_user_confirmation">They won\'t be able to send you a message request or call you.</string>

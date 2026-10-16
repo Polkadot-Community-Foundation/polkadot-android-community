@@ -63,6 +63,10 @@ interface ChatFeedContract {
     fun onBlockUserRequest()
     fun onBlockUserConfirm()
     fun onUnblockUserClick()
+
+    fun onAllowIdentitySigningClick()
+
+    fun onDeclineIdentitySigningClick()
     fun onStartCallClick(withVideo: Boolean)
     fun onCloseMenu()
 

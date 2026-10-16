@@ -87,6 +87,8 @@ interface StatementStoreSlotAllocationRepository {
         currentPeriod: UInt,
     ): Boolean
 
+    suspend fun accountsWithPriority(chainId: ChainId, priority: SlotPriority): Set<AccountId>
+
     /**
      * Bulk lookup of "highest local priority" per account in [accountIds], across all
      * collections. The allocator uses this once per `pickSeq` call to project effective

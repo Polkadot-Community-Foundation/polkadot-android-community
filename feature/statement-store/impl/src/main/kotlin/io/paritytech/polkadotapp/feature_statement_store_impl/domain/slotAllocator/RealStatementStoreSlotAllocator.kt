@@ -88,6 +88,10 @@ class RealStatementStoreSlotAllocator @Inject constructor(
         allocationRepository.hasRenewedFor(knownChains.people, target, period)
     }
 
+    override suspend fun allocatedTargets(priority: SlotPriority): Result<Set<AccountId>> = runCatching {
+        allocationRepository.accountsWithPriority(knownChains.people, priority)
+    }
+
     override suspend fun allocationsFor(target: AccountId): Result<StatementStoreSlots> = contextResolver.resolve()
         .flatMap { slotLoader.loadSlots(it) }
 

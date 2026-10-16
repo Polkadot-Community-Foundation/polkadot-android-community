@@ -14,6 +14,7 @@ import io.paritytech.polkadotapp.common.utils.runCancellableCatching
 import io.paritytech.polkadotapp.feature_account_api.data.storage.accountSecrets.AccountSecretsStorage
 import io.paritytech.polkadotapp.feature_account_api.data.storage.accountSecrets.getMetaAccountSr25519Keypair
 import io.paritytech.polkadotapp.feature_chats_api.domain.model.Contact
+import io.paritytech.polkadotapp.feature_chats_impl.domain.identitySigning.IdentitySigningGate
 import io.paritytech.polkadotapp.feature_statement_store_api.domain.slotAllocator.OnExistingAllocationStrategy
 import io.paritytech.polkadotapp.feature_statement_store_api.domain.slotAllocator.SlotPriority
 import io.paritytech.polkadotapp.feature_statement_store_api.domain.slotAllocator.StatementStoreSlotAllocationError
@@ -22,13 +23,15 @@ import javax.inject.Inject
 
 private const val SIGNER_CONNECTION_TAG = "ContactChatSigner"
 
-// Only a full slot table downgrades to the username signer; any other failure is returned so the caller retries.
+// Only a full slot table downgrades to the username signer, and only with the user's consent for this chat;
+// any other failure is returned so the caller retries.
 class ContactChatSignerResolver @Inject constructor(
     private val accountDerivation: ChatSignerAccountDerivation,
     private val slotAllocator: StatementStoreSlotAllocator,
     private val accountSecretsStorage: AccountSecretsStorage,
     private val chainConnectionRefCounter: ChainConnectionRefCounter,
     private val knownChains: KnownChains,
+    private val identitySigningGate: IdentitySigningGate,
 ) {
     suspend fun resolve(contact: Contact): Result<ContactChatSigner> {
         return accountDerivation.deriveKeypair(contact.accountId)
@@ -66,6 +69,6 @@ class ContactChatSignerResolver @Inject constructor(
     private suspend fun usernameSignerIfNoSlot(contact: Contact, error: Throwable): Result<ContactChatSigner> {
         if (error !is StatementStoreSlotAllocationError.NoAllocationAvailable) return Result.failure(error)
 
-        return usernameSigner(contact)
+        return identitySigningGate.ensureConsent(contact.accountId).flatMap { usernameSigner(contact) }
     }
 }

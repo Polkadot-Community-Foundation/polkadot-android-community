@@ -45,6 +45,13 @@ interface StatementStoreSlotAllocator {
     suspend fun hasCurrentAllocation(target: AccountId): Result<Boolean>
 
     /**
+     * Local-only: accounts holding a slot-accounting row allocated with [priority], so an owner of a tier
+     * can drop rows it no longer needs even when it lost track of them (e.g. a crash between its own state change
+     * and [deallocateAllSlots]).
+     */
+    suspend fun allocatedTargets(priority: SlotPriority): Result<Set<AccountId>>
+
+    /**
      * Snapshot of all slots taken in the current period across the available collections,
      * resolved in the same context that [allocate] would use for [target].
      */

@@ -90,7 +90,9 @@ abstract class ContactDao {
     @Query("UPDATE contacts SET chatRequestId = :chatRequestId WHERE accountId = :accountId")
     abstract suspend fun updateChatRequestId(accountId: ByteArray, chatRequestId: String?)
 
-    @Query("UPDATE contacts SET chatRequestId = NULL, establishedAt = :establishedAt WHERE accountId = :accountId")
+    // The token shared inside the chat request is shared again on the device route: the acceptor stops re-publishing
+    // its acceptance only once it sees us there (chat-spec RFC-0005 §2).
+    @Query("UPDATE contacts SET chatRequestId = NULL, establishedAt = :establishedAt, lastSharedPushToken = NULL WHERE accountId = :accountId")
     abstract suspend fun markChatRequestAccepted(accountId: ByteArray, establishedAt: Long)
 
     @Query("SELECT * FROM contacts WHERE establishedAt IS NOT NULL AND establishedAt > :after")
@@ -179,11 +181,12 @@ abstract class ContactDao {
         WHERE chat_requests.direction = 'OUTGOING'
             AND chat_requests.status = 'PENDING'
             AND chat_requests.deliveryStatus = 'DELIVERED'
-            AND chat_requests.deliveredVia = 'NOTIFICATION'
+            AND chat_requests.lastDeliveredPeriod IS NOT NULL
+            AND contacts.isBlocked = 0
         ORDER BY chat_requests.timestamp DESC
         """
     )
-    abstract suspend fun getContactsWithAnonymouslyDeliveredPendingRequests(): List<ContactWithChatRequestLocal>
+    abstract suspend fun getContactsWithRenewablePendingRequests(): List<ContactWithChatRequestLocal>
 
     @Transaction
     open suspend fun withTransaction(action: suspend () -> Unit) {

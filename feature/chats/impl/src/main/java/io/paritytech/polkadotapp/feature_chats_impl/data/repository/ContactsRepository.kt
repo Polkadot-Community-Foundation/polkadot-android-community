@@ -62,8 +62,8 @@ interface ContactsRepository {
     /** Runs [action] in one database transaction, which also covers writes through other repositories. */
     suspend fun withTransaction(action: suspend () -> Unit)
 
-    /** Newest request first. */
-    suspend fun getContactsWithAnonymouslyDeliveredPendingRequests(): List<ContactWithChatRequest>
+    /** Pending outgoing requests published in some period and renewed in every next one, newest first. */
+    suspend fun getContactsWithRenewablePendingRequests(): List<ContactWithChatRequest>
 
     fun subscribePendingFanOutContacts(): Flow<List<Contact>>
 
@@ -226,8 +226,8 @@ class RealContactsRepository @Inject constructor(
             .mapList { it.toDomain() }
     }
 
-    override suspend fun getContactsWithAnonymouslyDeliveredPendingRequests(): List<ContactWithChatRequest> {
-        return dao.getContactsWithAnonymouslyDeliveredPendingRequests()
+    override suspend fun getContactsWithRenewablePendingRequests(): List<ContactWithChatRequest> {
+        return dao.getContactsWithRenewablePendingRequests()
             .map { it.toDomain() }
     }
 

@@ -11,6 +11,7 @@ import io.paritytech.polkadotapp.feature_statement_store_api.domain.MessageCompa
 import io.paritytech.polkadotapp.feature_statement_store_api.domain.StatementStoreMessageProver
 import io.paritytech.polkadotapp.feature_statement_store_api.domain.models.CommunicationSessionId
 import io.paritytech.polkadotapp.feature_statement_store_api.domain.models.ContactDeviceProvider
+import io.paritytech.polkadotapp.feature_statement_store_api.domain.models.IncomingRequestResponsePolicy
 import io.paritytech.polkadotapp.feature_statement_store_api.domain.models.SessionAccount
 import io.paritytech.polkadotapp.feature_statement_store_impl.data.encryption.MultiDeviceEnvelopeEncryption
 import io.paritytech.polkadotapp.feature_statement_store_impl.data.encryption.toEnvelopeRecipients
@@ -67,6 +68,7 @@ class RealCommunicationSessionCreator(
         encryption: CommunicationEncryption,
         maxStatementSize: InformationSize,
         compactor: MessageCompactor?,
+        responsePolicy: IncomingRequestResponsePolicy,
     ): CommunicationSession {
         val outgoingTopic = deriveCommunicationTopic(localAccount, remoteAccount, encryption)
         val envelopeEncryption = buildEnvelopeEncryption(localAccount)
@@ -95,6 +97,7 @@ class RealCommunicationSessionCreator(
             peerDevices = { contactDeviceProvider.getDevices(remoteAccount.accountId).toEnvelopeRecipients() },
             maxStatementSize = maxStatementSize,
             compactor = compactor,
+            responsePolicy = responsePolicy,
         )
     }
 
@@ -106,6 +109,7 @@ class RealCommunicationSessionCreator(
         identityChatDomain: SharedSecretDerivationDomain,
         maxStatementSize: InformationSize,
         compactor: MessageCompactor?,
+        responsePolicy: IncomingRequestResponsePolicy,
     ): CommunicationSession {
         val outgoingTopic = deriveCommunicationTopic(localAccount, remoteAccount, perDeviceEncryption)
         val envelopeEncryption = buildEnvelopeEncryption(localAccount)
@@ -137,6 +141,7 @@ class RealCommunicationSessionCreator(
             peerDevices = { contactDeviceProvider.getDevices(remoteAccount.accountId).toEnvelopeRecipients() },
             maxStatementSize = maxStatementSize,
             compactor = compactor,
+            responsePolicy = responsePolicy,
         )
     }
 
@@ -158,6 +163,7 @@ class RealCommunicationSessionCreator(
         peerDevices: suspend () -> List<MultiDeviceEnvelopeEncryption.Recipient>,
         maxStatementSize: InformationSize,
         compactor: MessageCompactor?,
+        responsePolicy: IncomingRequestResponsePolicy,
     ): CommunicationSession {
         val decoder = StatementDecoder(
             encryption = encryption,
@@ -188,6 +194,7 @@ class RealCommunicationSessionCreator(
             encryption = encryption,
             maxStatementSize = maxStatementSize,
             compactor = compactor,
+            responsePolicy = responsePolicy,
             scope = scope,
         )
     }

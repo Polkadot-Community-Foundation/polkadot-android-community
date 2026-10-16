@@ -11,6 +11,7 @@ import io.paritytech.polkadotapp.feature_statement_store_api.domain.slotAllocato
 class RecordingSlotAllocator(
     var hasCurrentAllocation: Boolean = false,
     var allocationResult: Result<Unit> = Result.success(Unit),
+    var criticalTargets: Set<AccountId> = emptySet(),
 ) : StatementStoreSlotAllocator {
     class AllocateCall(val target: AccountId, val strategy: OnExistingAllocationStrategy, val priority: SlotPriority)
 
@@ -33,6 +34,10 @@ class RecordingSlotAllocator(
     }
 
     override suspend fun hasCurrentAllocation(target: AccountId): Result<Boolean> = Result.success(hasCurrentAllocation)
+
+    override suspend fun allocatedTargets(priority: SlotPriority): Result<Set<AccountId>> {
+        return Result.success(if (priority == SlotPriority.Critical) criticalTargets else emptySet())
+    }
 
     override suspend fun allocationsFor(target: AccountId): Result<StatementStoreSlots> = error("Not used by chat signer tests")
 

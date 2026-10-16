@@ -21,6 +21,8 @@ object ReservedProductIds {
 
     fun personhood(tld: DotNsTld): ProductId = reserved("peopl", tld)
 
+    fun chat(tld: DotNsTld): ProductId = reserved("chat", tld)
+
     private fun reserved(label: String, tld: DotNsTld): ProductId {
         return ProductId.fromStoredValue(label + tld.suffix)
     }

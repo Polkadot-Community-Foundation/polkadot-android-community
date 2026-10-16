@@ -9,6 +9,8 @@ import io.paritytech.polkadotapp.chains.multiNetwork.connection.ChainConnectionR
 import io.paritytech.polkadotapp.common.domain.model.toDataByteArray
 import io.paritytech.polkadotapp.feature_account_api.data.storage.accountSecrets.AccountSecretsStorage
 import io.paritytech.polkadotapp.feature_chats_api.domain.model.Contact
+import io.paritytech.polkadotapp.feature_chats_impl.domain.identitySigning.IdentitySigningConsentRequired
+import io.paritytech.polkadotapp.feature_chats_impl.domain.identitySigning.IdentitySigningGate
 import io.paritytech.polkadotapp.feature_statement_store_api.domain.slotAllocator.OnExistingAllocationStrategy
 import io.paritytech.polkadotapp.feature_statement_store_api.domain.slotAllocator.SlotPriority
 import io.paritytech.polkadotapp.feature_statement_store_api.domain.slotAllocator.StatementStoreSlotAllocationError
@@ -37,9 +39,10 @@ class ContactChatSignerResolverTest {
     private val accountSecretsStorage: AccountSecretsStorage = mockk()
     private val connectionRefCounter: ChainConnectionRefCounter = mockk()
     private val knownChains: KnownChains = mockk { every { people } returns "people" }
+    private val identitySigningGate: IdentitySigningGate = mockk()
 
     private val resolver = ContactChatSignerResolver(
-        accountDerivation, slotAllocator, accountSecretsStorage, connectionRefCounter, knownChains,
+        accountDerivation, slotAllocator, accountSecretsStorage, connectionRefCounter, knownChains, identitySigningGate,
     )
 
     @Before
@@ -71,14 +74,27 @@ class ContactChatSignerResolverTest {
     }
 
     @Test
-    fun `full slot table falls back to username signer`() = runBlocking<Unit> {
+    fun `full slot table falls back to username signer once the user allowed it`() = runBlocking<Unit> {
         withCurrentAllocation(false)
         withAllocationResult(Result.failure(StatementStoreSlotAllocationError.NoAllocationAvailable(IllegalStateException())))
+        coEvery { identitySigningGate.ensureConsent(contactAccountId) } returns Result.success(Unit)
 
         val signer = resolver.resolve(contact).getOrNull()
 
         assertEquals(ChatSignerKind.USERNAME, signer?.kind)
         assertSame(usernameKeypair, signer?.keypair)
+    }
+
+    @Test
+    fun `full slot table without the user's consent is returned instead of downgrading`() = runBlocking<Unit> {
+        withCurrentAllocation(false)
+        withAllocationResult(Result.failure(StatementStoreSlotAllocationError.NoAllocationAvailable(IllegalStateException())))
+        coEvery { identitySigningGate.ensureConsent(contactAccountId) } returns
+            Result.failure(IdentitySigningConsentRequired(contactAccountId))
+
+        val error = resolver.resolve(contact).exceptionOrNull()
+
+        assertTrue(error is IdentitySigningConsentRequired)
     }
 
     @Test
