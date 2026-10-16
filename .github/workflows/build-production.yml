@@ -14,7 +14,7 @@ on:
         default: none
         options: [none, production]
       ref:
-        description: 'Git ref to build (branch, tag or SHA). Defaults to the ref this workflow was dispatched on.'
+        description: 'Empty = the dispatched commit. Otherwise a production/* tag, to rebuild a frozen baseline.'
         type: string
         default: ''
       version_code:
@@ -40,8 +40,49 @@ env:
   PRODUCTION_APPLICATION_ID: io.pcf.polkadotapp
 
 jobs:
+  # Production builds come only from the production branch or a production/* tag.
+  resolve:
+    name: Require a production ref
+    runs-on: ubuntu-latest
+    outputs:
+      sha: ${{ steps.trusted.outputs.sha }}
+    steps:
+      - name: Resolve the commit to build
+        id: trusted
+        env:
+          INPUT_REF: ${{ inputs.ref }}
+        run: |
+          set -euo pipefail
+          case "$GITHUB_REF" in
+            refs/heads/production | refs/tags/production/*) ;;
+            *)
+              echo "::error::production builds run only when dispatched on the production branch or a production/* tag"
+              exit 1
+              ;;
+          esac
+          if [ -z "$INPUT_REF" ]; then
+            echo "sha=$GITHUB_SHA" >> "$GITHUB_OUTPUT"
+            echo "building the dispatched commit $GITHUB_SHA ($GITHUB_REF)"
+            exit 0
+          fi
+          if [[ ! "$INPUT_REF" =~ ^production/[A-Za-z0-9._-]+$ ]]; then
+            echo "::error::ref must be empty or a production/* tag; branches and SHAs are refused"
+            exit 1
+          fi
+          # Annotated tags resolve through their peeled ^{} line.
+          refs=$(git ls-remote --tags "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git" \
+            "refs/tags/$INPUT_REF" "refs/tags/$INPUT_REF^{}")
+          sha=$(awk -v t="refs/tags/$INPUT_REF" '$2 == t "^{}" {p = $1} $2 == t {d = $1} END {print (p != "" ? p : d)}' <<< "$refs")
+          if [[ ! "$sha" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::tag $INPUT_REF does not exist"
+            exit 1
+          fi
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "building tag $INPUT_REF at $sha"
+
   build:
     name: Build gpRelease (unsigned)
+    needs: resolve
     runs-on: ubuntu-latest
     environment: production
     permissions:
@@ -68,7 +109,7 @@ jobs:
 
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.inputs.ref || github.ref }}
+          ref: ${{ needs.resolve.outputs.sha }}
 
       - name: Set up JDK 21
         uses: actions/setup-java@v4
@@ -401,6 +442,34 @@ jobs:
               echo "Actions artifact, no Play upload, no Firebase App Distribution, no R2 copy, no GitHub Release."
             fi
           } >> "$GITHUB_STEP_SUMMARY"
+
+  # A signed build tags the commit it built. Rebuilds of a production/* tag are already tagged.
+  tag:
+    name: Tag the signed commit
+    needs: [resolve, sign]
+    if: ${{ github.event.inputs.signing == 'production' && inputs.ref == '' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.resolve.outputs.sha }}
+
+      - name: Tag the built commit
+        env:
+          SHA: ${{ needs.resolve.outputs.sha }}
+        run: |
+          set -euo pipefail
+          DATE=$(date -u +%Y-%m-%d)
+          LAST=$(git ls-remote --tags origin "refs/tags/production/${DATE}.*" \
+            | sed -n "s#.*refs/tags/production/${DATE}\.\([0-9]*\)\$#\1#p" | sort -n | tail -1)
+          TAG="production/${DATE}.$(( ${LAST:-0} + 1 ))"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" "$SHA" -m "Android production build ${GITHUB_RUN_NUMBER} (run ${GITHUB_RUN_ID}), signed"
+          git push origin "refs/tags/$TAG"
+          echo "### Tagged \`$TAG\` at ${SHA:0:8}" >> "$GITHUB_STEP_SUMMARY"
 
   # Sends the signed APK to the internal tester group, behind a second approval.
   distribute:
