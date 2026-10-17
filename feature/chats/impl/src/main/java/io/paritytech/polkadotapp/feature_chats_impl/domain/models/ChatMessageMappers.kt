@@ -64,14 +64,8 @@ fun ChatMessageLocal.toDomain(
         ChatMessageContentLocal.Unsupported(content)
     }
 
-    // PCF FORK-LOCAL — keep on upstream conflict; see `LegacyEcdhKeyCleanup` for why.
-    // Decoding the SCALE blob is not the only thing that can fail: mapping it to the domain parses
-    // embedded key material, which a row written by an older build may not satisfy (a pre-X25519
-    // DeviceAdded carries a 65-byte P-256 key where a 32-byte X25519 key is now required — the
-    // stored bytes SCALE-decode fine, since they are just a Vec<u8>, and only then fail to parse).
-    // This runs inside Room Flows, where a throw escapes onto a background dispatcher and kills the
-    // process, so an unmappable stored message degrades to Unsupported — the same fallback the
-    // decode failure above already uses.
+    // Mapping parses embedded keys, which a legacy message can fail (a 65-byte P-256 key in
+    // `DeviceAdded`). Fall back to Unsupported, as for a decode failure, instead of crashing.
     val domainContent = runCatching {
         contentLocal.toDomain(customContentDecoder)
     }.getOrElse {

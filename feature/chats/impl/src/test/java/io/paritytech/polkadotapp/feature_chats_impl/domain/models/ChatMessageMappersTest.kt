@@ -15,14 +15,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Pins the mapping boundary of [ChatMessageLocal.toDomain] against messages persisted before the
- * P-256 -> X25519 migration.
- *
- * A legacy `DeviceAdded` row carries a 65-byte P-256 key inside its SCALE blob. The blob decodes
- * fine — `EncodedPublicKey` is just a `Vec<u8>` — and only the subsequent domain mapping rejects
- * the key. Since this mapper runs inside Room Flows, that throw escapes onto a background
- * dispatcher where no collector can catch it, so an unmappable stored message must degrade to
- * [ChatMessage.Content.Unsupported] rather than take the process down.
+ * Stored messages that fail to map, such as a legacy `DeviceAdded` with a 65-byte P-256 key,
+ * become [ChatMessage.Content.Unsupported].
  */
 class ChatMessageMappersTest {
     private val customContentDecoder = FailingCustomContentDecoder()
@@ -97,6 +91,7 @@ class ChatMessageMappersTest {
         chatId = CHAT_ID,
         timestamp = TIMESTAMP_MILLIS,
         updatedAt = TIMESTAMP_MILLIS,
+        sortOrder = ChatMessageLocal.UNORDERED,
         origin = ChatMessageLocal.Origin(type = ChatMessageLocal.OriginType.USER, key = null),
         status = ChatMessageLocal.Status.IS_READ,
         type = ChatMessageLocal.Type.DEVICE_ADDED,

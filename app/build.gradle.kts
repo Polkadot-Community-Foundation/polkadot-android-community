@@ -11,10 +11,7 @@ plugins {
 
 val localProperties = gradleLocalProperties(rootDir, providers)
 
-// Release signing material is optional. It exists only when the gated
-// `production-distribution` environment supplies it; absent, the release variant is built
-// deliberately UNSIGNED rather than falling back to the dev keystore or to a path that does
-// not exist on the builder.
+// The release variant is left unsigned when no release keystore is supplied.
 val releaseKeystoreFile: String? = localProperties.readSecretOrNull("RELEASE_KEYSTORE_FILE")
 
 android {
@@ -57,8 +54,6 @@ android {
             storePassword = localProperties.readSecretOrDefault("CI_KEYSTORE_PASS", "")
         }
 
-        // Upstream defaulted storeFile to `../release_key.jks`, a file no builder holds, so a
-        // release build broke at packaging time. Point at a keystore only when there is one.
         create("release") {
             releaseKeystoreFile?.let { storeFile = file(it) }
             keyPassword = localProperties.readSecretOrDefault("RELEASE_KEYSTORE_KEY_PASS", "")
@@ -69,8 +64,6 @@ android {
 
     buildTypes {
         getByName("release") {
-            // Unsigned when no release keystore was supplied (see signingConfigs above). This is
-            // what lets `signing: none` configure AND build without production key material.
             signingConfig = releaseKeystoreFile?.let { signingConfigs.getByName("release") }
 
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
@@ -112,10 +105,6 @@ android {
             signingConfig = signingConfigs.getByName("dev")
             // The ABIs :bindings:truapi-host builds the TrUAPI core for.
             ndk.abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64")
-            // The full applicationId (io.pcf.polkadotapp.dev) is set via
-            // androidComponents.onVariants below rather than an applicationIdSuffix,
-            // so this public DEV build carries the PCF identity independent of the
-            // io.paritytech base and matches app/src/dev/google-services.json.
         }
     }
 
@@ -129,24 +118,13 @@ android {
     }
 }
 
-// Pin the public DEV build to its own PCF application id (io.pcf.polkadotapp.dev) for
-// every flavor. Done via the Variant API because a buildType cannot override the full
-// applicationId (only a suffix), and we want an id independent of the io.paritytech base
-// rather than io.paritytech.polkadotapp.dev. Must match app/src/dev/google-services.json.
+// A build type can only suffix applicationId, so the dev and release ids are set per variant.
 androidComponents {
     onVariants(selector().withBuildType("dev")) { variant ->
         variant.applicationId.set("io.pcf.polkadotapp.dev")
     }
 
-    // Pin the PRODUCTION build to the PCF application id the same way the dev build is pinned.
-    // defaultConfig.applicationId comes from the APPLICATION_ID build variable, so without this
-    // a release build silently inherits whatever that variable happens to hold (upstream's value
-    // is a paritytech id). Driven by PRODUCTION_APPLICATION_ID so it is configuration, not a
-    // hardcoded constant, and defaults to the id on PCF's Play record.
-    //
-    // `namespace` (io.paritytech.polkadotapp.app, above) is intentionally NOT changed: it is the
-    // compile-time package for the generated R/BuildConfig classes, not the installed identity.
-    // The store, the launcher and Firebase all key off applicationId.
+    // The release build installs as the production application id, whatever APPLICATION_ID holds.
     onVariants(selector().withBuildType("release")) { variant ->
         variant.applicationId.set(
             localProperties.readSecretOrDefault("PRODUCTION_APPLICATION_ID", "io.pcf.polkadotapp")

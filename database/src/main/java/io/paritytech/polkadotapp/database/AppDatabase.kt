@@ -145,7 +145,7 @@ import io.paritytech.polkadotapp.database.model.chain.ChainNodeLocal
 import io.paritytech.polkadotapp.database.model.chain.ChainRuntimeInfoLocal
 
 @Database(
-    version = 70,
+    version = 71,
     entities = [
         ProductFundingOperationLocal::class,
         ChainLocal::class,
@@ -284,6 +284,8 @@ import io.paritytech.polkadotapp.database.model.chain.ChainRuntimeInfoLocal
         AutoMigration(from = 67, to = 68),
         // Drop the video game and privacy voucher tables
         AutoMigration(from = 69, to = 70, spec = Migration69To70Spec::class),
+        // Add chat_requests delivery state (deliveryStatus, deliveredVia, lastDeliveredPeriod)
+        AutoMigration(from = 70, to = 71),
     ]
 )
 @TypeConverters(
@@ -307,13 +309,8 @@ abstract class AppDatabase : RoomDatabase() {
         }
 
         /**
-         * PCF FORK-LOCAL. Deliberately separate from [addAppMigrations]: these callbacks repair row
-         * *values* that no schema migration can reach, and must not be mistaken for migrations. See
-         * [LegacyEcdhKeyCleanup] for why such a repair is needed at all.
-         *
-         * Exposed for re-usage in tests — `MigrationTest` builds the database through this so the
-         * callbacks run against the real schema; a table or column typo in their SQL would
-         * otherwise only be discovered on a user's device.
+         * Callbacks that repair row values on open, which no schema migration can reach. Public so
+         * that `MigrationTest` runs them against the real schema.
          */
         fun <T : RoomDatabase> Builder<T>.addAppCallbacks(): Builder<T> {
             return addCallback(LegacyEcdhKeyCleanup)

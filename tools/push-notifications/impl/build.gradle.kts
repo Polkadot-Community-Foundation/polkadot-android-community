@@ -19,7 +19,7 @@ android {
             buildConfigString("IOS_BUNDLE_ID", iosBundleId)
         }
         getByName("dev") {
-            buildConfigString("IOS_BUNDLE_ID", "io.pcf.polkadotapp.devnet")
+            buildConfigString("IOS_BUNDLE_ID", iosBundleId)
         }
         getByName("safetynet") {
             buildConfigString("IOS_BUNDLE_ID", "$iosBundleId.safety")
