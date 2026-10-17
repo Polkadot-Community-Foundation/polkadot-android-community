@@ -18,6 +18,9 @@ android {
         getByName("nightly") {
             buildConfigString("IOS_BUNDLE_ID", iosBundleId)
         }
+        getByName("dev") {
+            buildConfigString("IOS_BUNDLE_ID", iosBundleId)
+        }
         getByName("safetynet") {
             buildConfigString("IOS_BUNDLE_ID", "$iosBundleId.safety")
         }
