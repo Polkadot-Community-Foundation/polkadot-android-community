@@ -2,7 +2,7 @@
 
 The `production` branch is an upstream release tag of
 [paritytech/polkadot-android-community](https://github.com/paritytech/polkadot-android-community)
-plus the changes listed here. Upstream base: `v1.0.0-rc2` (`v1.0.0-1045`).
+plus the changes listed here. Upstream base: `v1.0.0-1059`.
 
 On every upstream sync, keep each change below unless its "Retire when" condition holds, and
 re-run its check against the new tag to see whether upstream still needs it. `TAG` is the
@@ -86,19 +86,6 @@ These stay for as long as PCF builds this app.
 - **Upstream still affected if:** `git cat-file -e TAG:bindings/sr25519-vrf/rust/Cargo.lock`
   fails.
 - **Retire when:** upstream commits the lockfile.
-
-### Prizes: empty state and Web3 Summit wording
-
-- **Origins:**
-  - `bb9f4069` "no games scheduled" placeholder
-  - `81407185` removes "During the Web3 Summit" from `chat_bot_prizes_intro_message_2`
-- **Files:**
-  - `design/.../placeholder/NoScheduledGamesPlaceholder.kt`
-  - the weekly game bot footer under `feature/videogame/impl`
-  - `common/src/main/res/values/strings.xml`
-- **Retire when:** syncing production to a tag at or past `v1.0.0-1052`, where upstream removed
-  the DIMs subsystem. The footer files go with it; delete `NoScheduledGamesPlaceholder.kt` and
-  the `weekly_game_no_scheduled_games` string in the same sync, since nothing uses them any more.
 
 ## Verifying a sync
 
