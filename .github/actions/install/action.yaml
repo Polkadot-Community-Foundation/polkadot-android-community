@@ -10,7 +10,7 @@ inputs:
       at this commit. Currently the @parity/truapi@0.24.0 release tag, whose
       hosts/android this tree is vendored from; bump the two together.
     required: false
-    default: "c00c50679061073421e9c050d7ae274d35bb311a"
+    default: "b8f6b367ae350d6dcc07b9fe6a9110e5f28730bf"
 
 runs:
   using: "composite"
