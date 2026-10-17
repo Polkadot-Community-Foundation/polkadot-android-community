@@ -13,13 +13,11 @@ interface DebugMenuContract {
 
     fun onCopyWalletAccountClick()
 
-    fun onCopyCandidateAccountClick()
-
     fun onCopyWalletMnemonicClick()
 
-    fun onOpenVideoGameClick()
-
     fun onProductBotsClick()
+
+    fun onPocketFacePreviewClick()
 
     fun onRandomizeAccountClick()
 
@@ -33,7 +31,11 @@ interface DebugMenuContract {
 
     fun onClearJWTTokenClick()
 
-    fun onSimulateGameResultsClick()
-
     fun onCoinageDebugWidgetsToggled(enabled: Boolean)
+
+    fun onTruapiRuntimeToggled(enabled: Boolean)
+
+    fun onRuntimeRestartConfirmed()
+
+    fun onRuntimeRestartCancelled()
 }

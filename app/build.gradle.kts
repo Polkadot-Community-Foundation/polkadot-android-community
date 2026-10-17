@@ -71,6 +71,13 @@ android {
         getByName("debug") {
             signingConfig = signingConfigs.getByName("dev")
             applicationIdSuffix = ".debug"
+            // A preview build has to be able to name the commit it came from,
+            // or a reviewer cannot tell it apart from a cached artifact. Scoped
+            // to this build type so no shipped variant can carry it, whatever
+            // is set in the environment.
+            versionNameSuffix = System.getenv("PREVIEW_COMMIT")
+                ?.takeIf { Regex("^[0-9a-f]{40}$").matches(it) }
+                ?.let { "+$it" }
             manifestPlaceholders["appName"] = localProperties.readSecretOrNull("DEBUG_APPLICATION_NAME")
                 ?: "[Debug] ${localProperties.readSecretOrThrow("APPLICATION_NAME")}"
 
@@ -96,6 +103,8 @@ android {
             matchingFallbacks.add("debug")
 
             signingConfig = signingConfigs.getByName("dev")
+            // The ABIs :bindings:truapi-host builds the TrUAPI core for.
+            ndk.abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64")
         }
     }
 
@@ -154,17 +163,14 @@ dependencies {
     implementation(project(":feature:wallet:impl"))
     implementation(project(":feature:tokens:impl"))
     implementation(project(":feature:splash:impl"))
-    implementation(project(":feature:wallet:impl"))
     implementation(project(":feature:prices:impl"))
     implementation(project(":feature:account:impl"))
-    implementation(project(":feature:vouchers:impl"))
     implementation(project(":feature:settings:impl"))
     implementation(project(":feature:balances:impl"))
     implementation(project(":feature:transfers:impl"))
     implementation(project(":feature:usernames:impl"))
     implementation(project(":feature:videogame:impl"))
     implementation(project(":feature:transactions:impl"))
-    implementation(project(":feature:become-citizen:impl"))
     implementation(project(":feature:statement-store:impl"))
     implementation(project(":feature:transaction-storage:impl"))
     implementation(project(":feature:pgas:impl"))
@@ -172,10 +178,8 @@ dependencies {
     implementation(project(":feature:cross-chain-transfers:impl"))
     implementation(project(":feature:sso:impl"))
     implementation(project(":feature:scan:impl"))
-    implementation(project(":feature:mobrules:api"))
-    implementation(project(":feature:mobrules:impl"))
     implementation(project(":feature:products:impl"))
-    implementation(project(":feature:upgrade-username:impl"))
+    implementation(project(":bindings:truapi-host"))
     implementation(project(":feature:calls:api"))
     implementation(project(":feature:calls:impl"))
     implementation(project(":feature:coinage:impl"))
@@ -209,11 +213,20 @@ dependencies {
     "gpImplementation"(libs.google.play.services.mlkit)
     "vanillaImplementation"(libs.google.mlkit.barcode.scanning)
 
+    testImplementation(project(":test-shared"))
+    testImplementation(libs.squareup.okhttp3.mockwebserver)
+    testImplementation(libs.squareup.okhttp3.tls)
+
     androidTestImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.androidx.work.testing)
     androidTestImplementation(libs.hilt.android.testing)
+    androidTestImplementation(libs.mockk.android) {
+        // JUnit 4 runs these tests; mockk's JUnit 5 jars only collide when the test APK is packaged.
+        exclude(group = "org.junit.jupiter")
+        exclude(group = "org.junit.platform")
+    }
     kspAndroidTest(libs.hilt.android.compiler)
 }
 

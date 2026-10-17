@@ -1,5 +1,6 @@
 package io.paritytech.polkadotapp.feature_products_impl.data.manifest
 
+import com.google.gson.JsonElement
 import com.google.gson.annotations.JsonAdapter
 import com.google.gson.annotations.SerializedName
 import io.paritytech.polkadotapp.feature_products_api.model.ProductIcon
@@ -30,6 +31,7 @@ internal class ExecutableManifestRemote(
     // worker
     val entrypoint: String? = null,
     val includes: IncludesRemote? = null,
+    val pocket: PocketRemote? = null,
     // widget
     val description: String? = null,
     val dimensions: DimensionsRemote? = null,
@@ -38,6 +40,18 @@ internal class ExecutableManifestRemote(
 internal class IncludesRemote(
     val chat: Boolean? = null,
     val pocket: Boolean? = null,
+)
+
+internal class PocketRemote(
+    val cards: List<PocketCardRemote>? = null,
+)
+
+internal class PocketCardRemote(
+    val id: String? = null,
+    val title: String? = null,
+    val preview: String? = null,
+    // Kept raw: Gson's boolean adapter reads the string "no" as false instead of refusing it.
+    val faceShown: JsonElement? = null,
 )
 
 internal class DimensionsRemote(

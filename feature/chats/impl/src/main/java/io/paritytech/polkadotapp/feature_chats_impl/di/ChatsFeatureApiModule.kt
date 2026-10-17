@@ -14,6 +14,7 @@ import io.paritytech.polkadotapp.feature_chats_api.domain.ChatActiveTracker
 import io.paritytech.polkadotapp.feature_chats_api.domain.ChatBroadcastUseCase
 import io.paritytech.polkadotapp.feature_chats_api.domain.ChatMessageSender
 import io.paritytech.polkadotapp.feature_chats_api.domain.ContactChatSessionManager
+import io.paritytech.polkadotapp.feature_chats_api.domain.ContactDirectory
 import io.paritytech.polkadotapp.feature_chats_api.domain.ContactDisplayProvider
 import io.paritytech.polkadotapp.feature_chats_api.domain.ReadOnlyChatRoomRepository
 import io.paritytech.polkadotapp.feature_chats_api.domain.chatRequest.ChatRequestServiceCoordinator
@@ -65,13 +66,13 @@ import io.paritytech.polkadotapp.feature_chats_impl.data.repository.RealChatRoom
 import io.paritytech.polkadotapp.feature_chats_impl.data.repository.RealChatSearchRecentsRepository
 import io.paritytech.polkadotapp.feature_chats_impl.data.repository.RealCompactionExpansionRepository
 import io.paritytech.polkadotapp.feature_chats_impl.data.repository.RealContactDevicesRepository
+import io.paritytech.polkadotapp.feature_chats_impl.data.repository.RealContactDirectory
 import io.paritytech.polkadotapp.feature_chats_impl.data.repository.RealContactsRepository
 import io.paritytech.polkadotapp.feature_chats_impl.data.repository.RealMessageRevisionRepository
 import io.paritytech.polkadotapp.feature_chats_impl.data.repository.RealProcessedChatMessageRepository
 import io.paritytech.polkadotapp.feature_chats_impl.data.repository.RealRemovedChatsRepository
 import io.paritytech.polkadotapp.feature_chats_impl.data.repository.RemovedChatsRepository
-import io.paritytech.polkadotapp.feature_chats_impl.data.storage.AskedFaqQuestionsStorage
-import io.paritytech.polkadotapp.feature_chats_impl.data.storage.RealAskedFaqQuestionsStorage
+import io.paritytech.polkadotapp.feature_chats_impl.data.worker.ChatRequestRenewalScheduler
 import io.paritytech.polkadotapp.feature_chats_impl.deeplink.RealChatDeeplinkMapper
 import io.paritytech.polkadotapp.feature_chats_impl.domain.ChatActiveTrackerInternal
 import io.paritytech.polkadotapp.feature_chats_impl.domain.ChatEngine
@@ -93,6 +94,7 @@ import io.paritytech.polkadotapp.feature_chats_impl.domain.chatRequest.RealIncom
 import io.paritytech.polkadotapp.feature_chats_impl.domain.chatRequest.RealIncomingChatRequestService
 import io.paritytech.polkadotapp.feature_chats_impl.domain.chatRequest.RealIncomingChatRequestVerifier
 import io.paritytech.polkadotapp.feature_chats_impl.domain.chatRequest.RealOutgoingChatRequestService
+import io.paritytech.polkadotapp.feature_chats_impl.domain.chatRequest.delivery.ChatRequestDeliveryService
 import io.paritytech.polkadotapp.feature_chats_impl.domain.chatRequest.transport.ChatRequestTransport
 import io.paritytech.polkadotapp.feature_chats_impl.domain.chatRequest.transport.RealChatRequestTransport
 import io.paritytech.polkadotapp.feature_chats_impl.domain.deviceLifecycle.DeviceLifecycleMessageProcessor
@@ -135,6 +137,9 @@ internal interface ChatsFeatureApiModule {
     fun bindBlockedContactsRepository(impl: RealContactsRepository): BlockedContactsRepository
 
     @Binds
+    fun bindContactDirectory(impl: RealContactDirectory): ContactDirectory
+
+    @Binds
     fun bindRemovedChatsRepository(impl: RealRemovedChatsRepository): RemovedChatsRepository
 
     @Binds
@@ -155,6 +160,14 @@ internal interface ChatsFeatureApiModule {
     @Binds
     @IntoSet
     fun bindContactDeviceFanOutService(impl: ContactDeviceFanOutService): AppInitializer
+
+    @Binds
+    @IntoSet
+    fun bindChatRequestDeliveryService(impl: ChatRequestDeliveryService): AppInitializer
+
+    @Binds
+    @IntoSet
+    fun bindChatRequestRenewalScheduler(impl: ChatRequestRenewalScheduler): AppInitializer
 
     @Binds
     fun bindChatBroadcastUseCase(impl: RealChatBroadcastUseCase): ChatBroadcastUseCase
@@ -198,9 +211,6 @@ internal interface ChatsFeatureApiModule {
 
     @Binds
     fun bindMessageSender(chatEngine: ChatEngine): ChatMessageSender
-
-    @Binds
-    fun bindClickedFaqQuestionsStorage(real: RealAskedFaqQuestionsStorage): AskedFaqQuestionsStorage
 
     @Binds
     fun bindMessageRevisionRepository(impl: RealMessageRevisionRepository): MessageRevisionRepository

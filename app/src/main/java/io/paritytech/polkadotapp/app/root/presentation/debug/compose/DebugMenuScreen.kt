@@ -49,18 +49,19 @@ fun DebugMenuScreen(contract: DebugMenuContract) {
         onClearBackupClick = contract::onClearBackupClick,
         onShareLogsClick = contract::onShareLogsClick,
         onCopyWalletAccountClick = contract::onCopyWalletAccountClick,
-        onCopyCandidateAccountClick = contract::onCopyCandidateAccountClick,
         onCopyWalletMnemonicClick = contract::onCopyWalletMnemonicClick,
-        onOpenVideoGameClick = contract::onOpenVideoGameClick,
         onProductBotsClick = contract::onProductBotsClick,
+        onPocketFacePreviewClick = contract::onPocketFacePreviewClick,
         onRandomizeAccountClick = contract::onRandomizeAccountClick,
         onOpenSpaBrowserClick = contract::onOpenSpaBrowserClick,
         onSpaBrowserUrlEntered = contract::onSpaBrowserUrlEntered,
         onSpaBrowserDialogDismissed = contract::onSpaBrowserDialogDismissed,
         onClearDotNsCacheClick = contract::onClearDotNsCacheClick,
         onClearJWTTokenClick = contract::onClearJWTTokenClick,
-        onSimulateGameResultsClick = contract::onSimulateGameResultsClick,
         onCoinageDebugWidgetsToggled = contract::onCoinageDebugWidgetsToggled,
+        onTruapiRuntimeToggled = contract::onTruapiRuntimeToggled,
+        onRuntimeRestartConfirmed = contract::onRuntimeRestartConfirmed,
+        onRuntimeRestartCancelled = contract::onRuntimeRestartCancelled,
     )
 }
 
@@ -71,19 +72,20 @@ private fun DebugMenuScreenInternal(
     onBackClick: () -> Unit,
     onClearBackupClick: () -> Unit,
     onCopyWalletAccountClick: () -> Unit,
-    onCopyCandidateAccountClick: () -> Unit,
     onCopyWalletMnemonicClick: () -> Unit,
     onShareLogsClick: () -> Unit,
-    onOpenVideoGameClick: () -> Unit,
     onProductBotsClick: () -> Unit,
+    onPocketFacePreviewClick: () -> Unit,
     onRandomizeAccountClick: () -> Unit,
     onOpenSpaBrowserClick: () -> Unit,
     onSpaBrowserUrlEntered: (String) -> Unit,
     onSpaBrowserDialogDismissed: () -> Unit,
     onClearDotNsCacheClick: () -> Unit,
     onClearJWTTokenClick: () -> Unit,
-    onSimulateGameResultsClick: () -> Unit,
     onCoinageDebugWidgetsToggled: (Boolean) -> Unit,
+    onTruapiRuntimeToggled: (Boolean) -> Unit,
+    onRuntimeRestartConfirmed: () -> Unit,
+    onRuntimeRestartCancelled: () -> Unit,
 ) {
     PolkadotSurface {
         Column(
@@ -109,6 +111,14 @@ private fun DebugMenuScreenInternal(
                 onCheckedChange = onCoinageDebugWidgetsToggled
             )
 
+            VerticalSpacer { large }
+
+            DebugMenuToggleItem(
+                title = stringResource(RCommon.string.debug_menu_truapi_runtime, state.truapiHostVersion),
+                checked = state.truapiRuntimeEnabled,
+                onCheckedChange = onTruapiRuntimeToggled
+            )
+
             VerticalSpacer { extraLargeIncreased }
 
             DebugMenuItem(
@@ -123,14 +133,6 @@ private fun DebugMenuScreenInternal(
                 title = stringResource(RCommon.string.debug_menu_copy_deposit_account),
                 enabled = true,
                 onClick = onCopyWalletAccountClick
-            )
-
-            VerticalSpacer { mediumIncreased }
-
-            DebugMenuItem(
-                title = stringResource(RCommon.string.debug_menu_copy_candidate_account),
-                enabled = true,
-                onClick = onCopyCandidateAccountClick
             )
 
             VerticalSpacer { mediumIncreased }
@@ -152,17 +154,17 @@ private fun DebugMenuScreenInternal(
             VerticalSpacer { mediumIncreased }
 
             DebugMenuItem(
-                title = stringResource(RCommon.string.debug_menu_open_video_game),
-                enabled = !state.isSharingLogs,
-                onClick = onOpenVideoGameClick
+                title = stringResource(RCommon.string.debug_menu_product_bots),
+                enabled = true,
+                onClick = onProductBotsClick
             )
 
             VerticalSpacer { mediumIncreased }
 
             DebugMenuItem(
-                title = stringResource(RCommon.string.debug_menu_product_bots),
+                title = stringResource(RCommon.string.debug_menu_pocket_face_preview),
                 enabled = true,
-                onClick = onProductBotsClick
+                onClick = onPocketFacePreviewClick
             )
 
             VerticalSpacer { mediumIncreased }
@@ -202,14 +204,6 @@ private fun DebugMenuScreenInternal(
                 onClick = onClearJWTTokenClick
             )
 
-            VerticalSpacer { large }
-
-            DebugMenuItem(
-                title = stringResource(RCommon.string.debug_menu_simulate_game_results),
-                enabled = true,
-                onClick = onSimulateGameResultsClick
-            )
-
             VerticalSpacer { extraLargeIncreased }
         }
     }
@@ -219,6 +213,60 @@ private fun DebugMenuScreenInternal(
             onDismiss = onSpaBrowserDialogDismissed,
             onConfirm = onSpaBrowserUrlEntered,
         )
+    }
+
+    if (state.runtimeRestartRevertsTo != null) {
+        RuntimeRestartDialog(
+            onDismiss = onRuntimeRestartCancelled,
+            onConfirm = onRuntimeRestartConfirmed,
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun RuntimeRestartDialog(
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit,
+) {
+    BasicAlertDialog(onDismissRequest = onDismiss) {
+        PolkadotSurface(
+            color = PolkadotTheme.colors.bg.surface.container,
+            shape = RoundedCornerShape(28.dp),
+            shadowElevation = 5.dp
+        ) {
+            Column(
+                modifier = Modifier.padding(PolkadotTheme.spacings.large),
+            ) {
+                NovaText(
+                    text = stringResource(RCommon.string.debug_menu_runtime_restart_title),
+                    style = PolkadotTheme.typography.headline.small,
+                    color = PolkadotTheme.colors.fg.primary
+                )
+
+                VerticalSpacer { mediumIncreased }
+
+                NovaText(
+                    text = stringResource(RCommon.string.debug_menu_runtime_restart_message),
+                    style = PolkadotTheme.typography.body.large,
+                    color = PolkadotTheme.colors.fg.secondary
+                )
+
+                VerticalSpacer { large }
+
+                Row(modifier = Modifier.align(Alignment.End)) {
+                    PolkadotTextButton(
+                        text = stringResource(RCommon.string.common_cancel),
+                        onClick = onDismiss,
+                    )
+
+                    PolkadotTextButton(
+                        text = stringResource(RCommon.string.debug_menu_runtime_restart_confirm),
+                        onClick = onConfirm,
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -321,23 +369,24 @@ private fun DebugMenuToggleItem(
 private fun DebugMenuScreenPreview() {
     PolkadotTheme {
         DebugMenuScreenInternal(
-            state = DebugMenuState(),
+            state = DebugMenuState(truapiHostVersion = "0.24.0"),
             onBackClick = {},
             onClearBackupClick = {},
             onCopyWalletAccountClick = {},
             onCopyWalletMnemonicClick = {},
             onShareLogsClick = {},
-            onOpenVideoGameClick = {},
+            onPocketFacePreviewClick = {},
             onProductBotsClick = {},
-            onCopyCandidateAccountClick = {},
             onRandomizeAccountClick = {},
             onOpenSpaBrowserClick = {},
             onSpaBrowserUrlEntered = {},
             onSpaBrowserDialogDismissed = {},
             onClearDotNsCacheClick = {},
             onClearJWTTokenClick = {},
-            onSimulateGameResultsClick = {},
             onCoinageDebugWidgetsToggled = {},
+            onTruapiRuntimeToggled = {},
+            onRuntimeRestartConfirmed = {},
+            onRuntimeRestartCancelled = {},
         )
     }
 }

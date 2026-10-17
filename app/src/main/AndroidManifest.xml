@@ -24,6 +24,7 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
     <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.DETECT_SCREEN_CAPTURE" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <uses-feature
@@ -110,6 +111,17 @@
                 <category android:name="android.intent.category.BROWSABLE" />
 
                 <data
+                    android:host="pocket"
+                    android:scheme="polkadotapp" />
+            </intent-filter>
+
+            <intent-filter android:autoVerify="false">
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data
                     android:host="*.dot"
                     android:scheme="polkadotapp" />
                 <data
@@ -117,6 +129,9 @@
                     android:scheme="polkadotapp" />
                 <data
                     android:host="*.test"
+                    android:scheme="polkadotapp" />
+                <data
+                    android:host="*.testnet"
                     android:scheme="polkadotapp" />
             </intent-filter>
 
@@ -185,11 +200,6 @@
             android:name="io.paritytech.polkadotapp.feature_calls_impl.service.CallService"
             android:exported="false"
             android:foregroundServiceType="phoneCall|microphone|camera" />
-
-        <service
-            android:name="io.paritytech.polkadotapp.feature_videogame_impl.service.VideoGameService"
-            android:exported="false"
-            android:foregroundServiceType="camera" />
 
         <service
             android:name="androidx.work.impl.foreground.SystemForegroundService"

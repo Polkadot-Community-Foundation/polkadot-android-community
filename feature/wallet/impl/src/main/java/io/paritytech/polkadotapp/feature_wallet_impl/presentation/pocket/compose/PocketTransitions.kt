@@ -65,23 +65,6 @@ fun Modifier.pocketCardSharedElement(index: Int): Modifier {
 }
 
 @Composable
-fun Modifier.pocketCollectiblesImageSharedElement(): Modifier {
-    val sharedScope = LocalSharedTransitionScope.current
-    val visibilityScope = LocalNavAnimatedVisibilityScope.current
-    return if (sharedScope == null || visibilityScope == null) {
-        this
-    } else {
-        with(sharedScope) {
-            this@pocketCollectiblesImageSharedElement.sharedElement(
-                sharedContentState = rememberSharedContentState("pocket_collectibles_image"),
-                animatedVisibilityScope = visibilityScope,
-                boundsTransform = PocketBoundsTransform
-            )
-        }
-    }
-}
-
-@Composable
 fun Modifier.pocketBalanceSharedElement(cardId: String): Modifier {
     val sharedScope = LocalSharedTransitionScope.current
     val visibilityScope = LocalNavAnimatedVisibilityScope.current
@@ -130,15 +113,18 @@ fun Modifier.pocketListCardSharedElement(
         with(sharedScope) {
             with(visibilityScope) {
                 val isBelowAnchor = index > anchorIndex
+                // Every card here is drawn in the shared overlay, which the screen's own fade does
+                // not reach, so each one carries its own: without it a card above the picked one
+                // stays fully opaque and sits under it the whole way up.
                 val enter = if (isBelowAnchor) {
                     pocketSlideIn { fullHeight -> fullHeight * 4 } + pocketFadeIn()
                 } else {
-                    pocketScaleIn()
+                    pocketScaleIn() + pocketFadeIn()
                 }
                 val exit = if (isBelowAnchor) {
                     pocketSlideOut { fullHeight -> fullHeight * 4 } + pocketFadeOut()
                 } else {
-                    pocketScaleOut()
+                    pocketScaleOut() + pocketFadeOut()
                 }
                 sharedElementModifier
                     .renderInSharedTransitionScopeOverlay(zIndexInOverlay = index.toFloat())

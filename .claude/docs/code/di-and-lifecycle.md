@@ -179,15 +179,15 @@ Don't inject a service's `CoroutineScope` into a ViewModel just to start a flow.
 
 ```kotlin
 // ✗
-class VideoGameVotingViewModel @Inject constructor(
-    private val serviceScope: VideoGameServiceScope,  // — ugh
+class CallControlsViewModel @Inject constructor(
+    private val serviceScope: CallServiceScope,  // — ugh
 ) {
     init { serviceScope.launch { ... } }
 }
 
 // ✓
-class VideoGameVotingViewModel @Inject constructor(
-    private val reader: VideoGameStateReader,
+class CallControlsViewModel @Inject constructor(
+    private val reader: CallStateReader,
 ) {
     override val state = reader.observeState().map { ... }.stateIn(viewModelScope, ...)
 }
@@ -323,16 +323,18 @@ For resources that need cleanup, prefer an explicit `dispose()` (or `close()`) m
 
 ```kotlin
 // ✓ — owner controls lifecycle
-class HostApiSession(...) {
-    fun dispose() {
-        bridge.unregisterAll()
-        runtime.destroy()
+class ProductTrUAPIHostBridge(...) {
+    fun stop() {
+        chainProvider.detach()
+        chainProvider.closeAll()
+        execution?.stopWsBridge()
+        execution?.close()
     }
 }
 
 // — caller pattern
-val session = factory.create(...)
-try { ... } finally { session.dispose() }
+val bridge = ProductTrUAPIHostBridge(...)
+try { ... } finally { bridge.stop() }
 ```
 
-Internally the session might still use `try/finally`, but the API surface is `dispose()`.
+Internally the owner might still use `try/finally`, but the API surface is a single explicit teardown call.

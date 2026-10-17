@@ -25,6 +25,13 @@ sealed interface ProductDialogState {
         val productId: String? = null,
         val dotNsName: String = "",
         val workerUrl: String = "",
+        // A Pocket card on the worker. Optional: a worker can be useful with only chat on it.
+        val cardId: String = "",
+        val cardTitle: String = "",
+        val previewUrl: String = "",
+        // A loopback page the product shows instead of its published app.
+        val appUrl: String = "",
+        val openWithFaceAway: Boolean = false,
         val isSubmitting: Boolean = false,
     ) : ProductDialogState
 }

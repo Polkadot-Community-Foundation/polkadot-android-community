@@ -16,7 +16,7 @@ Walk this checklist for any file path that touches an architectural seam. Cite t
 - **minor** — New module added with only one owner in `CODEOWNERS` (single-owner module). Reviewer surfaces this; doesn't block, since the agent can't pick the right co-owner — that's a human decision.
 - **major** — A logical cycle: `feature/A/api` depends on `feature/B/api` AND `feature/B/impl` depends on `feature/A/api`. Propose extracting the shared concept (see "people → members" precedent).
 - **major** — New module added without a corresponding `CODEOWNERS` update in the same PR.
-- **major** — Feature-specific entity placed in shared `database` without a feature-prefixed name (e.g. `SessionEntity` instead of `VideoGameSessionEntity`).
+- **major** — Feature-specific entity placed in shared `database` without a feature-prefixed name (e.g. `SessionEntity` instead of `CoinageSessionEntity`).
 - **major** — Cross-feature wiring done via a one-off direct injection instead of the established multibinding seam (`@IntoSet ChatExtension`, `@IntoSet AppInitializer`).
 - **minor** — Package leaves lowercase-glued (`pairrequest`) instead of `camelCase` (`pairRequest`).
 
@@ -91,12 +91,16 @@ Walk this checklist for any file path that touches an architectural seam. Cite t
 ## Products / HostApi (`architecture/host-api-products.md`)
 
 - **blocking** — A new host call added **without** a referenced RFC stating its permission model. (If no RFC exists / RFC doesn't address permissions, the reviewer must escalate to the user.)
-- **blocking** — `ProductId` constructed from arbitrary strings; should go through `ProductId.fromUrl(...)` / `fromLocalId(...)`.
+- **blocking** — `ProductId` constructed from arbitrary strings; should go through `ProductId.fromUrl(...)` / `fromStoredValue(...)`.
 - **blocking** — WebView ownership ambiguity: two classes both call `destroy()` on the same WebView.
 - **major** — Container script loading split inconsistently across environments (use `ContainerInjectionStrategy` uniformly).
 - **major** — Handler group reaching into a global "current product" instead of injected `CallingProductIdProvider`.
-- **major** — `NavigationPolicy` branching on URL string inside the policy (classification is external).
 - **major** — Multi-room product implemented as multiple `ChatExtension`s instead of a single `ProductChatExtension` with multi-room behavior.
+- **major** — TrUAPI bridge logic reimplemented on the Kotlin side instead of delegated to `HostApiInteractor` (`ProductTrUAPIHostBridge` is a thin adapter; the Rust core dispatches).
+- **major** — A `HostBridge` callback violating the threading contract: dispatcher-thread callbacks blocking, or UI touched off the main thread (see `host-api-products.md`).
+- **major** — A `UserConfirmationReview` variant mapped without coverage in `ConfirmationReviewMappingTest`, or a non-signing variant routed anywhere but the fail-closed `null` path.
+- **major** — Runtime selection decided anywhere other than `ProductRuntimeSettings` read at session creation.
+- **major** — `NavigationPolicy` branching on URL string inside the policy (classification is external via `CoreNavigateClassifier`).
 
 ## Transactions (`architecture/transactions.md`)
 
@@ -106,7 +110,7 @@ Walk this checklist for any file path that touches an architectural seam. Cite t
 - **major** — Manual binary encoder for an argument when `BinaryScale` / `autoEncodedArgs` covers it.
 - **major** — Origin's `paysFees` flag overridden / second-guessed at the caller.
 - **major** — Multi-extrinsic batches missing `ExtrinsicBuilderSequence` and managing nonces by hand.
-- **major** — Inheritance from `AsPersonTransactionExtension` (or similar base) when composition via `SetTransactionExtensionOrigin` is enough.
+- **major** — Inheriting from another origin's extension when composition via `SetTransactionExtensionOrigin` is enough.
 - **minor** — Polling chain state instead of subscribing (`observe`).
 - **blocking** — A durable verdict about a submitted attempt written outside `DurableVerdictWriter`.
 - **blocking** — `AsyncDurableSubmissionPolicy.canRetry` retrying `DISPATCH_FAILED` / `REJECTED` failures without a bound (`architecture/transactions.md` rule 11).

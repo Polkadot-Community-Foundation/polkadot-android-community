@@ -66,7 +66,7 @@ web3j = "4.8.9"
 kotlinxCoroutines = "1.9.0"
 exifInterface = "1.4.2"
 blurhash = "0.3.0"
-design-system = "1.0.2"
+design-system = "1.0.4"
 
 [libraries]
 androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
@@ -146,6 +146,8 @@ firebase-messaging = { group = "com.google.firebase", name = "firebase-messaging
 firebase-messaging-ktx = { group = "com.google.firebase", name = "firebase-messaging-ktx" }
 
 squareup-okhttp3-core = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp3" }
+squareup-okhttp3-mockwebserver = { group = "com.squareup.okhttp3", name = "mockwebserver3", version.ref = "okhttp3" }
+squareup-okhttp3-tls = { group = "com.squareup.okhttp3", name = "okhttp-tls", version.ref = "okhttp3" }
 squareup-okhttp3-logging = { group = "com.squareup.okhttp3", name = "logging-interceptor", version.ref = "okhttp3" }
 squareup-retrofit2-core = { group = "com.squareup.retrofit2", name = "retrofit", version.ref = "retrofit2" }
 squareup-retrofit2-converters-gson = { group = "com.squareup.retrofit2", name = "converter-gson", version.ref = "retrofit2" }
@@ -171,6 +173,8 @@ androidx-test-runner = { group = "androidx.test", name = "runner", version.ref =
 androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }
 mockito-core = { group = "org.mockito", name = "mockito-core", version.ref = "mockito" }
 mockk = { group = "io.mockk", name = "mockk", version.ref = "mockk" }
+mockk-android = { group = "io.mockk", name = "mockk-android", version.ref = "mockk" }
+kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinxCoroutines" }
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "kotlinxCoroutines" }
 
 hilt-android = { module = "com.google.dagger:hilt-android", version.ref = "dagger-hilt" }
@@ -189,6 +193,8 @@ protobuf-protoc = { group = "com.google.protobuf", name = "protoc", version.ref 
 
 detekt-formatting = { group = "dev.detekt", name = "detekt-rules-ktlint-wrapper", version.ref = "detekt" }
 detekt-compose-rules = { group = "io.nlopez.compose.rules", name = "detekt", version.ref = "compose-rules" }
+detekt-api = { group = "dev.detekt", name = "detekt-api", version.ref = "detekt" }
+detekt-test = { group = "dev.detekt", name = "detekt-test", version.ref = "detekt" }
 androidx-compose-runtime = { group = "androidx.compose.runtime", name = "runtime", version.ref = "runtime" }
 web3j-abi = { group = "org.web3j", name = "abi", version.ref = "web3j" }
 
@@ -205,6 +211,7 @@ rust-gradlePlugin = { group = "org.mozilla.rust-android-gradle", name = "plugin"
 android-application = { id = "com.android.application", version.ref = "agp" }
 android-library = { id = "com.android.library", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 kotlin-ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 kotlin-parcelize = { id = "org.jetbrains.kotlin.plugin.parcelize", version.ref = "kotlin" }
 mozilla-rust-android = { id = "org.mozilla.rust-android-gradle.rust-android", version.ref = "rust-android" }

@@ -6,6 +6,7 @@ import io.paritytech.polkadotapp.app.root.domain.debug.CollectLogsUseCase
 import io.paritytech.polkadotapp.app.root.domain.debug.GetAddressUseCase
 import io.paritytech.polkadotapp.app.root.domain.debug.GetWalletMnemonicUseCase
 import io.paritytech.polkadotapp.app.root.domain.debug.RandomizeAccountUseCase
+import io.paritytech.polkadotapp.app.root.domain.debug.RestartAppUseCase
 import io.paritytech.polkadotapp.app.root.presentation.root.RootRouter
 import io.paritytech.polkadotapp.common.presentation.clipboard.ClipboardService
 import io.paritytech.polkadotapp.common.presentation.screens.BaseViewModel
@@ -13,13 +14,12 @@ import io.paritytech.polkadotapp.common.utils.Urls
 import io.paritytech.polkadotapp.common.utils.launchUnit
 import io.paritytech.polkadotapp.feature_coinage_api.domain.debug.CoinageDebugSettings
 import io.paritytech.polkadotapp.feature_dotns_api.domain.DotNsResolver
+import io.paritytech.polkadotapp.feature_products_api.domain.runtime.ProductRuntimeSettings
 import io.paritytech.polkadotapp.feature_products_api.presentation.SpaBrowserPayload
-import io.paritytech.polkadotapp.feature_videogame_impl.data.gameResults.GameResultsWebViewPreloader
-import io.paritytech.polkadotapp.feature_videogame_impl.domain.gameResults.GameResultsMock
-import io.paritytech.polkadotapp.feature_videogame_impl.presentation.gameResults.GameResultsPayload
 import io.paritytech.polkadotapp.tools_jwt_auth_impl.data.store.JWTTokenStore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
+import uniffi.truapi.truapiHostVersion
 import javax.inject.Inject
 
 @HiltViewModel
@@ -33,19 +33,16 @@ class DebugMenuViewModel @Inject constructor(
     private val randomizeAccountUseCase: RandomizeAccountUseCase,
     private val dotNsResolver: DotNsResolver,
     private val jwtTokenStore: JWTTokenStore,
-    private val gameResultsPreloader: GameResultsWebViewPreloader,
     private val coinageDebugSettings: CoinageDebugSettings,
+    private val productRuntimeSettings: ProductRuntimeSettings,
+    private val restartAppUseCase: RestartAppUseCase,
 ) : BaseViewModel(), DebugMenuContract {
-    override val state = MutableStateFlow(DebugMenuState())
+    override val state = MutableStateFlow(DebugMenuState(truapiHostVersion = truapiHostVersion()))
 
     init {
         refreshJWTTokenState()
         refreshCoinageDebugWidgetsState()
-
-        // No game state drives this screen, so the game-state initializer
-        // never preloads the results WebView. Warm it directly so the
-        // simulate button isn't sitting on a cold load.
-        gameResultsPreloader.startWithRetry()
+        refreshTruapiRuntimeState()
     }
 
     override fun onBackClick() {
@@ -74,20 +71,16 @@ class DebugMenuViewModel @Inject constructor(
         clipboardService.setPrimaryClip(getAddressUseCase.wallet())
     }
 
-    override fun onCopyCandidateAccountClick() = launchUnit {
-        clipboardService.setPrimaryClip(getAddressUseCase.candidate())
-    }
-
     override fun onCopyWalletMnemonicClick() = launchUnit {
         clipboardService.setPrimaryClip(getWalletMnemonicUseCase().words)
     }
 
-    override fun onOpenVideoGameClick() {
-        router.openVideoGame()
-    }
-
     override fun onProductBotsClick() {
         router.openProductBotsManagement()
+    }
+
+    override fun onPocketFacePreviewClick() {
+        router.openPocketFacePreview()
     }
 
     override fun onRandomizeAccountClick() = launchUnit {
@@ -117,14 +110,32 @@ class DebugMenuViewModel @Inject constructor(
         refreshJWTTokenState()
     }
 
-    override fun onSimulateGameResultsClick() {
-        val payload = GameResultsPayload.from(GameResultsMock.happyPath(), showTopBar = true)
-        router.openSimulatedGameResults(payload)
-    }
-
     override fun onCoinageDebugWidgetsToggled(enabled: Boolean) = launchUnit {
         coinageDebugSettings.setWidgetsEnabled(enabled)
         state.update { it.copy(coinageDebugWidgetsEnabled = enabled) }
+    }
+
+    /**
+     * Each runtime keeps its own storage namespace and its own permission
+     * memory, so a product switched mid-session reads an empty store and the
+     * host it is already talking to belongs to the other runtime. Restarting
+     * makes the switch a clean boot instead.
+     */
+    override fun onTruapiRuntimeToggled(enabled: Boolean) {
+        val previous = state.value.truapiRuntimeEnabled
+        productRuntimeSettings.setTrUAPIRuntimeEnabled(enabled)
+        state.update { it.copy(runtimeRestartRevertsTo = previous) }
+        refreshTruapiRuntimeState()
+    }
+
+    override fun onRuntimeRestartConfirmed() {
+        restartAppUseCase()
+    }
+
+    override fun onRuntimeRestartCancelled() {
+        state.value.runtimeRestartRevertsTo?.let(productRuntimeSettings::setTrUAPIRuntimeEnabled)
+        state.update { it.copy(runtimeRestartRevertsTo = null) }
+        refreshTruapiRuntimeState()
     }
 
     private fun refreshJWTTokenState() {
@@ -134,5 +145,9 @@ class DebugMenuViewModel @Inject constructor(
     private fun refreshCoinageDebugWidgetsState() = launchUnit {
         val enabled = coinageDebugSettings.areWidgetsEnabled()
         state.update { it.copy(coinageDebugWidgetsEnabled = enabled) }
+    }
+
+    private fun refreshTruapiRuntimeState() {
+        state.update { it.copy(truapiRuntimeEnabled = productRuntimeSettings.isTrUAPIRuntimeEnabled()) }
     }
 }

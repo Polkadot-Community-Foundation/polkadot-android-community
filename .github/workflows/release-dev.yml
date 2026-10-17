@@ -37,6 +37,17 @@ jobs:
     runs-on: ubuntu-latest
     environment: devnet
     steps:
+      - name: Check required variables
+        env:
+          VARS: ${{ toJSON(vars) }}
+        run: |
+          required='["APPLICATION_ID","IOS_BUNDLE_ID","APPLICATION_NAME","CONTACT_EMAIL","CURRENCY_SYMBOL","FIAT_SYMBOL","FIRESTORE_DATABASE_ID","LOG_COLLECTION_EMAIL","PRIVACY_POLICY_URL","TERMS_OF_USE_URL","SENTRY_ORG","SENTRY_PROJECT"]'
+          missing="$(jq -r --argjson required "$required" '$required - (to_entries | map(select(.value != "")) | map(.key)) | join(" ")' <<< "$VARS")"
+          if [ -n "$missing" ]; then
+            echo "::error::Set these variables on the devnet environment: $missing"
+            exit 1
+          fi
+
       - uses: actions/checkout@v4
 
       - name: Set up JDK 21
@@ -54,6 +65,44 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android
+
+      # :bindings:truapi-host compiles the TrUAPI core from a checkout at the
+      # truapi_ref pin of the install action, which setup-truapi.py also reads.
+      - name: Resolve the TrUAPI core pin
+        id: truapi
+        run: |
+          ref="$(yq -r '.inputs.truapi_ref.default' .github/actions/install/action.yaml)"
+          if ! [[ "$ref" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::truapi_ref default in .github/actions/install/action.yaml is not a full SHA: '$ref'"
+            exit 1
+          fi
+          echo "ref=$ref" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout the TrUAPI core
+        uses: actions/checkout@v4
+        with:
+          repository: paritytech/trinity-user-agents
+          ref: ${{ steps.truapi.outputs.ref }}
+          path: .truapi
+
+      - name: Point the build at the TrUAPI core
+        run: echo "TRUAPI_DIR=$GITHUB_WORKSPACE/.truapi" >> "$GITHUB_ENV"
+
+      - name: Cache the TrUAPI core build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: .truapi -> target
+          key: truapi-${{ steps.truapi.outputs.ref }}
+
+      # The core codegen needs the dated nightly's rustdoc JSON and rustfmt.
+      - name: Add nightly for the core codegen
+        run: |
+          nightly="$(sed -n 's/^truapi.rustNightly=//p' gradle.properties)"
+          if [ -z "$nightly" ]; then
+            echo "::error::truapi.rustNightly is not set in gradle.properties"
+            exit 1
+          fi
+          rustup toolchain install "$nightly" --profile minimal --component rustfmt
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
@@ -97,22 +146,63 @@ jobs:
           # faucet (throwing secret: an empty value fails the build)
           NIGHTLY_FUNDING_MNEMONIC: ${{ secrets.DEV_FUNDING_MNEMONIC }}
           # Required build variables
-          APPLICATION_ID: ${{ vars.APPLICATION_ID || 'io.pcf.polkadotapp' }}
-          APPLICATION_NAME: ${{ vars.APPLICATION_NAME || 'Polkadot' }}
-          CONTACT_EMAIL: ${{ vars.CONTACT_EMAIL || 'info@pcf.network' }}
-          CURRENCY_SYMBOL: ${{ vars.CURRENCY_SYMBOL || 'CASH' }}
-          FIAT_SYMBOL: ${{ vars.FIAT_SYMBOL || '$' }}
-          FIRESTORE_DATABASE_ID: ${{ vars.FIRESTORE_DATABASE_ID || '(default)' }}
-          LOG_COLLECTION_EMAIL: ${{ vars.LOG_COLLECTION_EMAIL || 'logs@example.com' }}
-          PRIVACY_POLICY_URL: ${{ vars.PRIVACY_POLICY_URL || 'https://example.com/privacy' }}
-          TERMS_OF_USE_URL: ${{ vars.TERMS_OF_USE_URL || 'https://example.com/terms' }}
-          SENTRY_ORG: ${{ vars.SENTRY_ORG || 'your-sentry-org' }}
-          SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT || 'your-sentry-project' }}
+          APPLICATION_ID: ${{ vars.APPLICATION_ID }}
+          IOS_BUNDLE_ID: ${{ vars.IOS_BUNDLE_ID }}
+          APPLICATION_NAME: ${{ vars.APPLICATION_NAME }}
+          CONTACT_EMAIL: ${{ vars.CONTACT_EMAIL }}
+          CURRENCY_SYMBOL: ${{ vars.CURRENCY_SYMBOL }}
+          FIAT_SYMBOL: ${{ vars.FIAT_SYMBOL }}
+          FIRESTORE_DATABASE_ID: ${{ vars.FIRESTORE_DATABASE_ID }}
+          LOG_COLLECTION_EMAIL: ${{ vars.LOG_COLLECTION_EMAIL }}
+          PRIVACY_POLICY_URL: ${{ vars.PRIVACY_POLICY_URL }}
+          TERMS_OF_USE_URL: ${{ vars.TERMS_OF_USE_URL }}
+          SENTRY_ORG: ${{ vars.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT }}
           SENTRY_DSN: ${{ vars.SENTRY_DSN }}
         run: |
           TASKS=""
           for F in $FLAVORS; do TASKS="$TASKS assemble${F^}Dev"; done
           ./gradlew $TASKS --no-daemon --stacktrace
+
+      # The stripped core carries no version string, so tie each shipped
+      # libtruapi.so to the pinned checkout's build output and that checkout's
+      # generated wire schema.
+      - name: Fingerprint the TrUAPI core in the APKs
+        env:
+          TRUAPI_REF: ${{ steps.truapi.outputs.ref }}
+          TRUAPI_SCHEMA_HASH: 3c45e49b26c1ab97
+        run: |
+          fail() { echo "::error::$*"; exit 1; }
+
+          head="$(git -C "$TRUAPI_DIR" rev-parse HEAD)"
+          [ "$head" = "$TRUAPI_REF" ] || fail "TrUAPI checkout is at $head, expected $TRUAPI_REF"
+          grep -qF "TRUAPI_WIRE_SCHEMA_HASH: &str = \"$TRUAPI_SCHEMA_HASH\";" \
+            "$TRUAPI_DIR/rust/crates/truapi/src/generated/wire_table.rs" \
+            || fail "TrUAPI wire schema is not $TRUAPI_SCHEMA_HASH"
+
+          declare -A triple=(
+            [arm64-v8a]=aarch64-linux-android
+            [armeabi-v7a]=armv7-linux-androideabi
+            [x86_64]=x86_64-linux-android
+          )
+          shopt -s nullglob
+          apks=(app/build/outputs/apk/*/dev/*.apk)
+          [ "${#apks[@]}" -gt 0 ] || fail "no dev APK was built"
+          for apk in "${apks[@]}"; do
+            abis="$(unzip -Z1 "$apk" | sed -n 's#^lib/\([^/]*\)/.*#\1#p' | sort -u)"
+            [ -n "$abis" ] || fail "$apk ships no native libraries"
+            for abi in $abis; do
+              target="${triple[$abi]:-}"
+              [ -n "$target" ] || fail "$apk ships $abi, which the TrUAPI core is not built for"
+              unzip -Z1 "$apk" "lib/$abi/libtruapi.so" > /dev/null 2>&1 \
+                || fail "$apk has no lib/$abi/libtruapi.so"
+              shipped="$(unzip -p "$apk" "lib/$abi/libtruapi.so" | sha256sum | cut -d' ' -f1)"
+              built="$(sha256sum "$TRUAPI_DIR/target/$target/release/libtruapi.so" | cut -d' ' -f1)"
+              [ "$shipped" = "$built" ] || fail "$apk lib/$abi/libtruapi.so is not the core built from $TRUAPI_REF"
+              echo "$apk lib/$abi/libtruapi.so sha256=$shipped"
+            done
+          done
+          echo "TrUAPI core $TRUAPI_REF (schema $TRUAPI_SCHEMA_HASH) in ${#apks[@]} APK(s)" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Locate + rename APKs (product-facing names)
         id: apk
@@ -242,7 +332,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: tester-distribution
-      url: ${{ vars.FIREBASE_INVITE_LINK || 'https://appdistribution.firebase.dev/i/f3b79521380b40b9' }}
+      url: ${{ vars.FIREBASE_INVITE_LINK }}
     permissions:
       contents: read
       id-token: write   # Workload Identity Federation → Firebase App Distribution
