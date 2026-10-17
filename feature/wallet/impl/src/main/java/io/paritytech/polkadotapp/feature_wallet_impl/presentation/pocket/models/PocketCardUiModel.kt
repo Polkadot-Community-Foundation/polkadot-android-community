@@ -33,6 +33,13 @@ sealed interface PocketCardUiModel {
         }
     }
 
+    data class IdCard(
+        val username: String,
+        val address: String
+    ) : PocketCardUiModel {
+        override val id = "id_card"
+    }
+
     /** A card from the Pocket collection, drawn from its product's face tree. Pinned cards cannot be removed. */
     data class ProductCard(
         val key: PocketCardKey,
