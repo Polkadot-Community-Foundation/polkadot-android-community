@@ -12,6 +12,7 @@ import io.paritytech.polkadotapp.chains.call.RealMultiChainViewFunctionsApi
 import io.paritytech.polkadotapp.chains.extrinsic.visitor.call.api.CallTraversal
 import io.paritytech.polkadotapp.chains.extrinsic.visitor.call.impl.RealCallTraversal
 import io.paritytech.polkadotapp.chains.multiNetwork.ChainRegistry
+import io.paritytech.polkadotapp.chains.multiNetwork.connection.ChainConnectionRefCounter
 import io.paritytech.polkadotapp.chains.multiNetwork.requests.StorageSharedRequestsBuilderFactory
 import io.paritytech.polkadotapp.chains.multiNetwork.runtime.repository.ChainEventsRepositoryFactory
 import io.paritytech.polkadotapp.chains.multiNetwork.runtime.repository.DbRuntimeVersionsRepository
@@ -33,7 +34,6 @@ import io.paritytech.polkadotapp.chains.storage.source.LocalStorageSource
 import io.paritytech.polkadotapp.chains.storage.source.RemoteStorageSource
 import io.paritytech.polkadotapp.chains.storage.source.StorageDataSource
 import io.paritytech.polkadotapp.chains.storage.source.query.RemoteStorageQueryContextFactory
-import io.paritytech.polkadotapp.chains.storage.source.query.intercept.StorageInterceptorRegistry
 import io.paritytech.polkadotapp.chains.util.AddressFormatter
 import io.paritytech.polkadotapp.chains.util.RealAddressFormatter
 import io.paritytech.polkadotapp.common.data.storage.preferences.Preferences
@@ -68,9 +68,8 @@ internal class RuntimeModule {
         storageCache: StorageCache,
         sharedRequestsBuilderFactory: StorageSharedRequestsBuilderFactory,
         coroutineDispatchers: CoroutineDispatchers,
-        interceptorRegistry: StorageInterceptorRegistry,
     ): StorageDataSource =
-        LocalStorageSource(chainRegistry, sharedRequestsBuilderFactory, coroutineDispatchers, storageCache, interceptorRegistry)
+        LocalStorageSource(chainRegistry, sharedRequestsBuilderFactory, coroutineDispatchers, storageCache)
 
     @Provides
     @Singleton
@@ -84,8 +83,9 @@ internal class RuntimeModule {
         chainRegistry: ChainRegistry,
         bulkRetriever: BulkRetriever,
         sharedRequestsBuilderFactory: StorageSharedRequestsBuilderFactory,
+        chainConnectionRefCounter: ChainConnectionRefCounter,
     ): RemoteStorageQueryContextFactory {
-        return RemoteStorageQueryContextFactory(chainRegistry, bulkRetriever, sharedRequestsBuilderFactory)
+        return RemoteStorageQueryContextFactory(chainRegistry, bulkRetriever, sharedRequestsBuilderFactory, chainConnectionRefCounter)
     }
 
     @Provides
@@ -96,9 +96,8 @@ internal class RuntimeModule {
         sharedRequestsBuilderFactory: StorageSharedRequestsBuilderFactory,
         remoteStorageQueryContextFactory: RemoteStorageQueryContextFactory,
         coroutineDispatchers: CoroutineDispatchers,
-        interceptorRegistry: StorageInterceptorRegistry,
     ): StorageDataSource =
-        RemoteStorageSource(chainRegistry, sharedRequestsBuilderFactory, remoteStorageQueryContextFactory, coroutineDispatchers, interceptorRegistry)
+        RemoteStorageSource(chainRegistry, sharedRequestsBuilderFactory, remoteStorageQueryContextFactory, coroutineDispatchers)
 
     @Provides
     @Singleton
