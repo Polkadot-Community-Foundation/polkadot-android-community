@@ -7,16 +7,14 @@ concurrency:
 # PCF fork: the required build variables fall back to the values the fork ships when no
 # repository Variable is set (upstream reads them with readSecretOrThrow, empty == missing).
 env:
-  APPLICATION_ID: ${{ vars.APPLICATION_ID || 'io.pcf.polkadotapp' }}
-  IOS_BUNDLE_ID: ${{ vars.IOS_BUNDLE_ID || 'io.pcf.polkadotapp' }}
-  APPLICATION_NAME: ${{ vars.APPLICATION_NAME || 'Polkadot' }}
-  CONTACT_EMAIL: ${{ vars.CONTACT_EMAIL || 'info@pcf.network' }}
-  CURRENCY_SYMBOL: ${{ vars.CURRENCY_SYMBOL || 'CASH' }}
-  FIAT_SYMBOL: ${{ vars.FIAT_SYMBOL || '$' }}
-  GAME_RESULTS_FALLBACK_URL: ${{ vars.GAME_RESULTS_FALLBACK_URL }}
-  LOG_COLLECTION_EMAIL: ${{ vars.LOG_COLLECTION_EMAIL || 'logs@example.com' }}
-  PRIVACY_POLICY_URL: ${{ vars.PRIVACY_POLICY_URL || 'https://example.com/privacy' }}
-  REFERRAL_WEB_HOST: ${{ vars.REFERRAL_WEB_HOST }}
+  APPLICATION_ID: ${{ vars.APPLICATION_ID }}
+  IOS_BUNDLE_ID: ${{ vars.IOS_BUNDLE_ID }}
+  APPLICATION_NAME: ${{ vars.APPLICATION_NAME }}
+  CONTACT_EMAIL: ${{ vars.CONTACT_EMAIL }}
+  CURRENCY_SYMBOL: ${{ vars.CURRENCY_SYMBOL }}
+  FIAT_SYMBOL: ${{ vars.FIAT_SYMBOL }}
+  LOG_COLLECTION_EMAIL: ${{ vars.LOG_COLLECTION_EMAIL }}
+  PRIVACY_POLICY_URL: ${{ vars.PRIVACY_POLICY_URL }}
   SENTRY_DSN: ${{ vars.SENTRY_DSN }}
   SENTRY_ORG: ${{ vars.SENTRY_ORG || 'your-sentry-org' }}
   SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT || 'your-sentry-project' }}
