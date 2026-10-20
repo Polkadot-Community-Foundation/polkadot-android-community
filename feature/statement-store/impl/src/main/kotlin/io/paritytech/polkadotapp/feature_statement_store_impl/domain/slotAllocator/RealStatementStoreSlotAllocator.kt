@@ -83,6 +83,8 @@ class RealStatementStoreSlotAllocator @Inject constructor(
         .onFailure { Timber.e(it, "deallocateAllSlots failed") }
         .mapErrorNotInstance<_, StatementStoreSlotAllocationError> { StatementStoreSlotAllocationError.Unknown(it) }
 
+    override fun currentPeriod(): UInt = currentPeriodProvider.current()
+
     override suspend fun hasCurrentAllocation(target: AccountId): Result<Boolean> = runCatching {
         val period = currentPeriodProvider.current()
         allocationRepository.hasRenewedFor(knownChains.people, target, period)

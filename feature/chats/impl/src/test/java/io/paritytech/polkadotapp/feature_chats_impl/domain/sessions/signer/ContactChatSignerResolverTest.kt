@@ -83,6 +83,7 @@ class ContactChatSignerResolverTest {
 
         assertEquals(ChatSignerKind.USERNAME, signer?.kind)
         assertSame(usernameKeypair, signer?.keypair)
+        assertEquals(slotAllocator.period, signer?.period)
     }
 
     @Test

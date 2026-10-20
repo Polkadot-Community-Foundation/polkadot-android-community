@@ -34,20 +34,26 @@ class ContactChatSignerResolver @Inject constructor(
     private val identitySigningGate: IdentitySigningGate,
 ) {
     suspend fun resolve(contact: Contact): Result<ContactChatSigner> {
+        val period = slotAllocator.currentPeriod()
+
         return accountDerivation.deriveKeypair(contact.accountId)
-            .flatMap { chatKeypair -> resolveWithChatKeypair(contact, chatKeypair) }
+            .flatMap { chatKeypair -> resolveWithChatKeypair(contact, chatKeypair, period) }
             .logFailure("Failed to resolve chat signer for contact ${contact.username}")
     }
 
-    private suspend fun usernameSigner(contact: Contact): Result<ContactChatSigner> = runCancellableCatching {
+    private suspend fun usernameSigner(contact: Contact, period: UInt): Result<ContactChatSigner> = runCancellableCatching {
         val keypair = accountSecretsStorage.getMetaAccountSr25519Keypair(contact.ourMetaAccountId)
-        ContactChatSigner(keypair, ChatSignerKind.USERNAME)
+        ContactChatSigner(keypair, ChatSignerKind.USERNAME, period)
     }
 
-    private suspend fun resolveWithChatKeypair(contact: Contact, chatKeypair: Sr25519Keypair): Result<ContactChatSigner> {
+    private suspend fun resolveWithChatKeypair(
+        contact: Contact,
+        chatKeypair: Sr25519Keypair,
+        period: UInt,
+    ): Result<ContactChatSigner> {
         val chatAccountId = chatKeypair.publicKey.toDataByteArray()
-        val privateSigner: Result<ContactChatSigner> = ensureSlot(chatAccountId).map { ContactChatSigner(chatKeypair, ChatSignerKind.PRIVATE) }
-        return privateSigner.flatRecover { error -> usernameSignerIfNoSlot(contact, error) }
+        val privateSigner = ensureSlot(chatAccountId).map { ContactChatSigner(chatKeypair, ChatSignerKind.PRIVATE, period) }
+        return privateSigner.flatRecover { error -> usernameSignerIfNoSlot(contact, period, error) }
     }
 
     private suspend fun ensureSlot(chatAccountId: AccountId): Result<Unit> {
@@ -66,9 +72,9 @@ class ContactChatSignerResolver @Inject constructor(
         }
     }
 
-    private suspend fun usernameSignerIfNoSlot(contact: Contact, error: Throwable): Result<ContactChatSigner> {
+    private suspend fun usernameSignerIfNoSlot(contact: Contact, period: UInt, error: Throwable): Result<ContactChatSigner> {
         if (error !is StatementStoreSlotAllocationError.NoAllocationAvailable) return Result.failure(error)
 
-        return identitySigningGate.ensureConsent(contact.accountId).flatMap { usernameSigner(contact) }
+        return identitySigningGate.ensureConsent(contact.accountId).flatMap { usernameSigner(contact, period) }
     }
 }

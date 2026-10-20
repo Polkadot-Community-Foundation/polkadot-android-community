@@ -14,7 +14,7 @@ internal fun deliveryRetryDelay(attempt: Int): Duration {
     return exponential.coerceAtMost(MAX_RETRY_DELAY)
 }
 
-/** Retrying cannot help: the user declined the identity signer, or the request id cannot be derived from. */
+// Only the user's decline ends a delivery, as on iOS; every other failure, an underivable request id included, is retried.
 internal fun Throwable.endsDelivery(): Boolean {
-    return this is IdentitySigningDeclined || this is InvalidRequestIdJunction
+    return this is IdentitySigningDeclined
 }

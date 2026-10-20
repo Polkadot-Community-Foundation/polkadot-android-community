@@ -4,7 +4,6 @@ import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
-import io.paritytech.polkadotapp.common.domain.model.CurrentTimeContext
 import io.paritytech.polkadotapp.common.domain.model.toDataByteArray
 import io.paritytech.polkadotapp.feature_chats_api.domain.model.ChatRequest
 import io.paritytech.polkadotapp.feature_chats_api.domain.model.Contact
@@ -22,7 +21,6 @@ import org.junit.Before
 import org.junit.Test
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.days
-import kotlin.time.Duration.Companion.hours
 import kotlin.time.Instant
 
 class ChatAcceptanceRenewerTest {
@@ -42,7 +40,6 @@ class ChatAcceptanceRenewerTest {
     private val renewer = ChatAcceptanceRenewer(
         chatAcceptanceRepository, contactsRepository, keypairDerivation, publisher,
         OneShotDeliveryRenewer(allocator, signers, accountResolver),
-        CurrentTimeContext { now },
     )
 
     @Before
@@ -63,12 +60,13 @@ class ChatAcceptanceRenewerTest {
     }
 
     @Test
-    fun `stops renewing an acceptance the requester ignored for a week`() = runBlocking<Unit> {
-        withPublishedAcceptance(acceptedAgo = 7.days + 1.hours)
+    fun `keeps renewing an acceptance the requester has ignored for over a week`() = runBlocking<Unit> {
+        val acceptance = withPublishedAcceptance(acceptedAgo = 8.days)
+        withFreshAccount(acceptance)
 
         renewer.renew().getOrThrow()
 
-        coVerify(exactly = 0) { publisher.republish(any(), any(), any()) }
+        coVerify(exactly = 1) { publisher.republish(contact, acceptance, any()) }
     }
 
     private fun withPublishedAcceptance(acceptedAgo: Duration): ChatAcceptance {

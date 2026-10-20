@@ -15,20 +15,13 @@ import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.cancelAndJoin
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.launch
 import timber.log.Timber
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
-import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
-
-// A private signer is kept for the whole process; a username one only for a while, so the chat returns to its own
-// account once a slot frees up (chat-spec RFC-0005 §4).
-private val USERNAME_SIGNER_TTL = 1.hours
 
 interface ContactChatSigners {
     // Suspends while the chat is not active (pending, blocked or left), so only active chats ever claim a slot.
@@ -56,8 +49,7 @@ class RealContactChatSigners @Inject constructor(
     override suspend fun keypairFor(contact: Contact): Sr25519Keypair {
         awaitActiveChat(contact.accountId)
 
-        val signer = resolutionFor(contact).await()
-        return signer.keypair
+        return currentSigner(contact).keypair
     }
 
     override fun warmUp(contact: Contact) {
@@ -84,17 +76,21 @@ class RealContactChatSigners @Inject constructor(
         return resolved
     }
 
-    private fun resolutionFor(contact: Contact): Deferred<ContactChatSigner> {
-        return resolutions.computeIfAbsent(contact.accountId) {
-            async { resolveUntilSuccess(contact) }.also { resolution -> expireIfUsername(contact.accountId, resolution) }
-        }
+    // A private signer is kept for the whole process. A username one covers only the period it was resolved in, as on
+    // iOS, so the next period tries the chat's own account again (chat-spec RFC-0005 §4).
+    private suspend fun currentSigner(contact: Contact): ContactChatSigner {
+        val resolution = resolutionFor(contact)
+        val signer = resolution.await()
+        if (signer.kind != ChatSignerKind.USERNAME || signer.period == slotAllocator.currentPeriod()) return signer
+
+        resolutions.remove(contact.accountId, resolution)
+        return resolutionFor(contact).await()
     }
 
-    private fun expireIfUsername(contactAccountId: AccountId, resolution: Deferred<ContactChatSigner>) = launch {
-        if (resolution.await().kind != ChatSignerKind.USERNAME) return@launch
-
-        delay(USERNAME_SIGNER_TTL)
-        resolutions.remove(contactAccountId, resolution)
+    private fun resolutionFor(contact: Contact): Deferred<ContactChatSigner> {
+        return resolutions.computeIfAbsent(contact.accountId) {
+            async { resolveUntilSuccess(contact) }
+        }
     }
 
     private suspend fun resolveUntilSuccess(contact: Contact): ContactChatSigner {

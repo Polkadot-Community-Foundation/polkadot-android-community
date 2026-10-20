@@ -12,11 +12,14 @@ class RecordingSlotAllocator(
     var hasCurrentAllocation: Boolean = false,
     var allocationResult: Result<Unit> = Result.success(Unit),
     var criticalTargets: Set<AccountId> = emptySet(),
+    var period: UInt = 1u,
 ) : StatementStoreSlotAllocator {
     class AllocateCall(val target: AccountId, val strategy: OnExistingAllocationStrategy, val priority: SlotPriority)
 
     val allocateCalls = mutableListOf<AllocateCall>()
     val deallocatedTargets = mutableListOf<AccountId>()
+
+    override fun currentPeriod(): UInt = period
 
     context(diagnostics: StalenessReportCollector)
     override suspend fun allocate(

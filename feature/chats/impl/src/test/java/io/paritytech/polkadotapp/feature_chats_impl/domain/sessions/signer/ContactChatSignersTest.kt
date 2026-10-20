@@ -27,7 +27,8 @@ class ContactChatSignersTest {
     private val contactAccountId = ByteArray(32) { 1 }.toDataByteArray()
     private val chatPublicKey = ByteArray(32) { 2 }
     private val chatKeypair: Sr25519Keypair = mockk { every { publicKey } returns chatPublicKey }
-    private val privateSigner = ContactChatSigner(chatKeypair, ChatSignerKind.PRIVATE)
+    private val privateSigner = ContactChatSigner(chatKeypair, ChatSignerKind.PRIVATE, period = 1u)
+    private val usernameKeypair: Sr25519Keypair = mockk()
 
     private val resolver: ContactChatSignerResolver = mockk()
     private val slotAllocator = RecordingSlotAllocator()
@@ -75,6 +76,22 @@ class ContactChatSignersTest {
         signers.keypairFor(contact)
 
         assertEquals(listOf(chatPublicKey.toDataByteArray()), slotAllocator.deallocatedTargets)
+        coVerify(exactly = 2) { resolver.resolve(contact) }
+    }
+
+    @Test
+    fun `a username signer covers only its period and the next one tries the chat account again`() = runTest {
+        val signers = createSigners()
+        val contact = contact()
+        val usernameSigner = ContactChatSigner(usernameKeypair, ChatSignerKind.USERNAME, period = 1u)
+        val nextPeriodSigner = ContactChatSigner(chatKeypair, ChatSignerKind.PRIVATE, period = 2u)
+        coEvery { resolver.resolve(contact) } returnsMany listOf(Result.success(usernameSigner), Result.success(nextPeriodSigner))
+
+        assertSame(usernameKeypair, signers.keypairFor(contact))
+        assertSame(usernameKeypair, signers.keypairFor(contact))
+        slotAllocator.period = 2u
+
+        assertSame(chatKeypair, signers.keypairFor(contact))
         coVerify(exactly = 2) { resolver.resolve(contact) }
     }
 

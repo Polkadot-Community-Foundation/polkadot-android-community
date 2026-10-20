@@ -20,6 +20,7 @@ import io.paritytech.polkadotapp.feature_chats_impl.domain.identitySigning.Ident
 import io.paritytech.polkadotapp.feature_chats_impl.domain.identitySigning.IdentitySigningGate
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.flowOf
 import org.junit.Before
 import org.junit.Test
@@ -75,14 +76,16 @@ class ChatAcceptanceDeliveryServiceTest {
     }
 
     @Test
-    fun `fails an acceptance whose request id cannot be derived from`() {
+    fun `keeps retrying an acceptance whose request id cannot be derived from, as iOS does`() {
+        val error = InvalidRequestIdJunction("request")
         coEvery { chatAcceptanceRepository.get(contactAccountId) } returns acceptance
-        coEvery { accountResolver.resolveAcceptance(contact, "request") } returns Result.failure(InvalidRequestIdJunction("request"))
-        coEvery { publisher.markFailed(acceptance) } returns Result.success(Unit)
+        coEvery { accountResolver.resolveAcceptance(contact, "request") } returns Result.failure(error)
+        coEvery { identitySigningGate.awaitRetry(contactAccountId, error, any()) } coAnswers { awaitCancellation() }
 
         startDelivery()
 
-        coVerify(exactly = 1) { publisher.markFailed(acceptance) }
+        coVerify(exactly = 1) { identitySigningGate.awaitRetry(contactAccountId, error, any()) }
+        coVerify(exactly = 0) { publisher.markFailed(any()) }
     }
 
     @Test

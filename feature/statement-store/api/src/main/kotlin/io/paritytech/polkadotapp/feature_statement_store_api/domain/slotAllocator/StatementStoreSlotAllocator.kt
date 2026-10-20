@@ -4,6 +4,9 @@ import io.paritytech.polkadotapp.common.domain.model.AccountId
 import io.paritytech.polkadotapp.common.utils.progressStallReport.StalenessReportCollector
 
 interface StatementStoreSlotAllocator {
+    /** The period slots are allocated in right now. */
+    fun currentPeriod(): UInt
+
     /**
      * Allocates a statement store slot for [target] in the current period.
      *
