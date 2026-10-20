@@ -27,7 +27,6 @@ import io.paritytech.polkadotapp.feature_products_impl.domain.hostApi.UrlDerived
 import io.paritytech.polkadotapp.feature_products_impl.domain.hostApi.navigation.NavigationPolicy
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.seconds
 
 /**
@@ -83,13 +82,16 @@ class BrowserWebViewProvider @AssistedInject constructor(
         onTitleReceived = null,
     )
 
-    @SuppressLint("SetJavaScriptEnabled")
+    @SuppressLint("SetJavaScriptEnabled", "ClickableViewAccessibility")
     override suspend fun createWebView(): WebView {
         return WebView(context).apply {
             setBackgroundColor(Color.TRANSPARENT)
             if (waitForInitialTheme) {
                 alpha = 0f
-                isEnabled = false
+                // WebView takes touches even when disabled, so a hidden page is shielded by consuming them.
+                setOnTouchListener { _, _ -> true }
+                isFocusable = false
+                isFocusableInTouchMode = false
                 importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
             }
             // This is needed so webView has a proper initial viewport height when the page renders. With overflow: hidden and height: 100%, if the WebView's layout height isn't resolved yet, the
@@ -127,19 +129,23 @@ class BrowserWebViewProvider @AssistedInject constructor(
 
     override fun onInitialThemeDelivered() {
         if (!waitForInitialTheme) return
-        scope.launch { accessWebView { revealAfterRendering(it) } }
+        getWebViewOrNull()?.let { view -> view.post { revealAfterRendering(view) } }
     }
 
     private fun revealAfterRendering(view: WebView) {
         if (getWebViewOrNull() !== view || view.alpha == 1f) return
         view.postVisualStateCallback(0L, object : WebView.VisualStateCallback() {
-            override fun onComplete(requestId: Long) {
-                if (getWebViewOrNull() !== view) return
-                view.alpha = 1f
-                view.isEnabled = true
-                view.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_AUTO
-            }
+            override fun onComplete(requestId: Long) = reveal(view)
         })
+    }
+
+    private fun reveal(view: WebView) {
+        if (getWebViewOrNull() !== view || view.alpha == 1f) return
+        view.alpha = 1f
+        view.setOnTouchListener(null)
+        view.isFocusable = true
+        view.isFocusableInTouchMode = true
+        view.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_AUTO
     }
 
     private inner class InternalWebViewClient(
@@ -167,7 +173,7 @@ class BrowserWebViewProvider @AssistedInject constructor(
             innerClient.onPageFinished(view, url)
             notifyOnPageFinished()
             if (waitForInitialTheme) {
-                view.postDelayed({ revealAfterRendering(view) }, THEME_READY_FALLBACK.inWholeMilliseconds)
+                view.postDelayed({ reveal(view) }, THEME_READY_FALLBACK.inWholeMilliseconds)
             }
         }
 
