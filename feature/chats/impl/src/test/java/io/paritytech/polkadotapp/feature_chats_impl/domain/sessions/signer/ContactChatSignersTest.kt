@@ -42,7 +42,7 @@ class ContactChatSignersTest {
     }
 
     @Test
-    fun `concurrent callers resolve an established chat once per process`() = runTest {
+    fun `concurrent callers resolve an established chat once per period`() = runTest {
         val signers = createSigners()
         val contact = contact()
         coEvery { resolver.resolve(contact) } returns Result.success(privateSigner)
@@ -92,6 +92,22 @@ class ContactChatSignersTest {
         slotAllocator.period = 2u
 
         assertSame(chatKeypair, signers.keypairFor(contact))
+        coVerify(exactly = 2) { resolver.resolve(contact) }
+    }
+
+    @Test
+    fun `a private signer covers only its period so the next one checks the chat slot again`() = runTest {
+        val signers = createSigners()
+        val contact = contact()
+        val nextPeriodSigner = ContactChatSigner(chatKeypair, ChatSignerKind.PRIVATE, period = 2u)
+        coEvery { resolver.resolve(contact) } returnsMany listOf(Result.success(privateSigner), Result.success(nextPeriodSigner))
+
+        signers.keypairFor(contact)
+        signers.keypairFor(contact)
+        slotAllocator.period = 2u
+        signers.keypairFor(contact)
+        signers.keypairFor(contact)
+
         coVerify(exactly = 2) { resolver.resolve(contact) }
     }
 

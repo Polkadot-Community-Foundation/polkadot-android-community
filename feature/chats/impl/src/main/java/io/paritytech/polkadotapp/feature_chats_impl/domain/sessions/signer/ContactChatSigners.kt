@@ -76,12 +76,13 @@ class RealContactChatSigners @Inject constructor(
         return resolved
     }
 
-    // A private signer is kept for the whole process. A username one covers only the period it was resolved in, as on
-    // iOS, so the next period tries the chat's own account again (chat-spec RFC-0005 §4).
+    // A signer covers only the period it was resolved in. The next period checks the chat's slot again, so a username
+    // fallback gives way to the chat's own account (chat-spec RFC-0005 §4), and a slot that no row tracks does not
+    // lapse: a chat blocked or left, then active again within one period, reuses its slot without a row to renew.
     private suspend fun currentSigner(contact: Contact): ContactChatSigner {
         val resolution = resolutionFor(contact)
         val signer = resolution.await()
-        if (signer.kind != ChatSignerKind.USERNAME || signer.period == slotAllocator.currentPeriod()) return signer
+        if (signer.period == slotAllocator.currentPeriod()) return signer
 
         resolutions.remove(contact.accountId, resolution)
         return resolutionFor(contact).await()
