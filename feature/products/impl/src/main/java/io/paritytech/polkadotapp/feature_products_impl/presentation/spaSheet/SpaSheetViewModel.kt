@@ -1,5 +1,6 @@
 package io.paritytech.polkadotapp.feature_products_impl.presentation.spaSheet
 
+import android.graphics.Color
 import android.webkit.WebView
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
@@ -12,6 +13,7 @@ import io.paritytech.polkadotapp.feature_products_api.presentation.spaHost.SpaHo
 import io.paritytech.polkadotapp.feature_products_impl.presentation.productBotManagement.ProductsRouter
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.scan
 import kotlinx.coroutines.flow.stateIn
 import javax.inject.Inject
@@ -31,6 +33,8 @@ class SpaSheetViewModel @Inject constructor(
     private val session = spaHost.createSession(Urls.ensureHasProtocolOrHttps(payload.url))
 
     val webView: StateFlow<WebView?> = session.webView
+        .onEach { it?.setBackgroundColor(Color.TRANSPARENT) }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     override val state: StateFlow<SpaSheetUiState> = session.loadProgress
         .scan(SpaSheetUiState()) { previous, progress ->
