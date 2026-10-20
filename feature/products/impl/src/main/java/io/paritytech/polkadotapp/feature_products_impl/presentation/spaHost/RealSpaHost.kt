@@ -10,6 +10,7 @@ import io.paritytech.polkadotapp.common.presentation.deeplink.DeepLinkHandler
 import io.paritytech.polkadotapp.common.presentation.deeplink.handleAndProcessOutcomeWithSystemFallback
 import io.paritytech.polkadotapp.common.presentation.screens.MessageDisplay
 import io.paritytech.polkadotapp.common.utils.logFailure
+import io.paritytech.polkadotapp.design.theme.AppThemeSelector
 import io.paritytech.polkadotapp.feature_dotns_api.domain.DotNsLoadProgress
 import io.paritytech.polkadotapp.feature_dotns_api.domain.DotNsTldProvider
 import io.paritytech.polkadotapp.feature_products_api.model.ProductId
@@ -20,6 +21,7 @@ import io.paritytech.polkadotapp.feature_products_impl.domain.hostApi.HostApiEnv
 import io.paritytech.polkadotapp.feature_products_impl.domain.hostApi.HostApiSession
 import io.paritytech.polkadotapp.feature_products_impl.domain.hostApi.HostCallGroupFactory
 import io.paritytech.polkadotapp.feature_products_impl.domain.hostApi.PageLoadInjection
+import io.paritytech.polkadotapp.feature_products_impl.domain.hostApi.ThemeSeedingInjection
 import io.paritytech.polkadotapp.feature_products_impl.domain.hostApi.navigation.NavigationPolicy
 import io.paritytech.polkadotapp.feature_products_impl.domain.jsRuntime.WebViewRuntime
 import io.paritytech.polkadotapp.feature_products_impl.domain.product.ProductRegistrar
@@ -46,6 +48,7 @@ class RealSpaHost @Inject constructor(
     private val deepLinkHandler: DeepLinkHandler,
     private val dotNsTldProvider: DotNsTldProvider,
     private val workerRefCounter: ProductWorkerRefCounter,
+    private val appThemeSelector: AppThemeSelector,
     @param:ApplicationContext private val context: Context,
 ) : SpaHost {
     context(scope: ComputationalScope, messageDisplay: MessageDisplay)
@@ -79,9 +82,13 @@ class RealSpaHost @Inject constructor(
         )
 
         val environment = HostApiEnvironment(
-            injectionStrategy = PageLoadInjection(
-                pageLifecycleSource = webViewProvider,
-                coroutineScope = scope,
+            injectionStrategy = ThemeSeedingInjection(
+                delegate = PageLoadInjection(
+                    pageLifecycleSource = webViewProvider,
+                    coroutineScope = scope,
+                ),
+                appThemeSelector = appThemeSelector,
+                productUrl = initialUrl,
             ),
             handlerGroups = handlerGroups,
         )
