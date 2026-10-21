@@ -2,7 +2,7 @@
 
 The `production` branch is an upstream release tag of
 [paritytech/polkadot-android-community](https://github.com/paritytech/polkadot-android-community)
-plus the changes listed here. Upstream base: `v1.0.0-1059`.
+plus the changes listed here. Upstream base: `v1.0.0-1063`.
 
 On every upstream sync, keep each change below unless its "Retire when" condition holds, and
 re-run its check against the new tag to see whether upstream still needs it. `TAG` is the
