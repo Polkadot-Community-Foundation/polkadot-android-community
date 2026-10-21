@@ -74,10 +74,44 @@ class RealDefaultExtrinsicVersionProviderTest {
         assertEquals(ExtrinsicVersion.V4, provider.getDefaultExtrinsicVersion("polkadot", isSigned = true).getOrThrow())
     }
 
-    private fun runtimeOf(chainId: ChainId, extensionVersion: Int, vararg extensionIds: String) {
+    @Test
+    fun `a configured version the runtime does not declare yet falls back to the highest declared one`() = runTest {
+        runtimeOf(PEOPLE, extensionVersion = 0, VerifySignature.ID, "AsPerson", declaredVersions = setOf(0))
+
+        assertGeneral(extensionVersion = 0, provider.getDefaultExtrinsicVersion(PEOPLE, isSigned = true).getOrThrow())
+    }
+
+    @Test
+    fun `an unsigned transaction falls back to the highest declared version too`() = runTest {
+        runtimeOf(ASSET_HUB, extensionVersion = 0, "AsPgas", declaredVersions = setOf(0))
+
+        assertGeneral(extensionVersion = 0, provider.getDefaultExtrinsicVersion(ASSET_HUB, isSigned = false).getOrThrow())
+    }
+
+    @Test
+    fun `a signed transaction on a pipeline without VerifySignature is carried by v4`() = runTest {
+        runtimeOf(PEOPLE, extensionVersion = 0, "CheckNonce", "ChargeAssetTxPayment")
+
+        assertEquals(ExtrinsicVersion.V4, provider.getExtrinsicVersion(PEOPLE, extensionVersion = 0, isSigned = true))
+    }
+
+    @Test
+    fun `a signed transaction on a pipeline with VerifySignature goes general`() = runTest {
+        runtimeOf(PEOPLE, extensionVersion = 0, VerifySignature.ID, "CheckNonce")
+
+        assertGeneral(extensionVersion = 0, provider.getExtrinsicVersion(PEOPLE, extensionVersion = 0, isSigned = true))
+    }
+
+    private fun runtimeOf(
+        chainId: ChainId,
+        extensionVersion: Int,
+        vararg extensionIds: String,
+        declaredVersions: Set<Int> = setOf(0, extensionVersion),
+    ) {
         val extensions = extensionIds.map { extensionId -> mockk<TransactionExtensionMetadata> { every { id } returns extensionId } }
         val runtime = mockk<RuntimeSnapshot> {
             every { metadata.extrinsic.transactionExtensions(extensionVersion) } returns extensions
+            every { metadata.extrinsic.transactionExtensionsByVersion } returns declaredVersions.associateWith { emptyList<Int>() }
         }
 
         coEvery { chainRegistry.getRuntimeProvider(chainId) } returns mockk<RuntimeProvider> { coEvery { get() } returns runtime }
