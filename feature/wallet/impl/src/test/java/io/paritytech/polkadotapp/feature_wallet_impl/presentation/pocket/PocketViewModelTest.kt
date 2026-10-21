@@ -121,7 +121,6 @@ class PocketViewModelTest {
         whenever(interactor.observeUsername()).thenReturn(flowOf("alicent"))
         whenever(interactor.observeAddress()).thenReturn(flowOf("15oF4u"))
         whenever(interactor.observeBackupProgress()).thenReturn(flowOf(BackupProgress.Unknown))
-        whenever(interactor.observeAccountBackupPending()).thenReturn(flowOf(false))
     }
 
     @After
