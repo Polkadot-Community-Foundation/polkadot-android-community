@@ -12,6 +12,12 @@ import javax.inject.Inject
 
 interface DefaultExtrinsicVersionProvider {
     suspend fun getDefaultExtrinsicVersion(chainId: ChainId, isSigned: Boolean): Result<ExtrinsicVersion>
+
+    /**
+     * The extrinsic version that carries a transaction built against pipeline [extensionVersion]: v4 when the
+     * transaction is signed and that pipeline cannot verify a general signature, a general transaction otherwise.
+     */
+    suspend fun getExtrinsicVersion(chainId: ChainId, extensionVersion: Byte, isSigned: Boolean): ExtrinsicVersion
 }
 
 class RealDefaultExtrinsicVersionProvider @Inject constructor(
@@ -27,12 +33,16 @@ class RealDefaultExtrinsicVersionProvider @Inject constructor(
     override suspend fun getDefaultExtrinsicVersion(chainId: ChainId, isSigned: Boolean): Result<ExtrinsicVersion> {
         if (chainId != knownChains.people && chainId != knownChains.assetHub) return Result.success(ExtrinsicVersion.V4)
 
-        return getTransactionExtensionVersion(chainId).mapCatching { extensionVersion ->
-            if (isSigned && !verifiesGeneralSignatures(chainId, extensionVersion)) {
-                ExtrinsicVersion.V4
-            } else {
-                ExtrinsicVersion.V5(extensionVersion)
-            }
+        return getTransactionExtensionVersion(chainId).mapCatching { configuredVersion ->
+            getExtrinsicVersion(chainId, highestDeclaredVersionUpTo(chainId, configuredVersion), isSigned)
+        }
+    }
+
+    override suspend fun getExtrinsicVersion(chainId: ChainId, extensionVersion: Byte, isSigned: Boolean): ExtrinsicVersion {
+        return if (isSigned && !verifiesGeneralSignatures(chainId, extensionVersion)) {
+            ExtrinsicVersion.V4
+        } else {
+            ExtrinsicVersion.V5(extensionVersion)
         }
     }
 
@@ -42,6 +52,16 @@ class RealDefaultExtrinsicVersionProvider @Inject constructor(
         return chainRegistry.getRuntime(chainId).metadata.extrinsic
             .transactionExtensions(extensionVersion.toInt())
             .any { it.id == VerifySignature.ID }
+    }
+
+    // The configured version may be one the runtime does not declare yet, e.g. ahead of the upgrade that adds it.
+    private suspend fun highestDeclaredVersionUpTo(chainId: ChainId, configuredVersion: Byte): Byte {
+        return chainRegistry.getRuntime(chainId).metadata.extrinsic
+            .transactionExtensionsByVersion.keys
+            .filter { it <= configuredVersion }
+            .maxOrNull()
+            ?.toByte()
+            ?: configuredVersion
     }
 
     private suspend fun getTransactionExtensionVersion(chainId: ChainId): Result<Byte> {
