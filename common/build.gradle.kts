@@ -54,6 +54,7 @@ android {
             buildConfigField("boolean", "PEER_BOT_BY_DEFAULT", "false")
             buildConfigField("boolean", "DIM1_BOT_BY_DEFAULT", "false")
             buildConfigField("boolean", "SAMPLE_BOT", "false")
+            buildConfigField("boolean", "COINAGE_DEBUG_TOOLS", "false")
         }
     }
 }
