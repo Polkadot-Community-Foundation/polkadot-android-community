@@ -11,6 +11,7 @@ import io.novasama.substrate_sdk_android.runtime.definitions.types.generics.EraT
 import io.novasama.substrate_sdk_android.runtime.definitions.types.generics.GenericCall
 import io.novasama.substrate_sdk_android.runtime.extrinsic.ExtrinsicVersion
 import io.novasama.substrate_sdk_android.runtime.extrinsic.signer.SendableExtrinsic
+import io.novasama.substrate_sdk_android.runtime.extrinsic.v5.transactionExtension.extensions.verifySignature.VerifySignature
 import io.paritytech.polkadotapp.chains.multiNetwork.ChainRegistry
 import io.paritytech.polkadotapp.chains.multiNetwork.chain.model.Chain
 import io.paritytech.polkadotapp.chains.multiNetwork.chain.model.ChainId
@@ -127,21 +128,28 @@ class SignPayloadJsonInteractor @AssistedInject constructor(
             }
     }
 
-    // Legacy payload format carries no transaction extension version, so V5 assumes 0
-    private fun parseExtrinsicVersion(version: Int): Result<ExtrinsicVersion> {
+    // Legacy payload format carries no transaction extension version, so V5 assumes 0.
+    // A pipeline 0 without VerifySignature cannot carry the signature of a general transaction; v4 runs the same pipeline.
+    private suspend fun parseExtrinsicVersion(version: Int, chainId: ChainId): Result<ExtrinsicVersion> {
         val parsed = when (version) {
             4 -> ExtrinsicVersion.V4
-            5 -> ExtrinsicVersion.V5(extensionVersion = 0)
+            5 -> if (pipelineZeroVerifiesSignatures(chainId)) ExtrinsicVersion.V5(extensionVersion = 0) else ExtrinsicVersion.V4
             else -> null
         }
 
         return parsed.toResult { "Extrinsic version $version is not supported" }
     }
 
+    private suspend fun pipelineZeroVerifiesSignatures(chainId: ChainId): Boolean {
+        return chainRegistry.getRuntime(chainId).metadata.extrinsic
+            .transactionExtensions(0)
+            .any { it.id == VerifySignature.ID }
+    }
+
     private suspend fun buildExtrinsic(context: ExtrinsicBuildingContext): Result<SendableExtrinsic> {
         val (chain, origin, parsedExtrinsic) = context
 
-        return parseExtrinsicVersion(payload.version).flatMap { version ->
+        return parseExtrinsicVersion(payload.version, chain.id).flatMap { version ->
             extrinsicService.buildExtrinsic(
                 chain = chain,
                 origin = origin,
