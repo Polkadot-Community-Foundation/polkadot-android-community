@@ -58,12 +58,12 @@ class OneShotDeliveryRenewer @Inject constructor(
     }
 
     private suspend fun renewStale(stale: List<RenewableDelivery>, period: UInt): Result<Unit> {
-        val renewals = stale.mapNotNull { candidate -> freshAccount(candidate, period)?.let { candidate to it } }
+        val renewals = stale.mapNotNull { candidate -> freshAccount(candidate, period)?.let { Renewal(candidate, it) } }
         if (renewals.isEmpty()) return Result.success(Unit)
 
-        return claimSlots(renewals).map { (claimed, unclaimed) ->
-            publishOnceAllocated(claimed, period)
-            unclaimed.forEachAsync { candidate -> renewFromOurAccount(candidate, period) }
+        return claimSlots(renewals).map { claims ->
+            publishOnceAllocated(claims.claimed, period)
+            claims.unclaimed.forEachAsync { renewal -> renewFromOurAccount(renewal.delivery, period) }
         }
     }
 
@@ -74,28 +74,27 @@ class OneShotDeliveryRenewer @Inject constructor(
             .getOrNull()
     }
 
-    private suspend fun claimSlots(
-        renewals: List<Pair<RenewableDelivery, ChatRequestDeliveryAccount>>,
-    ): Result<Pair<List<Pair<RenewableDelivery, ChatRequestDeliveryAccount>>, List<RenewableDelivery>>> {
-        val targets = renewals.map { (_, account) -> account.accountId }
+    private suspend fun claimSlots(renewals: List<Renewal>): Result<SlotClaims> {
+        val targets = renewals.map { it.account.accountId }
 
         return allocator.initiateAllocations(targets).map { claimed ->
             Timber.i("oneShotRenewal: claimed slots for ${claimed.size}/${targets.size} stale deliveries")
-            val (withSlot, withoutSlot) = renewals.partition { (_, account) -> account.accountId in claimed }
-            withSlot to withoutSlot.map { (candidate, _) -> candidate }
+            val (withSlot, withoutSlot) = renewals.partition { it.account.accountId in claimed }
+            SlotClaims(claimed = withSlot, unclaimed = withoutSlot)
         }
     }
 
-    private suspend fun publishOnceAllocated(claimed: List<Pair<RenewableDelivery, ChatRequestDeliveryAccount>>, period: UInt) {
-        claimed.forEachAsync { (candidate, account) ->
+    private suspend fun publishOnceAllocated(claimed: List<Renewal>, period: UInt) {
+        claimed.forEachAsync { renewal ->
+            val (delivery, account) = renewal
             allocator.awaitAllocated(account.accountId, ALLOCATION_WAIT_TIMEOUT)
-                .flatMap { candidate.republish(signers.anonymousSigner(account)) }
-                .onSuccess { Timber.i("oneShotRenewal: ${candidate.description} renewed into period $period from ${account.accountId}") }
+                .flatMap { delivery.republish(signers.anonymousSigner(account)) }
+                .onSuccess { Timber.i("oneShotRenewal: ${delivery.description} renewed into period $period from ${account.accountId}") }
                 .onFailure { error ->
                     if (error is NotificationAllocationError.NoFreeSlotInPeriod) {
-                        renewFromOurAccount(candidate, period)
+                        renewFromOurAccount(delivery, period)
                     } else {
-                        Timber.e(error, "${candidate.description}: renewal into period $period failed")
+                        Timber.e(error, "${delivery.description}: renewal into period $period failed")
                     }
                 }
         }
@@ -149,3 +148,7 @@ class OneShotDeliveryRenewer @Inject constructor(
         }
     }
 }
+
+private data class Renewal(val delivery: RenewableDelivery, val account: ChatRequestDeliveryAccount)
+
+private class SlotClaims(val claimed: List<Renewal>, val unclaimed: List<Renewal>)

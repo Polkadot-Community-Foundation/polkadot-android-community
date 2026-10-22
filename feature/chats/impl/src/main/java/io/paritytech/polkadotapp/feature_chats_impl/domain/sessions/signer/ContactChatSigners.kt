@@ -5,9 +5,11 @@ import io.paritytech.polkadotapp.common.domain.model.AccountId
 import io.paritytech.polkadotapp.common.domain.model.toDataByteArray
 import io.paritytech.polkadotapp.common.utils.CoroutineDispatchers
 import io.paritytech.polkadotapp.common.utils.exponentialRetryDelay
+import io.paritytech.polkadotapp.common.utils.retryUntilSuccess
 import io.paritytech.polkadotapp.feature_chats_api.domain.model.Contact
 import io.paritytech.polkadotapp.feature_chats_impl.data.repository.ContactsRepository
 import io.paritytech.polkadotapp.feature_chats_impl.domain.identitySigning.IdentitySigningGate
+import io.paritytech.polkadotapp.feature_chats_impl.domain.identitySigning.awaitRetry
 import io.paritytech.polkadotapp.feature_chats_impl.domain.sessions.isActiveChat
 import io.paritytech.polkadotapp.feature_statement_store_api.domain.slotAllocator.StatementStoreSlotAllocator
 import kotlinx.coroutines.CoroutineScope
@@ -29,7 +31,7 @@ interface ContactChatSigners {
 
     fun warmUp(contact: Contact)
 
-    /** Forgets the chat's signer and drops its slot when this process resolved it; [ChatSignerSlotReconciler] drops the rest. */
+    /** Forgets the chat's signer and drops its slot when this process resolved it; [InactiveChatSlotReleaser] drops the rest. */
     suspend fun release(contactAccountId: AccountId): Result<Unit>
 }
 
@@ -95,18 +97,12 @@ class RealContactChatSigners @Inject constructor(
     }
 
     private suspend fun resolveUntilSuccess(contact: Contact): ContactChatSigner {
-        var attempt = 0
+        val signer = retryUntilSuccess(
+            retryDelay = retryDelay,
+            awaitRetry = { error, retryIn -> identitySigningGate.awaitRetry(contact.accountId, error, retryIn) },
+        ) { resolver.resolve(contact) }
 
-        while (true) {
-            val outcome = resolver.resolve(contact)
-            val signer = outcome.getOrNull()
-            if (signer != null) {
-                Timber.i("ContactChatSigners: chat with ${contact.username} resolved to ${signer.kind}")
-                return signer
-            }
-
-            attempt++
-            identitySigningGate.awaitRetry(contact.accountId, outcome.exceptionOrNull(), retryDelay.delayFor(attempt))
-        }
+        Timber.i("ContactChatSigners: chat with ${contact.username} resolved to ${signer.kind}")
+        return signer
     }
 }

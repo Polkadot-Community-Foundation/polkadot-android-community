@@ -116,7 +116,7 @@ import io.paritytech.polkadotapp.feature_chats_impl.domain.notifications.RealCha
 import io.paritytech.polkadotapp.feature_chats_impl.domain.sessions.ContactChatSessionRestarter
 import io.paritytech.polkadotapp.feature_chats_impl.domain.sessions.RealContactChatSessionManager
 import io.paritytech.polkadotapp.feature_chats_impl.domain.sessions.RealContactChatSessionRefCounter
-import io.paritytech.polkadotapp.feature_chats_impl.domain.sessions.signer.ChatSignerSlotReconciler
+import io.paritytech.polkadotapp.feature_chats_impl.domain.sessions.signer.InactiveChatSlotReleaser
 import io.paritytech.polkadotapp.feature_chats_impl.domain.usecase.RealDeleteRoomUseCase
 import io.paritytech.polkadotapp.feature_chats_impl.domain.usecase.RealGetContactsUseCase
 import io.paritytech.polkadotapp.feature_chats_impl.domain.username.RealFallbackUsernameGenerator
@@ -173,7 +173,7 @@ internal interface ChatsFeatureApiModule {
 
     @Binds
     @IntoSet
-    fun bindChatSignerSlotReconciler(impl: ChatSignerSlotReconciler): AppInitializer
+    fun bindInactiveChatSlotReleaser(impl: InactiveChatSlotReleaser): AppInitializer
 
     @Binds
     @IntoSet

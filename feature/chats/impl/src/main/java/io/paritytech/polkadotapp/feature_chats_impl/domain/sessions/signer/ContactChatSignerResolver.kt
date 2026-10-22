@@ -19,9 +19,13 @@ import io.paritytech.polkadotapp.feature_statement_store_api.domain.slotAllocato
 import io.paritytech.polkadotapp.feature_statement_store_api.domain.slotAllocator.SlotPriority
 import io.paritytech.polkadotapp.feature_statement_store_api.domain.slotAllocator.StatementStoreSlotAllocationError
 import io.paritytech.polkadotapp.feature_statement_store_api.domain.slotAllocator.StatementStoreSlotAllocator
+import io.paritytech.polkadotapp.feature_statement_store_api.domain.slotAllocator.StatementStoreSlotTag
 import javax.inject.Inject
 
 private const val SIGNER_CONNECTION_TAG = "ContactChatSigner"
+
+// Kept in sync with Migration70To71Spec, which tags the chat signer slots allocated before tags existed.
+internal val CHAT_SIGNER_SLOT_TAG = StatementStoreSlotTag("chat-signer")
 
 // Only a full slot table downgrades to the username signer, and only with the user's consent for this chat;
 // any other failure is returned so the caller retries.
@@ -67,7 +71,12 @@ class ContactChatSignerResolver @Inject constructor(
     private suspend fun allocateSlot(chatAccountId: AccountId): Result<Unit> {
         return chainConnectionRefCounter.withConnectionEnabled(knownChains.people, SIGNER_CONNECTION_TAG) {
             with(StalenessReportCollector.NoOp) {
-                slotAllocator.allocate(chatAccountId, OnExistingAllocationStrategy.IGNORE, SlotPriority.Critical)
+                slotAllocator.allocate(
+                    target = chatAccountId,
+                    strategy = OnExistingAllocationStrategy.IGNORE,
+                    priority = SlotPriority.Critical,
+                    tag = CHAT_SIGNER_SLOT_TAG,
+                )
             }
         }
     }

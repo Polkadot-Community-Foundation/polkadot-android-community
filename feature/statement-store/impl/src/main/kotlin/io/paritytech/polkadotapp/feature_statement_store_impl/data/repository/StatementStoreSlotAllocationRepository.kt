@@ -6,6 +6,7 @@ import io.paritytech.polkadotapp.chains.multiNetwork.chain.model.ChainId
 import io.paritytech.polkadotapp.common.domain.model.AccountId
 import io.paritytech.polkadotapp.feature_people_api.domain.PeopleCollection
 import io.paritytech.polkadotapp.feature_statement_store_api.domain.slotAllocator.SlotPriority
+import io.paritytech.polkadotapp.feature_statement_store_api.domain.slotAllocator.StatementStoreSlotTag
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
@@ -41,6 +42,7 @@ interface StatementStoreSlotAllocationRepository {
         latestRenewedPeriod: UInt,
         since: Instant,
         priority: SlotPriority,
+        tag: StatementStoreSlotTag?,
     ): Long
 
     suspend fun deleteById(id: Long)
@@ -87,7 +89,7 @@ interface StatementStoreSlotAllocationRepository {
         currentPeriod: UInt,
     ): Boolean
 
-    suspend fun accountsWithPriority(chainId: ChainId, priority: SlotPriority): Set<AccountId>
+    suspend fun accountsWithTag(chainId: ChainId, tag: StatementStoreSlotTag): Set<AccountId>
 
     /**
      * Bulk lookup of "highest local priority" per account in [accountIds], across all

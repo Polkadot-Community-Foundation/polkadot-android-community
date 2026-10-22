@@ -6,6 +6,7 @@ import androidx.room.Transaction
 import androidx.room.Upsert
 import io.paritytech.polkadotapp.database.model.ContactLocal
 import io.paritytech.polkadotapp.database.model.ContactWithChatRequestLocal
+import io.paritytech.polkadotapp.database.model.ContactWithDevicePresenceLocal
 import io.paritytech.polkadotapp.database.model.ContactWithRequestTimestampLocal
 import kotlinx.coroutines.flow.Flow
 
@@ -152,6 +153,16 @@ abstract class ContactDao {
         """
     )
     abstract fun subscribeContactsWithChatRequests(): Flow<List<ContactWithChatRequestLocal>>
+
+    // One query, so a contact and its devices always come from the same committed state.
+    @Query(
+        """
+        SELECT contacts.*,
+            EXISTS(SELECT 1 FROM contact_devices WHERE contact_devices.contactAccountId = contacts.accountId) AS hasDevices
+        FROM contacts
+        """
+    )
+    abstract fun subscribeContactsWithDevicePresence(): Flow<List<ContactWithDevicePresenceLocal>>
 
     @Query(
         """

@@ -64,10 +64,10 @@ private fun ChatRequestLocal.toDeliveryDomain(): ChatRequest.Delivery = when (de
 // A null via is a row delivered before delivery was tracked: an incoming request or one signed by our username.
 // A username row without a period was signed before the user's consent made it renewable.
 private fun ChatRequestLocal.deliveredDomain(): ChatRequest.Delivery = when (deliveredVia) {
-    null -> ChatRequest.Delivery.Delivered
+    null -> ChatRequest.Delivery.DeliveredUntracked
     ChatRequestLocal.DeliveredVia.USERNAME -> lastDeliveredPeriod
         ?.let { ChatRequest.Delivery.DeliveredByUsername(it.toUInt()) }
-        ?: ChatRequest.Delivery.Delivered
+        ?: ChatRequest.Delivery.DeliveredUntracked
     ChatRequestLocal.DeliveredVia.NOTIFICATION -> {
         val period = requireNotNull(lastDeliveredPeriod) {
             "Chat request $id delivered via NOTIFICATION must record its period, but lastDeliveredPeriod is null"
@@ -79,13 +79,13 @@ private fun ChatRequestLocal.deliveredDomain(): ChatRequest.Delivery = when (del
 fun ChatRequest.Delivery.toLocalStatus(): ChatRequestLocal.DeliveryStatus = when (this) {
     ChatRequest.Delivery.Undelivered -> ChatRequestLocal.DeliveryStatus.UNDELIVERED
     ChatRequest.Delivery.Failed -> ChatRequestLocal.DeliveryStatus.FAILED
-    ChatRequest.Delivery.Delivered,
+    ChatRequest.Delivery.DeliveredUntracked,
     is ChatRequest.Delivery.DeliveredAnonymously,
     is ChatRequest.Delivery.DeliveredByUsername -> ChatRequestLocal.DeliveryStatus.DELIVERED
 }
 
 fun ChatRequest.Delivery.toLocalVia(): ChatRequestLocal.DeliveredVia? = when (this) {
-    ChatRequest.Delivery.Delivered,
+    ChatRequest.Delivery.DeliveredUntracked,
     is ChatRequest.Delivery.DeliveredByUsername -> ChatRequestLocal.DeliveredVia.USERNAME
     is ChatRequest.Delivery.DeliveredAnonymously -> ChatRequestLocal.DeliveredVia.NOTIFICATION
     ChatRequest.Delivery.Undelivered,
@@ -101,5 +101,5 @@ val ChatRequest.Delivery.renewalPeriod: UInt?
         is ChatRequest.Delivery.DeliveredByUsername -> period
         ChatRequest.Delivery.Undelivered,
         ChatRequest.Delivery.Failed,
-        ChatRequest.Delivery.Delivered -> null
+        ChatRequest.Delivery.DeliveredUntracked -> null
     }

@@ -14,7 +14,7 @@ import kotlinx.coroutines.flow.flowOf
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
-class ChatSignerSlotReconcilerTest {
+class InactiveChatSlotReleaserTest {
     private val active = contact(seed = 1)
     private val blocked = contact(seed = 2, isBlocked = true)
     private val pending = contact(seed = 3, pendingChatRequestId = "request")
@@ -23,15 +23,15 @@ class ChatSignerSlotReconcilerTest {
     private val accountDerivation: ChatSignerAccountDerivation = mockk()
     private val slotAllocator = RecordingSlotAllocator()
 
-    private val reconciler = ChatSignerSlotReconciler(contactsRepository, accountDerivation, slotAllocator)
+    private val releaser = InactiveChatSlotReleaser(contactsRepository, accountDerivation, slotAllocator)
 
     @Test
-    fun `drops the slots of chats that are blocked, pending or gone and keeps the active ones`() {
+    fun `releases the slots of chats that are blocked, pending or gone and keeps the active ones`() {
         val leftover = chatAccount(seed = 9)
         withContacts(active, blocked, pending)
-        slotAllocator.criticalTargets = setOf(chatAccountOf(active), chatAccountOf(blocked), leftover)
+        slotAllocator.chatSignerTargets = setOf(chatAccountOf(active), chatAccountOf(blocked), leftover)
 
-        reconcile()
+        releaseInactive()
 
         assertEquals(setOf(chatAccountOf(blocked), leftover), slotAllocator.deallocatedTargets.toSet())
     }
@@ -39,11 +39,11 @@ class ChatSignerSlotReconcilerTest {
     @Test
     fun `keeps every slot when the active chats cannot all be derived`() {
         withContacts(active)
-        slotAllocator.criticalTargets = setOf(chatAccount(seed = 9))
+        slotAllocator.chatSignerTargets = setOf(chatAccount(seed = 9))
         val activeAccountId = active.accountId
         coEvery { accountDerivation.deriveAccountId(activeAccountId) } returns Result.failure(IllegalStateException())
 
-        reconcile()
+        releaseInactive()
 
         assertEquals(emptyList<AccountId>(), slotAllocator.deallocatedTargets)
     }
@@ -58,8 +58,8 @@ class ChatSignerSlotReconcilerTest {
         }
     }
 
-    private fun reconcile() {
-        with(UnconfinedComputationalScope()) { reconciler.initialize() }
+    private fun releaseInactive() {
+        with(UnconfinedComputationalScope()) { releaser.initialize() }
     }
 
     private fun chatAccountOf(contact: Contact): AccountId = chatAccount(contact.accountId.value.first())

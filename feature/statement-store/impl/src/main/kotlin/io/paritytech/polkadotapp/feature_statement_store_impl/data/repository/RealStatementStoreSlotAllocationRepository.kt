@@ -10,6 +10,7 @@ import io.paritytech.polkadotapp.database.dao.StatementStoreSlotAllocationDao
 import io.paritytech.polkadotapp.database.model.StatementStoreSlotAllocationLocal
 import io.paritytech.polkadotapp.feature_people_api.domain.PeopleCollection
 import io.paritytech.polkadotapp.feature_statement_store_api.domain.slotAllocator.SlotPriority
+import io.paritytech.polkadotapp.feature_statement_store_api.domain.slotAllocator.StatementStoreSlotTag
 import javax.inject.Inject
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
@@ -25,6 +26,7 @@ class RealStatementStoreSlotAllocationRepository @Inject constructor(
         latestRenewedPeriod: UInt,
         since: Instant,
         priority: SlotPriority,
+        tag: StatementStoreSlotTag?,
     ): Long {
         val row = StatementStoreSlotAllocationLocal(
             id = 0,
@@ -35,6 +37,7 @@ class RealStatementStoreSlotAllocationRepository @Inject constructor(
             latestRenewedPeriod = latestRenewedPeriod.toLong(),
             sinceMillis = since.toEpochMilliseconds(),
             priorityLevel = priority.level,
+            tag = tag?.value,
         )
         return dao.insert(row)
     }
@@ -79,8 +82,8 @@ class RealStatementStoreSlotAllocationRepository @Inject constructor(
         return dao.hasRenewedFor(chainId, accountId.value, currentPeriod.toLong())
     }
 
-    override suspend fun accountsWithPriority(chainId: ChainId, priority: SlotPriority): Set<AccountId> {
-        return dao.accountsWithPriority(chainId, priority.level).mapToSet { it.toDataByteArray() }
+    override suspend fun accountsWithTag(chainId: ChainId, tag: StatementStoreSlotTag): Set<AccountId> {
+        return dao.accountsWithTag(chainId, tag.value).mapToSet { it.toDataByteArray() }
     }
 
     override suspend fun maxPriorityLevelsFor(

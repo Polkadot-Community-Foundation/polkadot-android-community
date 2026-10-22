@@ -52,14 +52,14 @@ class IdentitySigningGate @Inject constructor(
                 .first()
         }
     }
+}
 
-    /** Backs off [retryIn] after [error], returning early when the error was a pending consent and the user answered. */
-    suspend fun awaitRetry(contactAccountId: AccountId, error: Throwable?, retryIn: Duration) {
-        if (error?.isAwaitingIdentitySigningConsent() == true) {
-            awaitConsentChange(contactAccountId, retryIn)
-        } else {
-            delay(retryIn)
-        }
+/** Backs off [retryIn] after [error], returning early when the error was a pending consent and the user answered. */
+suspend fun IdentitySigningGate.awaitRetry(contactAccountId: AccountId, error: Throwable?, retryIn: Duration) {
+    if (error?.isAwaitingIdentitySigningConsent() == true) {
+        awaitConsentChange(contactAccountId, retryIn)
+    } else {
+        delay(retryIn)
     }
 }
 

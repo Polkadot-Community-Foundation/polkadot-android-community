@@ -5,16 +5,22 @@ import io.paritytech.polkadotapp.common.utils.progressStallReport.StalenessRepor
 import io.paritytech.polkadotapp.feature_statement_store_api.domain.slotAllocator.OnExistingAllocationStrategy
 import io.paritytech.polkadotapp.feature_statement_store_api.domain.slotAllocator.SlotPriority
 import io.paritytech.polkadotapp.feature_statement_store_api.domain.slotAllocator.StatementStoreSlotAllocator
+import io.paritytech.polkadotapp.feature_statement_store_api.domain.slotAllocator.StatementStoreSlotTag
 import io.paritytech.polkadotapp.feature_statement_store_api.domain.slotAllocator.StatementStoreSlots
 
 // mockk cannot stub `allocate`: its context parameter breaks mockk's reflection over the whole interface.
 class RecordingSlotAllocator(
     var hasCurrentAllocation: Boolean = false,
     var allocationResult: Result<Unit> = Result.success(Unit),
-    var criticalTargets: Set<AccountId> = emptySet(),
+    var chatSignerTargets: Set<AccountId> = emptySet(),
     var period: UInt = 1u,
 ) : StatementStoreSlotAllocator {
-    class AllocateCall(val target: AccountId, val strategy: OnExistingAllocationStrategy, val priority: SlotPriority)
+    class AllocateCall(
+        val target: AccountId,
+        val strategy: OnExistingAllocationStrategy,
+        val priority: SlotPriority,
+        val tag: StatementStoreSlotTag?,
+    )
 
     val allocateCalls = mutableListOf<AllocateCall>()
     val deallocatedTargets = mutableListOf<AccountId>()
@@ -26,8 +32,9 @@ class RecordingSlotAllocator(
         target: AccountId,
         strategy: OnExistingAllocationStrategy,
         priority: SlotPriority,
+        tag: StatementStoreSlotTag?,
     ): Result<Unit> {
-        allocateCalls += AllocateCall(target, strategy, priority)
+        allocateCalls += AllocateCall(target, strategy, priority, tag)
         return allocationResult
     }
 
@@ -38,8 +45,8 @@ class RecordingSlotAllocator(
 
     override suspend fun hasCurrentAllocation(target: AccountId): Result<Boolean> = Result.success(hasCurrentAllocation)
 
-    override suspend fun allocatedTargets(priority: SlotPriority): Result<Set<AccountId>> {
-        return Result.success(if (priority == SlotPriority.Critical) criticalTargets else emptySet())
+    override suspend fun allocatedTargets(tag: StatementStoreSlotTag): Result<Set<AccountId>> {
+        return Result.success(if (tag == CHAT_SIGNER_SLOT_TAG) chatSignerTargets else emptySet())
     }
 
     override suspend fun allocationsFor(target: AccountId): Result<StatementStoreSlots> = error("Not used by chat signer tests")

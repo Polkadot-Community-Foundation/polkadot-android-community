@@ -54,8 +54,6 @@ class RealContactChatSession(
 ) : ContactChatSession, CoroutineScope by scope {
     private val mainCommunicationSession get() = communicationSessions.main
 
-    val isMultiDevice: Boolean = communicationSessions is CommunicationSessions.MultiDevice
-
     private val pushNotificationSession get() = communicationSessions.identity
 
     private val chatId = ChatId.fromContact(mainCommunicationSession.remoteAccount.accountId)

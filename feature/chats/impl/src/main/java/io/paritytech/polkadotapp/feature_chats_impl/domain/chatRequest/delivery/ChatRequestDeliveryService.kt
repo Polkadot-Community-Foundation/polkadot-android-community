@@ -17,6 +17,7 @@ import io.paritytech.polkadotapp.feature_chats_impl.data.repository.ChatRequestR
 import io.paritytech.polkadotapp.feature_chats_impl.data.repository.ContactsRepository
 import io.paritytech.polkadotapp.feature_chats_impl.domain.chatRequest.OutgoingChatRequestPayload
 import io.paritytech.polkadotapp.feature_chats_impl.domain.identitySigning.IdentitySigningGate
+import io.paritytech.polkadotapp.feature_chats_impl.domain.identitySigning.awaitRetry
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
@@ -81,7 +82,7 @@ class ChatRequestDeliveryService @Inject constructor(
             }
 
             attempt++
-            val retryIn = deliveryRetryDelay(attempt)
+            val retryIn = DELIVERY_RETRY_DELAY.delayFor(attempt)
             Timber.i("chatRequestDelivery: request ${request.id} attempt $attempt failed; retrying in $retryIn")
             identitySigningGate.awaitRetry(contact.accountId, error, retryIn)
         }

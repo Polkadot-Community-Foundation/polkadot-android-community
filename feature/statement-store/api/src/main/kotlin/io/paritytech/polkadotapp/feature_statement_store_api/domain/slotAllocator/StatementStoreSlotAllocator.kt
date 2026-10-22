@@ -21,7 +21,8 @@ interface StatementStoreSlotAllocator {
      * nor an evictable slot exists.
      *
      * [priority] is also persisted on the local accounting row so renewal across
-     * period rollovers can preserve higher-tier claims under capacity pressure.
+     * period rollovers can preserve higher-tier claims under capacity pressure. So is [tag],
+     * which lets its owner find the row again with [allocatedTargets].
      *
      * Reports its progress into [diagnostics]; callers with no UI attached pass
      * [StalenessReportCollector.NoOp].
@@ -31,6 +32,7 @@ interface StatementStoreSlotAllocator {
         target: AccountId,
         strategy: OnExistingAllocationStrategy,
         priority: SlotPriority,
+        tag: StatementStoreSlotTag? = null,
     ): Result<Unit>
 
     /**
@@ -48,11 +50,11 @@ interface StatementStoreSlotAllocator {
     suspend fun hasCurrentAllocation(target: AccountId): Result<Boolean>
 
     /**
-     * Local-only: accounts holding a slot-accounting row allocated with [priority], so an owner of a tier
-     * can drop rows it no longer needs even when it lost track of them (e.g. a crash between its own state change
-     * and [deallocateAllSlots]).
+     * Local-only: accounts holding a slot-accounting row allocated with [tag], so its owner can drop rows it no
+     * longer needs even when it lost track of them (e.g. a crash between its own state change and
+     * [deallocateAllSlots]).
      */
-    suspend fun allocatedTargets(priority: SlotPriority): Result<Set<AccountId>>
+    suspend fun allocatedTargets(tag: StatementStoreSlotTag): Result<Set<AccountId>>
 
     /**
      * Snapshot of all slots taken in the current period across the available collections,

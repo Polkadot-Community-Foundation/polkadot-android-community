@@ -121,6 +121,7 @@ class ContactChatSignerResolverTest {
         assertEquals(chatAccountId, call.target)
         assertEquals(OnExistingAllocationStrategy.IGNORE, call.strategy)
         assertEquals(SlotPriority.Critical, call.priority)
+        assertEquals(CHAT_SIGNER_SLOT_TAG, call.tag)
     }
 
     private fun verifyNoAllocation() {

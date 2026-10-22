@@ -86,7 +86,7 @@ class RealChatAcceptanceRepository @Inject constructor(
 
         ChatRequest.Delivery.Failed -> LocalDelivery(ChatAcceptanceLocal.DeliveryStatus.FAILED, via = null, period = null)
 
-        ChatRequest.Delivery.Delivered ->
+        ChatRequest.Delivery.DeliveredUntracked ->
             LocalDelivery(ChatAcceptanceLocal.DeliveryStatus.DELIVERED, ChatAcceptanceLocal.DeliveredVia.USERNAME, period = null)
 
         is ChatRequest.Delivery.DeliveredByUsername ->
@@ -120,9 +120,9 @@ class RealChatAcceptanceRepository @Inject constructor(
                 requireNotNull(period) { "Acceptance $messageId delivered via NOTIFICATION has no period" }
             )
 
-            ChatAcceptanceLocal.DeliveredVia.USERNAME -> period?.let { ChatRequest.Delivery.DeliveredByUsername(it) } ?: ChatRequest.Delivery.Delivered
+            ChatAcceptanceLocal.DeliveredVia.USERNAME -> period?.let { ChatRequest.Delivery.DeliveredByUsername(it) } ?: ChatRequest.Delivery.DeliveredUntracked
 
-            null -> ChatRequest.Delivery.Delivered
+            null -> ChatRequest.Delivery.DeliveredUntracked
         }
     }
 }

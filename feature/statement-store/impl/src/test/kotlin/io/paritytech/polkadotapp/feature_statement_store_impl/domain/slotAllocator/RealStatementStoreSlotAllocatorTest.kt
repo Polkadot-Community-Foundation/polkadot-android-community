@@ -437,7 +437,7 @@ class RealStatementStoreSlotAllocatorTest {
     }
 
     private suspend fun verifyNoAllocationInsertions() {
-        verify(allocationRepository, never()).insert(any(), any(), any(), anyUInt(), anyUInt(), any(), any())
+        verify(allocationRepository, never()).insert(any(), any(), any(), anyUInt(), anyUInt(), any(), any(), any())
     }
 
     private suspend fun verifyNoEvictionPerformed() {
@@ -466,6 +466,7 @@ class RealStatementStoreSlotAllocatorTest {
             latestRenewedPeriod = anyUInt(),
             since = any(),
             priority = eq(priority),
+            tag = any(),
         )
     }
 

@@ -33,6 +33,15 @@ suspend inline fun <T> retryUntilSuccess(
     retryDelay: RetryDelayStrategy,
     block: () -> Result<T>,
 ): T {
+    return retryUntilSuccess(retryDelay, awaitRetry = { _, retryIn -> delay(retryIn) }, block)
+}
+
+/** [awaitRetry] waits before the next attempt; it may return before `retryIn` has passed to retry sooner. */
+inline fun <T> retryUntilSuccess(
+    retryDelay: RetryDelayStrategy,
+    awaitRetry: (error: Throwable, retryIn: Duration) -> Unit,
+    block: () -> Result<T>,
+): T {
     var attempt = 0
 
     while (true) {
@@ -43,7 +52,7 @@ suspend inline fun <T> retryUntilSuccess(
 
                 attempt++
 
-                delay(retryDelay.delayFor(attempt))
+                awaitRetry(it, retryDelay.delayFor(attempt))
             }
     }
 }

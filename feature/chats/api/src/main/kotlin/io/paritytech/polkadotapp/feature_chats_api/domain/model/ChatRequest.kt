@@ -27,8 +27,8 @@ data class ChatRequest(
         /** Can never be delivered, e.g. too large for any statement account. */
         data object Failed : Delivery
 
-        /** On the statement store, signed by an account linkable to us (incoming and legacy requests too). */
-        data object Delivered : Delivery
+        /** On the statement store and never renewed by us: an incoming request, or ours from before delivery was tracked. */
+        data object DeliveredUntracked : Delivery
 
         /** On the statement store, signed by the per-[period] notification account; needs renewal each period. */
         data class DeliveredAnonymously(val period: UInt) : Delivery

@@ -4,7 +4,6 @@ import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
 import io.mockk.slot
-import io.mockk.verify
 import io.paritytech.polkadotapp.common.domain.model.toDataByteArray
 import io.paritytech.polkadotapp.feature_chats_api.domain.model.ChatId
 import io.paritytech.polkadotapp.feature_chats_api.domain.model.ChatMessage
@@ -36,7 +35,7 @@ class IdentitySigningConsentUseCaseTest {
     @Before
     fun setUp() {
         val transaction = slot<suspend () -> Unit>()
-        coEvery { contactsRepository.withTransaction(capture(transaction)) } coAnswers { transaction.captured() }
+        coEvery { contactsRepository.withTransaction<Unit>(capture(transaction)) } coAnswers { transaction.captured() }
         coEvery { chatSigners.release(contactAccountId) } returns Result.success(Unit)
     }
 
@@ -50,7 +49,7 @@ class IdentitySigningConsentUseCaseTest {
                 chatMessageRepository.updateOutgoingMessagesStatusForChatExcludingTypes(chatId, status, ChatMessage.Status.DELIVERY_FAILED, any())
             }
         }
-        verify { sessionRestarter.restartSession(contactAccountId) }
+        coVerify { sessionRestarter.restartSession(contactAccountId) }
     }
 
     @Test

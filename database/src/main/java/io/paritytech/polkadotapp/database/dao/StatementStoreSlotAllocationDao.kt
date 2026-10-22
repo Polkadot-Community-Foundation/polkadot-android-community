@@ -72,10 +72,10 @@ interface StatementStoreSlotAllocationDao {
     @Query(
         """
         SELECT DISTINCT accountId FROM statement_store_slot_allocations
-        WHERE chainId = :chainId AND priorityLevel = :priorityLevel
+        WHERE chainId = :chainId AND tag = :tag
         """
     )
-    suspend fun accountsWithPriority(chainId: String, priorityLevel: Int): List<ByteArray>
+    suspend fun accountsWithTag(chainId: String, tag: String): List<ByteArray>
 
     /**
      * Bulk lookup of "highest priority level seen locally" per account. Returns one row

@@ -125,10 +125,6 @@ class RealIncomingChatRequestProcessor @Inject constructor(
     private val currentTimeContext: CurrentTimeContext,
     private val chatAcceptanceRepository: ChatAcceptanceRepository,
 ) : IncomingChatRequestProcessor {
-    private companion object {
-        const val ACCEPTED_MESSAGE_ID_PREFIX = "req-accepted:"
-    }
-
     override suspend fun processIncomingRequest(
         data: IncomingChatRequestData
     ): Result<IncomingRequestProcessingResult> = runCatching {
@@ -212,14 +208,13 @@ class RealIncomingChatRequestProcessor @Inject constructor(
         ourRequest: ChatRequest,
         incomingData: IncomingChatRequestData
     ): IncomingRequestProcessingResult.AutoAccepted {
-        lateinit var updatedContact: Contact
-
-        contactsRepository.withTransaction {
+        val updatedContact = contactsRepository.withTransaction {
             markChatAccepted(contact.accountId)
             chatRequestRepository.updateStatus(ourRequest.id, ChatRequest.Status.ACCEPTED)
-            updatedContact = updateContactFromRequest(contact, incomingData)
+            val updated = updateContactFromRequest(contact, incomingData)
             markOurWelcomeMessageAsRead(ourRequest.welcomeMessageId)
             recordAcceptance(contact.accountId, ourRequest.id)
+            updated
         }
 
         return IncomingRequestProcessingResult.AutoAccepted(updatedContact)
@@ -302,7 +297,7 @@ class RealIncomingChatRequestProcessor @Inject constructor(
             timestamp = incomingData.request.message.timestamp.toLong(),
             direction = ChatRequest.Direction.INCOMING,
             status = ChatRequest.Status.PENDING,
-            delivery = ChatRequest.Delivery.Delivered,
+            delivery = ChatRequest.Delivery.DeliveredUntracked,
         )
     }
 
@@ -332,7 +327,7 @@ class RealIncomingChatRequestProcessor @Inject constructor(
             timestamp = data.request.message.timestamp.toLong(),
             direction = ChatRequest.Direction.INCOMING,
             status = ChatRequest.Status.PENDING,
-            delivery = ChatRequest.Delivery.Delivered,
+            delivery = ChatRequest.Delivery.DeliveredUntracked,
         )
         chatRequestRepository.save(request)
 
