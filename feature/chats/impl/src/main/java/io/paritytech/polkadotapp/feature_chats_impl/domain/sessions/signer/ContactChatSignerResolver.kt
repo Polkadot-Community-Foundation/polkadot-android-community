@@ -24,7 +24,6 @@ import javax.inject.Inject
 
 private const val SIGNER_CONNECTION_TAG = "ContactChatSigner"
 
-// Kept in sync with Migration70To71Spec, which tags the chat signer slots allocated before tags existed.
 internal val CHAT_SIGNER_SLOT_TAG = StatementStoreSlotTag("chat-signer")
 
 // Only a full slot table downgrades to the username signer, and only with the user's consent for this chat;

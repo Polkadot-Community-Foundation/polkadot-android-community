@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 70,
-    "identityHash": "e950003b3f098b11bddb7cbd0d6a14fe",
+    "identityHash": "9cf779237fece3fd3a27b46c281da020",
     "entities": [
       {
         "tableName": "product_funding_operations",
@@ -2204,7 +2204,7 @@
       },
       {
         "tableName": "statement_store_slot_allocations",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `chainId` TEXT NOT NULL, `collection` TEXT NOT NULL, `accountId` BLOB NOT NULL, `seq` INTEGER NOT NULL, `latestRenewedPeriod` INTEGER NOT NULL, `sinceMillis` INTEGER NOT NULL, `priorityLevel` INTEGER NOT NULL)",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `chainId` TEXT NOT NULL, `collection` TEXT NOT NULL, `accountId` BLOB NOT NULL, `seq` INTEGER NOT NULL, `latestRenewedPeriod` INTEGER NOT NULL, `sinceMillis` INTEGER NOT NULL, `priorityLevel` INTEGER NOT NULL, `tag` TEXT)",
         "fields": [
           {
             "fieldPath": "id",
@@ -2253,6 +2253,11 @@
             "columnName": "priorityLevel",
             "affinity": "INTEGER",
             "notNull": true
+          },
+          {
+            "fieldPath": "tag",
+            "columnName": "tag",
+            "affinity": "TEXT"
           }
         ],
         "primaryKey": {
@@ -3110,7 +3115,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'e950003b3f098b11bddb7cbd0d6a14fe')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '9cf779237fece3fd3a27b46c281da020')"
     ]
   }
 }
