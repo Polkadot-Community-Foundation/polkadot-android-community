@@ -33,7 +33,7 @@ class DataChannelMessaging(
     private val logger: PeerConnectionLogger
 ) : CoroutineScope by scope {
     private companion object {
-        val SEND_WATERMARKS = SendWatermarkPolicy(highWatermark = 1.megabytes, lowWatermark = 256.kilobytes)
+        val SEND_BUFFER_LIMITS = SendBufferLimits(pauseAbove = 1.megabytes, resumeBelow = 256.kilobytes)
         val BUFFER_DRAIN_POLL = 100.milliseconds
     }
 
@@ -90,7 +90,7 @@ class DataChannelMessaging(
         var throttled = false
         while (isOpen()) {
             val bufferedAmount = dataChannel?.bufferedAmount()?.bytes ?: return
-            if (!SEND_WATERMARKS.shouldWait(bufferedAmount, messageSize, throttled)) return
+            if (!SEND_BUFFER_LIMITS.shouldWait(bufferedAmount, messageSize, throttled)) return
 
             throttled = true
             withTimeoutOrNull(BUFFER_DRAIN_POLL) { bufferedAmountChanged.receive() }
