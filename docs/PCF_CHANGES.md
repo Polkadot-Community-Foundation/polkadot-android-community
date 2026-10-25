@@ -87,6 +87,25 @@ These stay for as long as PCF builds this app.
   fails.
 - **Retire when:** upstream commits the lockfile.
 
+### Versioned transaction extensions
+
+- **Origin:** `50b1f8e8`
+- **Files:**
+  - `feature/transactions/impl/.../DefaultExtrinsicVersionProvider.kt`
+  - `feature/transactions/impl/.../extensions/RealTxPayloadExtensionsResolver.kt`
+  - `feature/products/impl/.../signTransaction/SignPayloadJsonInteractor.kt`
+  - their tests, `RealDefaultExtrinsicVersionProviderTest.kt` and `RealTxPayloadExtensionsResolverTest.kt`
+- **Problem:** runtimes with versioned transaction extensions keep `VerifySignature` out of
+  pipeline 0. A product request with `txExtVersion` 0, or a legacy v5 `signPayload` request, is
+  then built as a general transaction at version 0 and loses its signature. The Remote Config
+  `transaction_extension_versions` value must also match the runtime exactly: a version the
+  runtime does not declare yet makes every unsigned general transaction fail.
+- **Upstream still affected if:**
+  `git show TAG:feature/transactions/impl/src/main/java/io/paritytech/polkadotapp/feature_transactions_impl/data/extensions/RealTxPayloadExtensionsResolver.kt | grep -cF 'is ExtrinsicVersion.V5 -> ExtrinsicVersion.V5(extensionVersion)'`
+  is non-zero.
+- **Retire when:** upstream builds a signed request for a pipeline without `VerifySignature` as
+  v4, and falls back to a declared extension version.
+
 ## Verifying a sync
 
 The fork changes before the sync are `git diff OLD_TAG origin/production`; after it,
