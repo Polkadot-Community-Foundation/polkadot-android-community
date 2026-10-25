@@ -62,10 +62,10 @@ class RealTxPayloadExtensionsResolver @Inject constructor(
         return if (txExtVersion > 0u) {
             Result.success(ExtrinsicVersion.V5(extensionVersion))
         } else {
-            defaultExtrinsicVersionProvider.getDefaultExtrinsicVersion(chainId, isSigned).map { default ->
+            defaultExtrinsicVersionProvider.getDefaultExtrinsicVersion(chainId, isSigned).mapCatching { default ->
                 when (default) {
                     ExtrinsicVersion.V4 -> ExtrinsicVersion.V4
-                    is ExtrinsicVersion.V5 -> ExtrinsicVersion.V5(extensionVersion)
+                    is ExtrinsicVersion.V5 -> defaultExtrinsicVersionProvider.getExtrinsicVersion(chainId, extensionVersion, isSigned)
                 }
             }
         }
