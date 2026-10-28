@@ -53,21 +53,6 @@ These stay for as long as PCF builds this app.
 - **Retire when:** upstream normalises the URL, or the gateway URL is set per platform without
   the slash.
 
-### Stored P-256 chat keys do not crash the app
-
-- **Origin:** `570d6cbf`
-- **Files:**
-  - `database/.../cleanup/LegacyEcdhKeyCleanup.kt` (a `RoomDatabase.Callback`, not a migration)
-  - `database/.../AppDatabase.kt`
-  - the chat and SSO mappers and repositories under `feature/chats/impl` and `feature/sso/impl`
-- **Problem:** installs upgraded in place across the P-256 → X25519 change crash on launch on
-  65-byte keys. No production build ever stored P-256 keys, so on production this is a safety
-  net: reads that would throw are mapped to `null` and logged instead.
-- **Upstream still affected if:**
-  `git show TAG:feature/chats/impl/src/main/java/io/paritytech/polkadotapp/feature_chats_impl/data/repository/ContactDevicesRepository.kt | grep -c requireX25519PublicKey`
-  is non-zero (that mapper throws on a malformed stored key).
-- **Retire when:** upstream read boundaries no longer throw on malformed stored keys.
-
 ### New accounts are not put into the coinage restore gate
 
 - **Origin:** `a1e09e90`
