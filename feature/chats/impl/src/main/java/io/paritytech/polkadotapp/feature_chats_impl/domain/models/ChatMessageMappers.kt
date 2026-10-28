@@ -57,20 +57,11 @@ fun ChatMessage.Content.toLocal(
 fun ChatMessageLocal.toDomain(
     customContentDecoder: CustomContentDecoder,
 ): ChatMessage {
-    val contentLocal = runCatching {
+    val content = runCatching {
         BinaryScale.decodeFromByteArray<ChatMessageContentLocal>(content)
     }.getOrElse {
         Timber.w(it, "Failed to decode content for ChatMessageContentLocal: ${content.toHexString(withPrefix = true)}")
         ChatMessageContentLocal.Unsupported(content)
-    }
-
-    // Mapping parses embedded keys, which a legacy message can fail (a 65-byte P-256 key in
-    // `DeviceAdded`). Fall back to Unsupported, as for a decode failure, instead of crashing.
-    val domainContent = runCatching {
-        contentLocal.toDomain(customContentDecoder)
-    }.getOrElse {
-        Timber.w(it, "Stored chat message $id has content this build cannot map; rendering it as Unsupported")
-        ChatMessage.Content.Unsupported(content)
     }
 
     return ChatMessage(
@@ -78,7 +69,7 @@ fun ChatMessageLocal.toDomain(
         timestamp = timestamp,
         chatId = ChatId.fromRawValue(chatId),
         origin = origin.toDomain(),
-        content = domainContent,
+        content = content.toDomain(customContentDecoder),
         status = status.toDomain(),
         replyToMessageId = replyToMessageId
     )
