@@ -1,12 +1,8 @@
 package io.paritytech.polkadotapp.feature_products_impl.domain.hostApi.sponsoring
 
 import io.novasama.substrate_sdk_android.runtime.definitions.types.generics.GenericCall
-import io.paritytech.polkadotapp.chains.extrinsic.visitor.call.api.CallTraversal
-import io.paritytech.polkadotapp.chains.extrinsic.visitor.call.api.collectLeafs
 import io.paritytech.polkadotapp.chains.multiNetwork.KnownChains
 import io.paritytech.polkadotapp.chains.multiNetwork.chain.model.ChainId
-import io.paritytech.polkadotapp.chains.util.Modules
-import io.paritytech.polkadotapp.common.domain.model.AccountId
 import io.paritytech.polkadotapp.feature_account_api.domain.derivation.asDisplayString
 import io.paritytech.polkadotapp.feature_balances_api.data.type.TokenBalanceTypeRegistry
 import io.paritytech.polkadotapp.feature_pgas_api.domain.PgasChainAssetProvider
@@ -24,18 +20,17 @@ import timber.log.Timber
 import javax.inject.Inject
 
 /**
- * Tops up a SmartContract (PGAS) allowance whenever the user signs an Asset Hub Revive
+ * Tops up a SmartContract (PGAS) allowance whenever the user signs any Asset Hub
  * call and the signing product account's PGAS balance is below 20% of the per-claim
  * amount.
  */
-class SponsorReviveCallsWithPgas @Inject constructor(
+class SponsorAssetHubCallsWithPgas @Inject constructor(
     private val knownChains: KnownChains,
     private val productAccountDerivationUseCase: ProductAccountDerivationUseCase,
     private val tokenBalanceTypeRegistry: TokenBalanceTypeRegistry,
     private val pgasChainAssetProvider: PgasChainAssetProvider,
     private val pgasClaimSpec: PgasClaimSpec,
     private val accountsProtocol: AccountsProtocol,
-    private val callTraversal: CallTraversal,
 ) : TransactionSponsoring {
     override suspend fun sponsorTransaction(
         chainId: ChainId,
@@ -45,8 +40,6 @@ class SponsorReviveCallsWithPgas @Inject constructor(
         if (chainId != knownChains.assetHub) return Result.success(Unit)
 
         return productAccountDerivationUseCase.deriveAccountId(account).mapCatching { accountId ->
-            if (!callSupportsPgasSponsoring(call, accountId)) return@mapCatching
-
             Timber.i("Transaction by $account is eligible for sponsorship")
 
             val asset = pgasChainAssetProvider.asset()
@@ -71,11 +64,6 @@ class SponsorReviveCallsWithPgas @Inject constructor(
                 ApAllocationOutcome.NotAvailable -> error("PGAS allocation unavailable")
             }
         }
-    }
-
-    private fun callSupportsPgasSponsoring(call: GenericCall.Instance, initialOrigin: AccountId): Boolean {
-        val leafs = callTraversal.collectLeafs(source = call, initialOrigin = initialOrigin)
-        return leafs.isNotEmpty() && leafs.all { it.call.module.name == Modules.REVIVE }
     }
 
     private companion object {
