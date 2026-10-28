@@ -2,10 +2,7 @@ package io.paritytech.polkadotapp.feature_sso_impl.data.repository
 
 import io.paritytech.polkadotapp.common.domain.model.AccountId
 import io.paritytech.polkadotapp.common.domain.model.EncodedPublicKey
-import io.paritytech.polkadotapp.common.domain.model.X25519PublicKey
-import io.paritytech.polkadotapp.common.domain.model.intoAccountId
-import io.paritytech.polkadotapp.common.domain.model.toDataByteArray
-import io.paritytech.polkadotapp.common.utils.mapListNotNull
+import io.paritytech.polkadotapp.common.domain.model.requireX25519PublicKey
 import io.paritytech.polkadotapp.common.utils.mapToUnit
 import io.paritytech.polkadotapp.database.dao.SsoSessionDao
 import io.paritytech.polkadotapp.database.model.SsoSessionLocal
@@ -18,24 +15,23 @@ import io.paritytech.polkadotapp.feature_sso_impl.domain.session.model.SsoSessio
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
-import timber.log.Timber
 import javax.inject.Inject
 
 class SsoSessionRepository @Inject constructor(
     private val ssoSessionDao: SsoSessionDao,
 ) {
     fun observeSessions(): Flow<List<SsoSessionData>> {
-        return ssoSessionDao.observeAll().mapListNotNull { it.toDomainOrNull() }
+        return ssoSessionDao.observeAll().map { sessions -> sessions.map { it.toDomain() } }
     }
 
     fun observeSessionsChanged(): Flow<Unit> = ssoSessionDao.observeSessionCount().distinctUntilChanged().mapToUnit()
 
     suspend fun getSessions(): List<SsoSessionData> {
-        return ssoSessionDao.getAll().mapNotNull { it.toDomainOrNull() }
+        return ssoSessionDao.getAll().map { it.toDomain() }
     }
 
     suspend fun getSessionByStatementAccountId(statementAccountId: AccountId): SsoSessionData? {
-        return ssoSessionDao.getByStatementStorePublicKey(statementAccountId.value)?.toDomainOrNull()
+        return ssoSessionDao.getByStatementStorePublicKey(statementAccountId.value)?.toDomain()
     }
 
     suspend fun saveSession(session: SsoSessionData) {
@@ -54,26 +50,9 @@ class SsoSessionRepository @Inject constructor(
         ssoSessionDao.deleteByStatementStorePublicKey(statementAccountId.value)
     }
 
-    /**
-     * Maps a stored session, or returns `null` when its shared-secret key is not a valid X25519
-     * public key. [observeSessions] is collected from the app initializer, where a throw would
-     * crash the app. `LegacyEcdhKeyCleanup` deletes such rows, and the device can be linked again.
-     */
-    private fun SsoSessionWithMetadata.toDomainOrNull(): SsoSessionData? {
-        val sharedSecretPublicKey = X25519PublicKey
-            .fromBytes(session.sharedSecretPublicKey.toDataByteArray())
-            .getOrElse {
-                Timber.w(
-                    "Skipping SSO session row with an unparseable shared-secret key: " +
-                        "statementStore=${session.statementStorePublicKey.intoAccountId()}, " +
-                        "storedKeyLength=${session.sharedSecretPublicKey.size}, " +
-                        "expected=${X25519PublicKey.SIZE_BYTES}"
-                )
-                return null
-            }
-
+    private fun SsoSessionWithMetadata.toDomain(): SsoSessionData {
         return SsoSessionData(
-            sharedSecretPublicKey = sharedSecretPublicKey,
+            sharedSecretPublicKey = session.sharedSecretPublicKey.requireX25519PublicKey(),
             statementStorePublicKey = EncodedPublicKey(session.statementStorePublicKey),
             metadata = metadata.toDomain(),
             addedAt = session.addedAt,
