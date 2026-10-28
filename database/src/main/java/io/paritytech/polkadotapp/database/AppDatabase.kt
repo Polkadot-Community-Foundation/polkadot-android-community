@@ -7,7 +7,6 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 import io.paritytech.polkadotapp.common.data.storage.preferences.Preferences
-import io.paritytech.polkadotapp.database.cleanup.LegacyEcdhKeyCleanup
 import io.paritytech.polkadotapp.database.converters.ChainConverters
 import io.paritytech.polkadotapp.database.converters.ExternalApiConverters
 import io.paritytech.polkadotapp.database.converters.IntListConverter
@@ -296,16 +295,7 @@ abstract class AppDatabase : RoomDatabase() {
             return Room
                 .databaseBuilder(context.applicationContext, AppDatabase::class.java, "app_v2.db")
                 .addAppMigrations(preferences, chatMessageContentMigrations)
-                .addAppCallbacks()
                 .build()
-        }
-
-        /**
-         * Callbacks that repair row values on open, which no schema migration can reach. Public so
-         * that `MigrationTest` runs them against the real schema.
-         */
-        fun <T : RoomDatabase> Builder<T>.addAppCallbacks(): Builder<T> {
-            return addCallback(LegacyEcdhKeyCleanup)
         }
 
         // Exposed for re-usage in tests
