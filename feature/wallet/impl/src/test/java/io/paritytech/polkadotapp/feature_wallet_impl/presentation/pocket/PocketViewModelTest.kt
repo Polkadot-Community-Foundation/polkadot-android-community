@@ -1,6 +1,5 @@
 package io.paritytech.polkadotapp.feature_wallet_impl.presentation.pocket
 
-import android.content.Context
 import android.net.Uri
 import android.webkit.WebView
 import androidx.lifecycle.viewModelScope
@@ -9,7 +8,6 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkStatic
 import io.mockk.unmockkStatic
-import io.paritytech.polkadotapp.common.presentation.sharing.SharingManager
 import io.paritytech.polkadotapp.feature_coinage_api.domain.model.BackupProgress
 import io.paritytech.polkadotapp.feature_dotns_api.domain.DotNsLoadProgress
 import io.paritytech.polkadotapp.feature_products_api.domain.pocket.PocketCard
@@ -109,13 +107,10 @@ class PocketViewModelTest {
         tokenAmountMapper = mock(TokenAmountMapper::class.java),
         tokenAmountFormatter = mock(TokenAmountFormatter::class.java),
         router = router,
-        idShareImageRenderer = mock(IdShareImageRenderer::class.java),
-        sharingManager = mock(SharingManager::class.java),
         collectiblesUrlResolver = collectiblesUrlResolver,
         dispatchers = dispatchers,
         cardOpenRequests = cardOpenRequests,
         spaHost = spaHost,
-        context = mock(Context::class.java),
     ).also { created += it }
 
     /** The cards the screen holds once everything the view model started has run. */
@@ -131,8 +126,6 @@ class PocketViewModelTest {
         mockkStatic(Uri::class)
         every { Uri.encode(any()) } answers { firstArg() }
         Dispatchers.setMain(testDispatcher)
-        whenever(interactor.observeUsername()).thenReturn(flowOf("alicent"))
-        whenever(interactor.observeAddress()).thenReturn(flowOf("15oF4u"))
         whenever(interactor.observeBackupProgress()).thenReturn(flowOf(BackupProgress.Unknown))
     }
 
@@ -156,15 +149,14 @@ class PocketViewModelTest {
     )
 
     // The collection is stored, decoded and served by a product's worker, so it has failure modes
-    // the balance and identity cards do not share. Before the product cards joined this screen
-    // nothing product-side could empty it; that must stay true.
+    // the balance card does not share, and none of them may take the balance card off the screen.
     @Test
-    fun `a failing product collection costs the product cards alone, not the native ones`() = runTest(testDispatcher) {
+    fun `a failing product collection costs the product cards alone, not the balance card`() = runTest(testDispatcher) {
         whenever(interactor.observeProductCards()).thenReturn(flow { throw IllegalStateException("unreadable") })
 
         val cards = settledCards(createViewModel())
 
-        assertEquals(listOf("digital_dollar_card", "id_card"), cards.map { it.id })
+        assertEquals(listOf("digital_dollar_card"), cards.map { it.id })
     }
 
     // The collectibles page reads the collection over the host's chain connection, which it gets only
@@ -182,13 +174,13 @@ class PocketViewModelTest {
     }
 
     @Test
-    fun `product cards follow the native ones once the collection loads`() = runTest(testDispatcher) {
+    fun `product cards follow the balance card once the collection loads`() = runTest(testDispatcher) {
         whenever(interactor.observeProductCards()).thenReturn(flowOf(listOf(productCard("loyalty"))))
 
         val cards = settledCards(createViewModel())
 
         assertEquals(
-            listOf("digital_dollar_card", "id_card", "product_card:game.dot:loyalty"),
+            listOf("digital_dollar_card", "product_card:game.dot:loyalty"),
             cards.map { it.id },
         )
         assertEquals("loyalty", cards.filterIsInstance<PocketCardUiModel.ProductCard>().single().title)
