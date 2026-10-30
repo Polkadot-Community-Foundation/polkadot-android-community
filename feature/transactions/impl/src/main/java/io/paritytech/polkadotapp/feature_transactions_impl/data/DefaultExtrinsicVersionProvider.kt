@@ -66,8 +66,8 @@ class RealDefaultExtrinsicVersionProvider @Inject constructor(
     }
 
     override suspend fun forGeneralTransactionChains(): Result<Map<ChainId, Byte>> {
-        return getTransactionExtensionVersions().map { versions ->
-            generalTransactionChains().associateWith { chainId -> versions.versionOf(chainId) }
+        return getTransactionExtensionVersions().mapCatching { versions ->
+            generalTransactionChains().associateWith { chainId -> highestDeclaredVersionUpTo(chainId, versions.versionOf(chainId)) }
         }
     }
 
