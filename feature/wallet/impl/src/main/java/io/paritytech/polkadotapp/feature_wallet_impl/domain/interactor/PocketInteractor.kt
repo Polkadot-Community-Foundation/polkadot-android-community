@@ -1,12 +1,9 @@
 package io.paritytech.polkadotapp.feature_wallet_impl.domain.interactor
 
 import android.net.Uri
-import io.paritytech.polkadotapp.chains.multiNetwork.ChainRegistry
-import io.paritytech.polkadotapp.chains.multiNetwork.KnownChains
 import io.paritytech.polkadotapp.chains.multiNetwork.chain.model.withAmount
 import io.paritytech.polkadotapp.common.utils.filterResultSuccess
 import io.paritytech.polkadotapp.common.utils.logFailure
-import io.paritytech.polkadotapp.feature_account_api.data.repository.AccountRepository
 import io.paritytech.polkadotapp.feature_coinage_api.domain.model.BackupProgress
 import io.paritytech.polkadotapp.feature_coinage_api.domain.service.CoinageBackupService
 import io.paritytech.polkadotapp.feature_coinage_api.domain.usecase.TotalBalanceUseCase
@@ -20,8 +17,6 @@ import io.paritytech.polkadotapp.feature_products_api.model.JsImageSource
 import io.paritytech.polkadotapp.feature_products_api.model.JsWidget
 import io.paritytech.polkadotapp.feature_tokens_api.di.DigitalDollarChainAssetProvider
 import io.paritytech.polkadotapp.feature_tokens_api.domain.ChainAssetProvider
-import io.paritytech.polkadotapp.feature_usernames_api.domain.usecase.UsernameOfAccountUseCase
-import io.paritytech.polkadotapp.feature_wallet_impl.data.config.AppSharingConfigRepository
 import io.paritytech.polkadotapp.feature_wallet_impl.domain.model.DigitalDollarBalance
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emitAll
@@ -33,26 +28,13 @@ import javax.inject.Inject
 class PocketInteractor @Inject constructor(
     @param:DigitalDollarChainAssetProvider private val chainAssetProvider: ChainAssetProvider,
     private val totalBalanceUseCase: TotalBalanceUseCase,
-    private val usernameOfAccountUseCase: UsernameOfAccountUseCase,
     private val coinageBackupService: CoinageBackupService,
-    private val accountRepository: AccountRepository,
-    private val chainRegistry: ChainRegistry,
-    private val knownChains: KnownChains,
     private val pocketCollection: PocketCollection,
     private val pocketFaceSource: PocketFaceSource,
     private val pocketCardFaceOnOpen: PocketCardFaceOnOpen,
     private val productContentWarmUp: ProductContentWarmUp,
-    private val appSharingConfigRepository: AppSharingConfigRepository,
 ) {
     fun observeBackupProgress(): Flow<BackupProgress> = coinageBackupService.subscribeProgress()
-
-    fun observeAddress(): Flow<String> = flow { emit(getPeopleChainAddress()) }
-
-    private suspend fun getPeopleChainAddress(): String {
-        val walletAccount = accountRepository.getWalletAccount()
-        val peopleChain = chainRegistry.getChain(knownChains.people)
-        return walletAccount.addressIn(peopleChain)
-    }
 
     fun observeDigitalDollarBalance(): Flow<DigitalDollarBalance> = flow {
         val asset = chainAssetProvider.asset()
@@ -69,10 +51,6 @@ class PocketInteractor @Inject constructor(
                 }
         )
     }
-
-    fun observeUsername(): Flow<String> = usernameOfAccountUseCase()
-        .filterNotNull()
-        .map { it.username.getDisplayUsername() }
 
     fun observeProductCards(): Flow<List<PocketCard>> = pocketCollection.observeCards()
 
@@ -92,6 +70,4 @@ class PocketInteractor @Inject constructor(
 
     suspend fun resolveFaceImage(key: PocketCardKey, source: JsImageSource): Result<Uri> =
         pocketFaceSource.resolveImage(key, source)
-
-    suspend fun getAppSharingUrl(): Result<String> = appSharingConfigRepository.getAppSharingUrl()
 }
