@@ -15,6 +15,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Assume.assumeTrue
 import org.junit.Test
 import org.mockito.ArgumentMatchers.anyInt
 import org.mockito.Mockito.mock
@@ -100,6 +101,7 @@ class AssetPinnedPocketCardsTest {
     @Test
     fun `the iOS app ships the same placeholder face and images`() {
         val iosFaces = File("../../../../ios/polkadot-app/Modules/Products/Pocket/Faces")
+        assumeTrue("the iOS app is not in this checkout", iosFaces.isDirectory)
 
         File("src/main/assets/pocket").listFiles().orEmpty().forEach { android ->
             val ios = File(iosFaces, "pocket-${android.name}")
