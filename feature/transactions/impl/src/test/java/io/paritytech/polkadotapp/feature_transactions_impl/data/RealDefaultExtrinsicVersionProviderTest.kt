@@ -106,6 +106,8 @@ class RealDefaultExtrinsicVersionProviderTest {
     fun `only people and asset hub are general transaction chains, at their configured versions`() = runTest {
         coEvery { remoteConfig.getSyncedJsonObject(any(), Map::class.java) } returns
             Result.success(mapOf(PEOPLE to 2.0, ASSET_HUB to 1.0, "polkadot" to 3.0))
+        runtimeOf(PEOPLE, extensionVersion = 2)
+        runtimeOf(ASSET_HUB, extensionVersion = 1)
 
         assertEquals(mapOf(PEOPLE to 2.toByte(), ASSET_HUB to 1.toByte()), provider.forGeneralTransactionChains().getOrThrow())
     }
@@ -113,8 +115,18 @@ class RealDefaultExtrinsicVersionProviderTest {
     @Test
     fun `a general transaction chain missing from remote config takes extension version 0`() = runTest {
         coEvery { remoteConfig.getSyncedJsonObject(any(), Map::class.java) } returns Result.success(mapOf(PEOPLE to 1.0))
+        runtimeOf(PEOPLE, extensionVersion = 1)
+        runtimeOf(ASSET_HUB, extensionVersion = 0)
 
         assertEquals(mapOf(PEOPLE to 1.toByte(), ASSET_HUB to 0.toByte()), provider.forGeneralTransactionChains().getOrThrow())
+    }
+
+    @Test
+    fun `a general transaction chain configured ahead of its runtime takes the highest declared version`() = runTest {
+        runtimeOf(PEOPLE, extensionVersion = 0, declaredVersions = setOf(0))
+        runtimeOf(ASSET_HUB, extensionVersion = 1)
+
+        assertEquals(mapOf(PEOPLE to 0.toByte(), ASSET_HUB to 1.toByte()), provider.forGeneralTransactionChains().getOrThrow())
     }
 
     @Test
