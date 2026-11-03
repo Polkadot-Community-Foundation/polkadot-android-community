@@ -69,7 +69,7 @@ class AssetPinnedPocketCardsTest {
         whenever(context.assets).thenReturn(assets)
         whenever(assets.list("pocket")).thenReturn(File("src/main/assets/pocket").list())
 
-        return AssetPinnedPocketCards(context, tldProvider)
+        return AssetPinnedPocketCards(context, tldProvider, TestnetEnvironment.TESTNET)
     }
 
     // A missing file is a hole in the card at first launch, which nothing else would notice.
