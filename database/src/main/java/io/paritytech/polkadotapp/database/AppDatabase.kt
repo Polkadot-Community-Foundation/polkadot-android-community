@@ -201,10 +201,10 @@ import io.paritytech.polkadotapp.database.model.chain.ChainRuntimeInfoLocal
         CoinageEntryOutputLocal::class,
         CoinageHandoffLocal::class,
         ProductTopUpLocal::class,
-        PocketCardLocal::class,
-        PocketCardFaceLocal::class,
         ChatAcceptanceLocal::class,
         ChatIdentitySigningConsentLocal::class,
+        PocketCardLocal::class,
+        PocketCardFaceLocal::class,
     ],
     autoMigrations = [
         // Add ChatMessageReactionLocal
@@ -436,9 +436,9 @@ abstract class AppDatabase : RoomDatabase() {
 
     abstract fun coinageInstallationDao(): CoinageInstallationDao
 
-    abstract fun pocketCardDao(): PocketCardDao
-
     abstract fun chatAcceptanceDao(): ChatAcceptanceDao
 
     abstract fun chatIdentitySigningConsentDao(): ChatIdentitySigningConsentDao
+
+    abstract fun pocketCardDao(): PocketCardDao
 }
