@@ -20,7 +20,6 @@ import io.paritytech.polkadotapp.feature_dotns_gateway_api.data.updaters.DotNsGa
 import io.paritytech.polkadotapp.feature_people_api.data.updaters.PeopleUpdateSystem
 import io.paritytech.polkadotapp.feature_prices_api.domain.SyncPricesUseCase
 import io.paritytech.polkadotapp.feature_splash_api.domain.DevResetCoordinator
-import io.paritytech.polkadotapp.feature_usernames_api.data.UsernameUpdateSystem
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.merge
 import timber.log.Timber
@@ -49,7 +48,6 @@ class RealRootInteractor @Inject constructor(
     private val candidateBalancesUpdateSystem: CandidateBalancesUpdateSystem,
     private val syncPricesUseCase: SyncPricesUseCase,
     private val peopleUpdateSystem: PeopleUpdateSystem,
-    private val usernameUpdateSystem: UsernameUpdateSystem,
     private val dotNsGatewayUpdateSystem: DotNsGatewayUpdateSystem,
     private val coinageUpdateSystem: CoinageUpdateSystem,
     private val chainRegistry: ChainRegistry,
@@ -63,7 +61,6 @@ class RealRootInteractor @Inject constructor(
         val updateSystems = buildList {
             add(walletBalancesUpdateSystem.updateSystem.start())
             add(candidateBalancesUpdateSystem.updateSystem.start())
-            add(usernameUpdateSystem.updateSystem.start())
             add(dotNsGatewayUpdateSystem.updateSystem.start())
             add(coinageUpdateSystem.updateSystem.start())
 

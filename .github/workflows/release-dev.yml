@@ -170,7 +170,7 @@ jobs:
       - name: Fingerprint the TrUAPI core in the APKs
         env:
           TRUAPI_REF: ${{ steps.truapi.outputs.ref }}
-          TRUAPI_SCHEMA_HASH: 3c45e49b26c1ab97
+          TRUAPI_SCHEMA_HASH: 72bf858138ead26e
         run: |
           fail() { echo "::error::$*"; exit 1; }
 

@@ -81,8 +81,8 @@ class RealAddContactUseCase @Inject constructor(
     override suspend fun addAlreadyEstablishedContactsById(accountIds: List<AccountId>): Result<Unit> {
         if (accountIds.isEmpty()) return Result.success(Unit)
 
-        val peopleChain = chainRegistry.getChain(knownChains.people)
-        return resourcesRepository.resolveConsumers(peopleChain.id, accountIds).flatMap { consumerInfoByAccount ->
+        val chain = chainRegistry.getChain(knownChains.assetHub)
+        return resourcesRepository.resolveConsumers(chain.id, accountIds).flatMap { consumerInfoByAccount ->
             runCatching {
                 val walletAccount = accountRepository.getWalletAccount()
                 val now = currentTimeContext.currentTime()

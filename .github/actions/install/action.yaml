@@ -7,10 +7,10 @@ inputs:
       SHA so an unrelated merge there cannot turn this build red; bump it
       deliberately.
       The app's HostCallbacks implementation must match the native API surface
-      at this commit. Currently the @parity/truapi@0.24.0 release tag, whose
+      at this commit. Currently the @parity/truapi@0.27.0 release tag, whose
       hosts/android this tree is vendored from; bump the two together.
     required: false
-    default: "b8f6b367ae350d6dcc07b9fe6a9110e5f28730bf"
+    default: "11e93cb58ff738861bf03cf99432f9a91a38cbd7"
 
 runs:
   using: "composite"
