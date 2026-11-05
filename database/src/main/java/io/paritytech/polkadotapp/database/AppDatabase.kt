@@ -7,15 +7,16 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 import io.paritytech.polkadotapp.common.data.storage.preferences.Preferences
-import io.paritytech.polkadotapp.database.cleanup.LegacyEcdhKeyCleanup
 import io.paritytech.polkadotapp.database.converters.ChainConverters
 import io.paritytech.polkadotapp.database.converters.ExternalApiConverters
 import io.paritytech.polkadotapp.database.converters.IntListConverter
 import io.paritytech.polkadotapp.database.converters.LongMathConverters
 import io.paritytech.polkadotapp.database.dao.BrowserTabDao
 import io.paritytech.polkadotapp.database.dao.ChainDao
+import io.paritytech.polkadotapp.database.dao.ChatAcceptanceDao
 import io.paritytech.polkadotapp.database.dao.ChatBotStateDao
 import io.paritytech.polkadotapp.database.dao.ChatDraftDao
+import io.paritytech.polkadotapp.database.dao.ChatIdentitySigningConsentDao
 import io.paritytech.polkadotapp.database.dao.ChatMessageCompactionDao
 import io.paritytech.polkadotapp.database.dao.ChatMessageDao
 import io.paritytech.polkadotapp.database.dao.ChatMessageProcessingDao
@@ -89,8 +90,10 @@ import io.paritytech.polkadotapp.database.migrations.Migration63To64
 import io.paritytech.polkadotapp.database.migrations.Migration65To66
 import io.paritytech.polkadotapp.database.migrations.Migration67To68Spec
 import io.paritytech.polkadotapp.database.model.BrowserTabLocal
+import io.paritytech.polkadotapp.database.model.ChatAcceptanceLocal
 import io.paritytech.polkadotapp.database.model.ChatBotStateLocal
 import io.paritytech.polkadotapp.database.model.ChatDraftLocal
+import io.paritytech.polkadotapp.database.model.ChatIdentitySigningConsentLocal
 import io.paritytech.polkadotapp.database.model.ChatMessageCompactionLinkLocal
 import io.paritytech.polkadotapp.database.model.ChatMessageLocal
 import io.paritytech.polkadotapp.database.model.ChatMessagePendingExpansionLocal
@@ -141,7 +144,7 @@ import io.paritytech.polkadotapp.database.model.chain.ChainNodeLocal
 import io.paritytech.polkadotapp.database.model.chain.ChainRuntimeInfoLocal
 
 @Database(
-    version = 69,
+    version = 70,
     entities = [
         ProductFundingOperationLocal::class,
         ChainLocal::class,
@@ -194,6 +197,8 @@ import io.paritytech.polkadotapp.database.model.chain.ChainRuntimeInfoLocal
         CoinageEntryOutputLocal::class,
         CoinageHandoffLocal::class,
         ProductTopUpLocal::class,
+        ChatAcceptanceLocal::class,
+        ChatIdentitySigningConsentLocal::class,
     ],
     autoMigrations = [
         // Add ChatMessageReactionLocal
@@ -278,6 +283,8 @@ import io.paritytech.polkadotapp.database.model.chain.ChainRuntimeInfoLocal
         AutoMigration(from = 67, to = 68, spec = Migration67To68Spec::class),
         // Add chat_requests delivery state (deliveryStatus, deliveredVia, lastDeliveredPeriod)
         AutoMigration(from = 68, to = 69),
+        // Add chat_acceptances, chat_identity_signing_consents and statement_store_slot_allocations.tag
+        AutoMigration(from = 69, to = 70),
     ]
 )
 @TypeConverters(
@@ -296,16 +303,7 @@ abstract class AppDatabase : RoomDatabase() {
             return Room
                 .databaseBuilder(context.applicationContext, AppDatabase::class.java, "app_v2.db")
                 .addAppMigrations(preferences, chatMessageContentMigrations)
-                .addAppCallbacks()
                 .build()
-        }
-
-        /**
-         * Callbacks that repair row values on open, which no schema migration can reach. Public so
-         * that `MigrationTest` runs them against the real schema.
-         */
-        fun <T : RoomDatabase> Builder<T>.addAppCallbacks(): Builder<T> {
-            return addCallback(LegacyEcdhKeyCleanup)
         }
 
         // Exposed for re-usage in tests
@@ -428,4 +426,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun durableTxDao(): DurableTxDao
 
     abstract fun coinageInstallationDao(): CoinageInstallationDao
+
+    abstract fun chatAcceptanceDao(): ChatAcceptanceDao
+
+    abstract fun chatIdentitySigningConsentDao(): ChatIdentitySigningConsentDao
 }

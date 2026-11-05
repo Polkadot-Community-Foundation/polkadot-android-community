@@ -1,17 +1,15 @@
 package io.paritytech.polkadotapp.feature_chats_impl.data.repository
 
 import io.paritytech.polkadotapp.common.domain.model.AccountId
-import io.paritytech.polkadotapp.common.domain.model.X25519PublicKey
 import io.paritytech.polkadotapp.common.domain.model.intoAccountId
-import io.paritytech.polkadotapp.common.domain.model.toDataByteArray
-import io.paritytech.polkadotapp.common.utils.mapListNotNull
+import io.paritytech.polkadotapp.common.domain.model.requireX25519PublicKey
+import io.paritytech.polkadotapp.common.utils.mapList
 import io.paritytech.polkadotapp.database.dao.ContactDeviceDao
 import io.paritytech.polkadotapp.database.model.ContactDeviceLocal
 import io.paritytech.polkadotapp.feature_chats_api.domain.model.ContactAccountId
 import io.paritytech.polkadotapp.feature_chats_api.domain.model.ContactDevice
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
-import timber.log.Timber
 import javax.inject.Inject
 
 interface ContactDevicesRepository {
@@ -32,17 +30,17 @@ class RealContactDevicesRepository @Inject constructor(
     private val dao: ContactDeviceDao
 ) : ContactDevicesRepository {
     override suspend fun getDevices(contactAccountId: ContactAccountId): List<ContactDevice> {
-        return dao.getByContact(contactAccountId.value).mapNotNull { it.toDomainOrNull() }
+        return dao.getByContact(contactAccountId.value).map { it.toDomain() }
     }
 
     override fun subscribeDevices(contactAccountId: ContactAccountId): Flow<List<ContactDevice>> {
         return dao.subscribeByContact(contactAccountId.value)
-            .mapListNotNull { it.toDomainOrNull() }
+            .mapList { it.toDomain() }
     }
 
     override fun subscribeAllDevices(): Flow<Map<ContactAccountId, List<ContactDevice>>> {
         return dao.subscribeAll()
-            .mapListNotNull { it.toDomainOrNull() }
+            .mapList { it.toDomain() }
             .map { devices -> devices.groupBy { it.contactAccountId } }
     }
 
@@ -62,25 +60,11 @@ class RealContactDevicesRepository @Inject constructor(
     }
 }
 
-/**
- * Maps a stored device, or returns `null` when its encryption key is not a valid X25519 public
- * key. These rows are read inside Room flows, where a throw would crash the app; the peer
- * re-announces the device with a valid key.
- */
-private fun ContactDeviceLocal.toDomainOrNull(): ContactDevice? {
-    val parsedKey = X25519PublicKey.fromBytes(encryptionPublicKey.toDataByteArray()).getOrElse {
-        Timber.w(
-            "Skipping contact device row with an unparseable encryption key: " +
-                "contact=${contactAccountId.intoAccountId()}, device=${statementAccountId.intoAccountId()}, " +
-                "storedKeyLength=${encryptionPublicKey.size}, expected=${X25519PublicKey.SIZE_BYTES}"
-        )
-        return null
-    }
-
+private fun ContactDeviceLocal.toDomain(): ContactDevice {
     return ContactDevice(
         contactAccountId = contactAccountId.intoAccountId(),
         statementAccountId = statementAccountId.intoAccountId(),
-        encryptionPublicKey = parsedKey,
+        encryptionPublicKey = encryptionPublicKey.requireX25519PublicKey(),
     )
 }
 
