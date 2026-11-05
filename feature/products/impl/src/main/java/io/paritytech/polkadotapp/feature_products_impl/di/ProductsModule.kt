@@ -64,8 +64,8 @@ import io.paritytech.polkadotapp.feature_products_impl.domain.funding.RealFundin
 import io.paritytech.polkadotapp.feature_products_impl.domain.hostApi.allowance.AllowanceKeyStorage
 import io.paritytech.polkadotapp.feature_products_impl.domain.hostApi.allowance.RealAllowanceKeyStorage
 import io.paritytech.polkadotapp.feature_products_impl.domain.hostApi.sponsoring.RealStatementStoreSubmissionSponsoring
+import io.paritytech.polkadotapp.feature_products_impl.domain.hostApi.sponsoring.SponsorAssetHubCallsWithPgas
 import io.paritytech.polkadotapp.feature_products_impl.domain.hostApi.sponsoring.SponsorPreimageWithBulletin
-import io.paritytech.polkadotapp.feature_products_impl.domain.hostApi.sponsoring.SponsorReviveCallsWithPgas
 import io.paritytech.polkadotapp.feature_products_impl.domain.notifications.ProductNotificationScheduler
 import io.paritytech.polkadotapp.feature_products_impl.domain.notifications.RealProductNotificationScheduler
 import io.paritytech.polkadotapp.feature_products_impl.domain.operation.ProductOperationService
@@ -272,7 +272,7 @@ internal interface ProductsModule {
     fun bindAccountsProtocol(impl: RealAccountsProtocol): AccountsProtocol
 
     @Binds
-    fun bindTransactionSponsoring(impl: SponsorReviveCallsWithPgas): TransactionSponsoring
+    fun bindTransactionSponsoring(impl: SponsorAssetHubCallsWithPgas): TransactionSponsoring
 
     @Binds
     fun bindPreimageSubmitSponsoring(impl: SponsorPreimageWithBulletin): PreimageSubmitSponsoring
