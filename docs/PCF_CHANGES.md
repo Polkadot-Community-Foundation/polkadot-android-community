@@ -17,6 +17,7 @@ These stay for as long as PCF builds this app.
 | Production build lane: PCF application id, signing, private artifact bucket | `.github/workflows/build-production.yml`, `app/build.gradle.kts` |
 | Upstream publishing workflows reduced to manual dispatch | `.github/workflows/firebase_debug_distribution.yml`, `firebase_release_distribution.yml`, `nightly_release.yaml`, `genesis_hash_monitor.yml` |
 | PR checks fall back to PCF variables and secrets | `.github/workflows/pr.yml`, `.github/workflows/detekt.yaml` |
+| Crashlytics, Firebase Sessions, Analytics and WebView metrics off on release builds | `app/src/release/AndroidManifest.xml` |
 
 ## App fixes
 
