@@ -57,9 +57,11 @@ val truapiDir: String = run {
     }
 }
 
-// Generated source root that `syncHostShell` populates with truapi's canonical
-// `io.parity.truapi` shell.
+// Handwritten Kotlin adapters and value types synced from the core checkout.
 val hostShellDir: Provider<Directory> = layout.buildDirectory.dir("truapi-shell")
+
+// The signed stacks the app can run, synced from the core checkout as `stacks/` assets.
+val stackAssetsDir: Provider<Directory> = layout.buildDirectory.dir("truapi-stacks")
 
 android {
     namespace = "io.parity.truapi"
@@ -71,6 +73,7 @@ android {
                 "src/main/kotlin/generated",
                 hostShellDir.get().asFile.path,
             )
+            assets.srcDir(stackAssetsDir.get().asFile.path)
         }
         getByName("test") { java.srcDirs("src/test/kotlin") }
         getByName("androidTest") { java.srcDirs("src/androidTest/kotlin") }
@@ -85,16 +88,26 @@ android {
     packaging.resources.excludes += "META-INF/versions/9/OSGI-INF/MANIFEST.MF"
 }
 
-// truapi owns the `io.parity.truapi` host shell. Sync it from the checkout at
-// build time so this repo holds no copy of it and the two cannot drift.
+// truapi owns the `io.parity.truapi` host shell. Sync it from the core at
+// build time so this tree holds no copy of it and the two cannot drift.
 //
-// Only the package directory is taken. truapi's `src/main/kotlin` root also holds
-// its own generated UniFFI bindings, which would collide with the ones generated
-// here (`Redeclaration` / `Conflicting overloads`).
+// Generated bindings are excluded because this module generates its own copy.
 val syncHostShell by tasks.registering(Sync::class) {
-    from("$truapiDir/android/truapi-host/src/main/kotlin/io/parity/truapi")
-    into(hostShellDir.map { it.dir("io/parity/truapi") })
+    from("$truapiDir/android/truapi-host/src/main/kotlin") { exclude("generated/**") }
+    into(hostShellDir)
 }
+
+// truapi owns the signed stack descriptors too. The app ships the four it can
+// run as `stacks/<name>.link` and `stacks/<name>.json` assets, synced from the
+// core so this tree holds no copy of them either.
+val syncStacks by tasks.registering(Sync::class) {
+    from("$truapiDir/stacks") { include("previewnet.*", "paseo-next-v2.*", "polkadot.*", "pcf-devnet.*") }
+    into(stackAssetsDir.map { it.dir("stacks") })
+}
+
+// Asset merging and lint both read the synced stacks.
+tasks.matching { (it.name.startsWith("merge") && it.name.endsWith("Assets")) || "lint" in it.name.lowercase() }
+    .configureEach { dependsOn(syncStacks) }
 
 // Every Kotlin compilation here consumes the synced shell and the generated
 // bindings, across all four build types and both test source sets.
@@ -102,8 +115,8 @@ tasks.withType<KotlinCompile>().configureEach {
     dependsOn(syncHostShell, generateUniffiKotlin)
 }
 
-// Override the convention default (`module = "rust/"`) to point at the
-// external truapi crate.
+// Override the convention default (`module = "rust/"`) to point at the core's
+// truapi crate.
 cargo {
     module = "$truapiDir/rust/crates/truapi"
     libname = "truapi"
@@ -151,12 +164,10 @@ val installCoreNodeDeps by tasks.registering(Exec::class) {
     outputs.dir("$truapiDir/node_modules").withPropertyName("coreNodeModules")
 }
 
-// Generate the core's wire dispatcher. trinity-user-agents stopped tracking
-// `truapi/src/generated` and generates it on demand, so a checkout of any
-// commit after that does not compile until this runs. Release tags do not carry
-// it either: the iOS tag script commits only the paths `Package.swift` declares.
-// Calling the core's own script rather than repeating its codegen invocation
-// keeps this from drifting when that pipeline changes.
+// Generate the core's wire dispatcher. `truapi/src/generated` is gitignored,
+// so the core does not compile until this runs. Calling the core's own script
+// rather than repeating its codegen invocation keeps this from drifting when
+// that pipeline changes.
 val generateCoreDispatcher by tasks.registering(Exec::class) {
     dependsOn(installCoreNodeDeps)
     workingDir = file(truapiDir)
@@ -206,6 +217,7 @@ val generateUniffiKotlin by tasks.registering(Exec::class) {
         "--out-dir", outDir.asFile.absolutePath,
     )
     inputs.file(hostCdylib).withPropertyName("hostCdylib")
+    inputs.file("$truapiDir/rust/crates/truapi/uniffi.toml").withPropertyName("uniffiConfig")
     outputs.dir(outDir).withPropertyName("generatedBindings")
 }
 
