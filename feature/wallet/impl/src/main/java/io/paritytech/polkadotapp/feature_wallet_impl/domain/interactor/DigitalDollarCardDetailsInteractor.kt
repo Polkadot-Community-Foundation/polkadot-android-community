@@ -4,6 +4,7 @@ import io.paritytech.polkadotapp.chains.multiNetwork.chain.model.Chain
 import io.paritytech.polkadotapp.common.data.memory.ComputationalScope
 import io.paritytech.polkadotapp.common.data.network.TestnetEnvironment
 import io.paritytech.polkadotapp.common.utils.logFailure
+import io.paritytech.polkadotapp.feature_account_api.data.repository.AccountRepository
 import io.paritytech.polkadotapp.feature_coinage_api.domain.model.BackupProgress
 import io.paritytech.polkadotapp.feature_coinage_api.domain.service.CoinageBackupService
 import io.paritytech.polkadotapp.feature_coinage_api.domain.usecase.CoinageBalanceConverterUseCase
@@ -11,6 +12,8 @@ import io.paritytech.polkadotapp.feature_coinage_api.domain.usecase.CoinageHoldi
 import io.paritytech.polkadotapp.feature_coinage_api.domain.usecase.CoinageHoldingsUseCase
 import io.paritytech.polkadotapp.feature_coinage_api.domain.usecase.CoinageTestnetFundUseCase
 import io.paritytech.polkadotapp.feature_coinage_api.domain.usecase.ShareCoinageLogsUseCase
+import io.paritytech.polkadotapp.feature_dotns_api.domain.DotNsTld
+import io.paritytech.polkadotapp.feature_dotns_api.domain.DotNsTldProvider
 import io.paritytech.polkadotapp.feature_products_api.domain.FundingConfig
 import io.paritytech.polkadotapp.feature_products_api.domain.FundingDomainProvider
 import io.paritytech.polkadotapp.feature_tokens_api.di.DigitalDollarChainAssetProvider
@@ -29,11 +32,17 @@ class DigitalDollarCardDetailsInteractor @Inject constructor(
     private val shareCoinageLogsUseCase: ShareCoinageLogsUseCase,
     private val fundingDomainProvider: FundingDomainProvider,
     private val coinageHoldingsUseCase: CoinageHoldingsUseCase,
-    private val coinageBalanceConverterUseCase: CoinageBalanceConverterUseCase
+    private val coinageBalanceConverterUseCase: CoinageBalanceConverterUseCase,
+    private val accountRepository: AccountRepository,
+    private val dotNsTldProvider: DotNsTldProvider,
 ) {
     companion object {
         private val TOP_UP_AMOUNT = 150.toBigDecimal()
         private val NIGHTLY_TOP_UP_AMOUNT = 10.toBigDecimal()
+        private const val FAUCET_PRODUCT = "faucet"
+
+        internal fun faucetUrl(tld: DotNsTld, recipient: String): String =
+            "$FAUCET_PRODUCT${tld.suffix}/?address=$recipient"
     }
 
     suspend fun getFundingConfig(): Result<FundingConfig> = fundingDomainProvider.getFundingConfig()
@@ -65,6 +74,12 @@ class DigitalDollarCardDetailsInteractor @Inject constructor(
     suspend fun shareCoinageLogs(): Result<Unit> = shareCoinageLogsUseCase().map { }
 
     suspend fun autoFundAvailable() = environment != TestnetEnvironment.PRODUCTION
+
+    fun topUpOpensFaucet(): Boolean = environment == TestnetEnvironment.NIGHTLY || environment == TestnetEnvironment.DEV
+
+    suspend fun faucetUrl(): Result<String> = dotNsTldProvider.getTld().map { tld ->
+        faucetUrl(tld, accountRepository.getWalletAccount().addressIn(chainAssetProvider.chain()))
+    }
 
     suspend fun testnetFund(): Result<Unit> {
         val amount = when (environment) {

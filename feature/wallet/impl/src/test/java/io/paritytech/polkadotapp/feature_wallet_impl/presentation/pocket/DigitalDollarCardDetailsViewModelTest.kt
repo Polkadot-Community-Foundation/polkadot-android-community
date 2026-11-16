@@ -1,12 +1,14 @@
 package io.paritytech.polkadotapp.feature_wallet_impl.presentation.pocket
 
 import io.paritytech.polkadotapp.common.data.network.TestnetEnvironment
+import io.paritytech.polkadotapp.feature_account_api.data.repository.AccountRepository
 import io.paritytech.polkadotapp.feature_coinage_api.domain.model.BackupProgress
 import io.paritytech.polkadotapp.feature_coinage_api.domain.service.CoinageBackupService
 import io.paritytech.polkadotapp.feature_coinage_api.domain.usecase.CoinageBalanceConverterUseCase
 import io.paritytech.polkadotapp.feature_coinage_api.domain.usecase.CoinageHoldingsUseCase
 import io.paritytech.polkadotapp.feature_coinage_api.domain.usecase.CoinageTestnetFundUseCase
 import io.paritytech.polkadotapp.feature_coinage_api.domain.usecase.ShareCoinageLogsUseCase
+import io.paritytech.polkadotapp.feature_dotns_api.domain.DotNsTldProvider
 import io.paritytech.polkadotapp.feature_tokens_api.domain.ChainAssetProvider
 import io.paritytech.polkadotapp.feature_tokens_api.presentation.mapper.TokenAmountMapper
 import io.paritytech.polkadotapp.feature_wallet_impl.PocketRouter
@@ -54,7 +56,9 @@ class DigitalDollarCardDetailsViewModelTest {
         shareCoinageLogsUseCase = shareCoinageLogsUseCase,
         fundingDomainProvider = fundingDomainProvider,
         coinageHoldingsUseCase = coinageHoldingsUseCase,
-        coinageBalanceConverterUseCase = coinageBalanceConverterUseCase
+        coinageBalanceConverterUseCase = coinageBalanceConverterUseCase,
+        accountRepository = mock(AccountRepository::class.java),
+        dotNsTldProvider = mock(DotNsTldProvider::class.java),
     )
 
     @Before

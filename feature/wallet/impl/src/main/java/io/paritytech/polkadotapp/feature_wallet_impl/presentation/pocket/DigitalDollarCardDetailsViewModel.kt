@@ -134,8 +134,14 @@ class DigitalDollarCardDetailsViewModel @Inject constructor(
     fun onAutoFundClick() = launchUnit {
         if (fundInProgress.value) return@launchUnit
         fundInProgress.enable()
-        interactor.testnetFund()
-            .onFailure { showPresentationError(AutoFundFailedPresentationError(it)) }
+        if (interactor.topUpOpensFaucet()) {
+            interactor.faucetUrl()
+                .onSuccess { router.openSpaSheet(it) }
+                .onFailure { showPresentationError(AutoFundFailedPresentationError(it)) }
+        } else {
+            interactor.testnetFund()
+                .onFailure { showPresentationError(AutoFundFailedPresentationError(it)) }
+        }
         fundInProgress.disable()
     }
 
