@@ -56,6 +56,8 @@ android {
             buildConfigField("boolean", "DIM1_BOT_BY_DEFAULT", "false")
             buildConfigField("boolean", "SAMPLE_BOT", "false")
             buildConfigField("boolean", "COINAGE_DEBUG_TOOLS", "false")
+            // Off frees the docklet slot for the browse tab.
+            buildConfigField("boolean", "TAB_BAR_CONNECTIVITY_INDICATOR", "false")
         }
     }
 }
