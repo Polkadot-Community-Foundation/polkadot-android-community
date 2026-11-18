@@ -5,6 +5,7 @@ import io.paritytech.polkadotapp.common.data.memory.ComputationalScope
 import io.paritytech.polkadotapp.common.data.network.TestnetEnvironment
 import io.paritytech.polkadotapp.common.utils.logFailure
 import io.paritytech.polkadotapp.feature_account_api.data.repository.AccountRepository
+import io.paritytech.polkadotapp.feature_account_api.data.repository.getDepositAccount
 import io.paritytech.polkadotapp.feature_coinage_api.domain.model.BackupProgress
 import io.paritytech.polkadotapp.feature_coinage_api.domain.service.CoinageBackupService
 import io.paritytech.polkadotapp.feature_coinage_api.domain.usecase.CoinageBalanceConverterUseCase
@@ -78,7 +79,7 @@ class DigitalDollarCardDetailsInteractor @Inject constructor(
     fun topUpOpensFaucet(): Boolean = environment == TestnetEnvironment.NIGHTLY || environment == TestnetEnvironment.DEV
 
     suspend fun faucetUrl(): Result<String> = dotNsTldProvider.getTld().map { tld ->
-        faucetUrl(tld, accountRepository.getWalletAccount().addressIn(chainAssetProvider.chain()))
+        faucetUrl(tld, accountRepository.getDepositAccount().addressIn(chainAssetProvider.chain()))
     }
 
     suspend fun testnetFund(): Result<Unit> {
