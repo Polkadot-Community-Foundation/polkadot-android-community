@@ -11,7 +11,7 @@ android {
 
     // The coins' latency probe ships in debug only; every other build type gets the no-op.
     sourceSets {
-        listOf("release", "nightly", "safetynet").forEach { getByName(it).java.srcDir("src/noDebugTools/java") }
+        listOf("release", "nightly", "safetynet", "dev").forEach { getByName(it).java.srcDir("src/noDebugTools/java") }
     }
 }
 
