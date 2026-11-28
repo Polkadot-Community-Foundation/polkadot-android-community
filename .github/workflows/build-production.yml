@@ -5,15 +5,15 @@ name: Build (Production)
 # job behind the `production-distribution` approval; `distribute` sends the signed APK to the
 # internal tester group behind a second approval.
 #
-# variant=internal builds `vanillaInternal` instead: the production app as
-# `io.pcf.polkadotapp.internal` for internal testers, always unsigned here because its key is
-# held on hardware and applied outside CI.
+# variant=internal builds `gpInternal` instead: the production app as
+# `io.pcf.polkadotapp.internal` for internal testers, attesting with key attestation, always
+# unsigned here because its key is held on hardware and applied outside CI.
 
 on:
   workflow_dispatch:
     inputs:
       variant:
-        description: 'production = gpRelease. internal = vanillaInternal (io.pcf.polkadotapp.internal), unsigned only.'
+        description: 'production = gpRelease. internal = gpInternal (io.pcf.polkadotapp.internal), unsigned only.'
         type: choice
         default: production
         options: [production, internal]
@@ -104,7 +104,7 @@ jobs:
           echo "building tag $INPUT_REF at $sha"
 
   build:
-    name: Build ${{ inputs.variant == 'internal' && 'vanillaInternal' || 'gpRelease' }} (unsigned)
+    name: Build ${{ inputs.variant == 'internal' && 'gpInternal' || 'gpRelease' }} (unsigned)
     needs: resolve
     runs-on: ubuntu-latest
     environment: production
@@ -112,8 +112,8 @@ jobs:
       contents: read
       id-token: write
     env:
-      VARIANT: ${{ inputs.variant == 'internal' && 'vanillaInternal' || 'gpRelease' }}
-      APK_DIR: ${{ inputs.variant == 'internal' && 'app/build/outputs/apk/vanilla/internal' || 'app/build/outputs/apk/gp/release' }}
+      VARIANT: ${{ inputs.variant == 'internal' && 'gpInternal' || 'gpRelease' }}
+      APK_DIR: ${{ inputs.variant == 'internal' && 'app/build/outputs/apk/gp/internal' || 'app/build/outputs/apk/gp/release' }}
       GOOGLE_SERVICES_DIR: ${{ inputs.variant == 'internal' && 'app/src/internal' || 'app/src/release' }}
       APPLICATION_ID_SUFFIX: ${{ inputs.variant == 'internal' && '.internal' || '' }}
     outputs:
@@ -196,6 +196,15 @@ jobs:
             exit 1
           fi
           echo "google-services.json carries a client entry for $PKG"
+          # Google Sign-In needs an Android OAuth client for the package and its signing certificate,
+          # or it fails with DEVELOPER_ERROR. Only a warning: without it Google sign-in and cloud backup
+          # fail, and the rest of the internal build works.
+          if [ "$VARIANT" = gpInternal ] && ! jq -e --arg pkg "$PKG" \
+               'any(.client[]?.oauth_client[]?; .client_type == 1
+                    and .android_info.package_name == $pkg
+                    and (.android_info.certificate_hash // "") != "")' "$FILE" >/dev/null; then
+            echo "::warning::google-services.json has no Android OAuth client (client_type 1) with a certificate hash for $PKG; Google Sign-In will fail with DEVELOPER_ERROR."
+          fi
 
       - name: Assemble ${{ env.VARIANT }}
         env:
@@ -232,12 +241,12 @@ jobs:
               exit 1
             fi
           done
-          if [ "$VARIANT" = vanillaInternal ]; then
+          if [ "$VARIANT" = gpInternal ]; then
             if [ -z "$SENTRY_DSN" ]; then
               echo "::error::Missing 'SENTRY_DSN' in the 'production' environment; the internal build must report to Sentry."
               exit 1
             fi
-            ./gradlew :app:testVanillaInternalUnitTest :app:assembleVanillaInternal \
+            ./gradlew :tools:integrity:impl:testGpReleaseUnitTest :app:testGpInternalUnitTest :app:assembleGpInternal \
               --no-daemon --stacktrace
           else
             ./gradlew :app:assembleGpRelease :app:bundleGpRelease \

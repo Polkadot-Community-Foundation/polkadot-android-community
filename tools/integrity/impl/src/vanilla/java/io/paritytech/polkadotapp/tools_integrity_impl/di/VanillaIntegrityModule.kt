@@ -4,7 +4,7 @@ import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
-import io.paritytech.polkadotapp.tools_integrity_impl.data.RealVanillaIntegrityParamsInjector
+import io.paritytech.polkadotapp.tools_integrity_impl.data.KeyAttestationIntegrityParamsInjector
 import io.paritytech.polkadotapp.tools_integrity_impl.data.integrity.IntegrityParamsInjector
 
 @Module
@@ -12,5 +12,5 @@ import io.paritytech.polkadotapp.tools_integrity_impl.data.integrity.IntegrityPa
 interface VanillaIntegrityModule {
 
     @Binds
-    fun bindIntegrityHeadersInjector(impl: RealVanillaIntegrityParamsInjector): IntegrityParamsInjector
+    fun bindIntegrityHeadersInjector(impl: KeyAttestationIntegrityParamsInjector): IntegrityParamsInjector
 }

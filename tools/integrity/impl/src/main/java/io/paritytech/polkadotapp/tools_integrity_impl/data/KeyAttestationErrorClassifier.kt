@@ -6,7 +6,7 @@ import java.security.InvalidAlgorithmParameterException
 import java.security.KeyStoreException
 import java.security.ProviderException
 
-internal fun Throwable.toIntegrityError(): IntegrityError = when (this) {
+internal fun Throwable.toKeyAttestationError(): IntegrityError = when (this) {
     is CancellationException -> throw this
     is IntegrityError -> this
 

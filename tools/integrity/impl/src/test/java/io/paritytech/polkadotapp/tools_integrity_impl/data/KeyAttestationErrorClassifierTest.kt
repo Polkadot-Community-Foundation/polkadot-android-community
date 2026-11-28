@@ -7,7 +7,7 @@ import java.security.InvalidAlgorithmParameterException
 import java.security.KeyStoreException
 import java.security.ProviderException
 
-class VanillaIntegrityErrorClassifierTest {
+class KeyAttestationErrorClassifierTest {
 
     @Test
     fun `keystore refusals mean the device cannot attest`() {
@@ -22,7 +22,7 @@ class VanillaIntegrityErrorClassifierTest {
             assertEquals(
                 "${failure::class.simpleName} should be AttestationUnavailable",
                 IntegrityError.AttestationUnavailable,
-                failure.toIntegrityError()
+                failure.toKeyAttestationError()
             )
         }
     }
@@ -31,12 +31,12 @@ class VanillaIntegrityErrorClassifierTest {
     fun `already typed errors pass through`() {
         assertEquals(
             IntegrityError.AttestationRejected,
-            IntegrityError.AttestationRejected.toIntegrityError()
+            IntegrityError.AttestationRejected.toKeyAttestationError()
         )
     }
 
     @Test
     fun `unrecognised throwable is unknown`() {
-        assertEquals(IntegrityError.Unknown, IllegalStateException("boom").toIntegrityError())
+        assertEquals(IntegrityError.Unknown, IllegalStateException("boom").toKeyAttestationError())
     }
 }

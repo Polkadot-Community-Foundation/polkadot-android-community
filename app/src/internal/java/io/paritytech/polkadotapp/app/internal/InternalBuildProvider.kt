@@ -19,6 +19,7 @@ import javax.inject.Singleton
 
 private const val APP_PACKAGE_PREFIX = "io.paritytech.polkadotapp."
 private const val NOTICE_ACKNOWLEDGEMENT_FILE = "internal_build_notice_acknowledged"
+private const val GP_FLAVOR = "gp"
 
 /**
  * Adds the internal build's notice, marker and username pre-fill to the app's own activities through
@@ -42,6 +43,7 @@ class InternalBuildProvider @Inject constructor(
 internal class InternalBuildInfo(
     val isDebuggable: Boolean,
     val hasDebugMenu: Boolean,
+    val hasGoogleBackup: Boolean,
     val sentryStatus: SentryStatus,
 )
 
@@ -59,6 +61,8 @@ private fun readBuildInfo(context: Context): InternalBuildInfo {
         isDebuggable = (context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0,
         // The flag App uses to enable the shake-to-open debug menu and the dev reset prompt.
         hasDebugMenu = BuildConfig.DEBUG,
+        // Only the gp flavor signs in with Google and backs up to Drive; vanilla has no-op auth.
+        hasGoogleBackup = BuildConfig.FLAVOR == GP_FLAVOR,
         sentryStatus = sentryStatus,
     )
 }

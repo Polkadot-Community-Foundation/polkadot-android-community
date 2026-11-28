@@ -36,6 +36,15 @@ android {
             buildConfigString("BACKUP_FILE_SUFFIX", "safetynet")
             buildConfigString("BACKUP_KEY_SUFFIX", "-safetynet")
         }
+
+        // Selected by the app's internal build type, so its backups never share a Drive file or a
+        // key collection with the production app. Otherwise the same as release.
+        create("internal") {
+            initWith(getByName("release"))
+            matchingFallbacks.add("release")
+            buildConfigString("BACKUP_FILE_SUFFIX", "internal")
+            buildConfigString("BACKUP_KEY_SUFFIX", "-internal")
+        }
     }
 
     flavorDimensions += "distribution"

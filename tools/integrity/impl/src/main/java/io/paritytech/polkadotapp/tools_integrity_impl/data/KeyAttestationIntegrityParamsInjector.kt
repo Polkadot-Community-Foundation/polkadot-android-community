@@ -17,7 +17,7 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import javax.inject.Inject
 
-class RealVanillaIntegrityParamsInjector @Inject constructor(
+class KeyAttestationIntegrityParamsInjector @Inject constructor(
     @param:ApplicationContext private val applicationContext: Context,
     keypairStore: ClientKeypairStore,
     private val gson: Gson
@@ -44,7 +44,7 @@ class RealVanillaIntegrityParamsInjector @Inject constructor(
             .flatMap { certChain ->
                 injectAttestationField(requestBuilder, certChain)
             }
-            .mapError(Throwable::toIntegrityError)
+            .mapError(Throwable::toKeyAttestationError)
     }
 
     private fun injectAttestationField(requestBuilder: Request.Builder, certChain: List<String>): Result<Unit> = runCatching {

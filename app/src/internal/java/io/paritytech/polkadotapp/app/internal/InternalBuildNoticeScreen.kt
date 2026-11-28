@@ -39,6 +39,7 @@ import io.paritytech.polkadotapp.designsystem.themes.PolkadotAppTheme
 fun InternalBuildNoticeScreen(
     isDebuggable: Boolean,
     hasDebugMenu: Boolean,
+    hasGoogleBackup: Boolean,
     sentryStatus: SentryStatus,
     onContinue: () -> Unit,
     onCloseApp: () -> Unit,
@@ -48,7 +49,7 @@ fun InternalBuildNoticeScreen(
         val nightColors = remember { PolkadotAppTheme.BerlinNight.colors() }
         CompositionLocalProvider(LocalPolkadotColors provides nightColors) {
             NoticeContent(
-                paragraphs = noticeParagraphs(isDebuggable, hasDebugMenu, sentryStatus),
+                paragraphs = noticeParagraphs(isDebuggable, hasDebugMenu, hasGoogleBackup, sentryStatus),
                 sentryStatus = sentryStatus,
                 onContinue = onContinue,
                 onCloseApp = onCloseApp,
@@ -185,6 +186,7 @@ private val NoticeParagraph.textRes: Int
         NoticeParagraph.SENTRY -> R.string.internal_build_notice_sentry
         NoticeParagraph.DEBUGGABLE -> R.string.internal_build_notice_debuggable
         NoticeParagraph.DEBUG_MENU -> R.string.internal_build_notice_debug_menu
+        NoticeParagraph.GOOGLE_BACKUP -> R.string.internal_build_notice_google_backup
         NoticeParagraph.KEYS -> R.string.internal_build_notice_keys
     }
 
@@ -194,6 +196,7 @@ private fun InternalBuildNoticeScreenPreview() {
     InternalBuildNoticeScreen(
         isDebuggable = true,
         hasDebugMenu = true,
+        hasGoogleBackup = true,
         sentryStatus = SentryStatus.Active("io.pcf.polkadotapp.internal@1.0.0-internal+28"),
         onContinue = {},
         onCloseApp = {},

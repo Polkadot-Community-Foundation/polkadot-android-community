@@ -62,6 +62,7 @@ private class NoticeOverlay(
             InternalBuildNoticeScreen(
                 isDebuggable = buildInfo.isDebuggable,
                 hasDebugMenu = buildInfo.hasDebugMenu,
+                hasGoogleBackup = buildInfo.hasGoogleBackup,
                 sentryStatus = buildInfo.sentryStatus,
                 onContinue = onContinue,
                 onCloseApp = onCloseApp,

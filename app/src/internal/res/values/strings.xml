@@ -5,6 +5,7 @@
     <string name="internal_build_notice_sentry">Crash and error reports and performance data are sent to PCF\'s Sentry. Request and response headers and bodies are removed first, and app logs are not sent. Performance data includes the URLs the app calls, with their query strings, and the app adds Sentry tracing headers to its requests.</string>
     <string name="internal_build_notice_debuggable">This build is debuggable: anyone with USB access to this phone can read the app\'s data.</string>
     <string name="internal_build_notice_debug_menu">Shaking the phone opens a debug menu. It can copy the recovery phrase to the clipboard, delete the cloud backup, clear the login, randomize the account and share log files. If the username is not found on-chain, a prompt offers “Start Over”, which deletes the cloud backup and wipes the app\'s data.</string>
+    <string name="internal_build_notice_google_backup">Cloud backup signs in with your Google account and saves an encrypted copy of this wallet in your Google Drive, with its key in PCF\'s production Firebase project. These backups are kept apart from the production app\'s.</string>
     <string name="internal_build_notice_keys">It uses the production network. Use only test accounts with small, disposable funds. Never create or import a recovery phrase, key or account that holds real value.</string>
     <string name="internal_build_notice_sentry_active">Sentry: active, release %1$s</string>
     <string name="internal_build_notice_sentry_not_configured">Sentry: not configured in this build</string>
