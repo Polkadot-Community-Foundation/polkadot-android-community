@@ -103,7 +103,7 @@ private fun NoticeContent(
             ) {
                 NovaText(
                     text = stringResource(R.string.internal_build_notice_title),
-                    style = PolkadotTheme.typography.headline.medium,
+                    style = PolkadotTheme.typography.headline.small,
                     color = PolkadotTheme.colors.fg.primary,
                 )
 
@@ -114,12 +114,13 @@ private fun NoticeContent(
                         .fillMaxWidth()
                         .background(PolkadotTheme.colors.bg.surface.container, PolkadotTheme.shapes.large)
                         .padding(PolkadotTheme.spacings.medium),
-                    verticalArrangement = Arrangement.spacedBy(PolkadotTheme.spacings.small),
+                    // About one line of body.small between paragraphs.
+                    verticalArrangement = Arrangement.spacedBy(PolkadotTheme.spacings.mediumIncreased),
                 ) {
                     paragraphs.forEach { paragraph ->
                         NovaText(
                             text = stringResource(paragraph.textRes),
-                            style = PolkadotTheme.typography.body.large,
+                            style = PolkadotTheme.typography.body.small,
                             color = PolkadotTheme.colors.fg.primary,
                         )
                     }
@@ -132,7 +133,7 @@ private fun NoticeContent(
                         is SentryStatus.Active -> stringResource(R.string.internal_build_notice_sentry_active, sentryStatus.release)
                         SentryStatus.NotConfigured -> stringResource(R.string.internal_build_notice_sentry_not_configured)
                     },
-                    style = PolkadotTheme.typography.body.medium,
+                    style = PolkadotTheme.typography.body.small,
                     color = PolkadotTheme.colors.fg.tertiary,
                 )
             }
@@ -215,7 +216,7 @@ private fun ConfirmationRow(
 
         NovaText(
             text = text,
-            style = PolkadotTheme.typography.body.medium,
+            style = PolkadotTheme.typography.body.small,
             color = PolkadotTheme.colors.fg.primary,
         )
     }
@@ -233,6 +234,7 @@ private val NoticeParagraph.textRes: Int
     }
 
 @Preview
+@Preview(name = "Pixel 8a", widthDp = 412, heightDp = 915)
 @Preview(name = "Font scale 1.3", widthDp = 393, heightDp = 851, fontScale = 1.3f)
 @Preview(name = "Small phone, font scale 1.3", widthDp = 360, heightDp = 640, fontScale = 1.3f)
 @Composable
