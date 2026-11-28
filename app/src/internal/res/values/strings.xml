@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="internal_build_notice_title">Internal testing build</string>
+    <string name="internal_build_notice_scope">For PCF internal testing only. This is not the Polkadot app published to users.</string>
+    <string name="internal_build_notice_sentry">Crash and error reports and performance data are sent to PCF\'s Sentry. Request and response headers and bodies are removed first, and app logs are not sent. Performance data includes the URLs the app calls, with their query strings, and the app adds Sentry tracing headers to its requests.</string>
+    <string name="internal_build_notice_debuggable">This build is debuggable: anyone with USB access to this phone can read the app\'s data.</string>
+    <string name="internal_build_notice_debug_menu">Shaking the phone opens a debug menu. It can copy the recovery phrase to the clipboard, delete the cloud backup, clear the login, randomize the account and share log files. If the username is not found on-chain, a prompt offers “Start Over”, which deletes the cloud backup and wipes the app\'s data.</string>
+    <string name="internal_build_notice_keys">It uses the production network. Use only test accounts with small, disposable funds. Never create or import a recovery phrase, key or account that holds real value.</string>
+    <string name="internal_build_notice_sentry_active">Sentry: active, release %1$s</string>
+    <string name="internal_build_notice_sentry_not_configured">Sentry: not configured in this build</string>
+    <string name="internal_build_notice_confirm_keys">I understand that this is an internal build and I will not use real value-bearing keys.</string>
+    <string name="internal_build_notice_confirm_usernames">I understand that I must not use any username I would like to use in the future, and I will use random usernames that do not contain “test” or other obvious terms.</string>
+    <string name="internal_build_notice_continue">Continue</string>
+    <string name="internal_build_notice_close_app">Close app</string>
+    <string name="internal_build_marker">INTERNAL</string>
+    <string name="internal_build_marker_sentry">INTERNAL · SENTRY</string>
+</resources>

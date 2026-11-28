@@ -4,10 +4,19 @@ name: Build (Production)
 # Storage bucket, since Actions artifacts are public in this repository. Signing runs in its own
 # job behind the `production-distribution` approval; `distribute` sends the signed APK to the
 # internal tester group behind a second approval.
+#
+# variant=internal builds `vanillaInternal` instead: the production app as
+# `io.pcf.polkadotapp.internal` for internal testers, always unsigned here because its key is
+# held on hardware and applied outside CI.
 
 on:
   workflow_dispatch:
     inputs:
+      variant:
+        description: 'production = gpRelease. internal = vanillaInternal (io.pcf.polkadotapp.internal), unsigned only.'
+        type: choice
+        default: production
+        options: [production, internal]
       signing:
         description: 'none = unsigned artifact (default). production = sign with the release keystore (requires approval).'
         type: choice
@@ -30,7 +39,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: build-production-${{ github.event.inputs.ref || github.ref }}
+  group: build-production-${{ inputs.variant }}-${{ github.event.inputs.ref || github.ref }}
   cancel-in-progress: false
 
 env:
@@ -40,9 +49,10 @@ env:
   PRODUCTION_APPLICATION_ID: io.pcf.polkadotapp
 
 jobs:
-  # Production builds come only from the production branch or a production/* tag.
+  # Production builds come only from the production branch or a production/* tag; internal builds
+  # also from an internal/* branch.
   resolve:
-    name: Require a production ref
+    name: Require an allowed ref for the variant
     runs-on: ubuntu-latest
     outputs:
       sha: ${{ steps.trusted.outputs.sha }}
@@ -51,15 +61,28 @@ jobs:
         id: trusted
         env:
           INPUT_REF: ${{ inputs.ref }}
+          VARIANT: ${{ inputs.variant }}
+          SIGNING: ${{ inputs.signing }}
+          DISTRIBUTE: ${{ inputs.distribute }}
         run: |
           set -euo pipefail
           case "$GITHUB_REF" in
             refs/heads/production | refs/tags/production/*) ;;
+            refs/heads/internal/*)
+              if [ "$VARIANT" != internal ]; then
+                echo "::error::an internal/* branch builds only variant=internal"
+                exit 1
+              fi
+              ;;
             *)
               echo "::error::production builds run only when dispatched on the production branch or a production/* tag"
               exit 1
               ;;
           esac
+          if [ "$VARIANT" = internal ] && { [ "$SIGNING" != none ] || [ "$DISTRIBUTE" = true ]; }; then
+            echo "::error::variant=internal is built unsigned and never distributed from CI; use signing=none and distribute=false"
+            exit 1
+          fi
           if [ -z "$INPUT_REF" ]; then
             echo "sha=$GITHUB_SHA" >> "$GITHUB_OUTPUT"
             echo "building the dispatched commit $GITHUB_SHA ($GITHUB_REF)"
@@ -81,13 +104,18 @@ jobs:
           echo "building tag $INPUT_REF at $sha"
 
   build:
-    name: Build gpRelease (unsigned)
+    name: Build ${{ inputs.variant == 'internal' && 'vanillaInternal' || 'gpRelease' }} (unsigned)
     needs: resolve
     runs-on: ubuntu-latest
     environment: production
     permissions:
       contents: read
       id-token: write
+    env:
+      VARIANT: ${{ inputs.variant == 'internal' && 'vanillaInternal' || 'gpRelease' }}
+      APK_DIR: ${{ inputs.variant == 'internal' && 'app/build/outputs/apk/vanilla/internal' || 'app/build/outputs/apk/gp/release' }}
+      GOOGLE_SERVICES_DIR: ${{ inputs.variant == 'internal' && 'app/src/internal' || 'app/src/release' }}
+      APPLICATION_ID_SUFFIX: ${{ inputs.variant == 'internal' && '.internal' || '' }}
     outputs:
       apk: ${{ steps.upload.outputs.apk }}
       aab: ${{ steps.upload.outputs.aab }}
@@ -139,7 +167,7 @@ jobs:
       - name: Set up Gradle (with cache)
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Decode google-services.json (release source set)
+      - name: Decode google-services.json (${{ env.VARIANT }} source set)
         env:
           GS_B64: ${{ secrets.GOOGLE_SERVICES_JSON_PROD_BASE64 }}
         run: |
@@ -147,28 +175,29 @@ jobs:
             echo "::error::GOOGLE_SERVICES_JSON_PROD_BASE64 is not set in the 'production' environment."
             exit 1
           fi
-          mkdir -p app/src/release
-          echo "$GS_B64" | base64 --decode > app/src/release/google-services.json
+          mkdir -p "$GOOGLE_SERVICES_DIR"
+          echo "$GS_B64" | base64 --decode > "$GOOGLE_SERVICES_DIR/google-services.json"
 
       # A mismatched google-services.json builds fine and then misroutes Crashlytics and Analytics.
-      - name: Verify google-services.json targets the production package
+      - name: Verify google-services.json targets the package being built
         run: |
-          FILE=app/src/release/google-services.json
+          FILE="$GOOGLE_SERVICES_DIR/google-services.json"
+          PKG="${PRODUCTION_APPLICATION_ID}${APPLICATION_ID_SUFFIX}"
           if ! jq -e . "$FILE" >/dev/null 2>&1; then
             echo "::error::GOOGLE_SERVICES_JSON_PROD_BASE64 did not decode to valid JSON."
             exit 1
           fi
           # any(): the file lists one client per package, and `jq -e` would otherwise judge only the last.
-          if ! jq -e --arg pkg "$PRODUCTION_APPLICATION_ID" \
+          if ! jq -e --arg pkg "$PKG" \
                'any(.client[]?; .client_info.android_client_info.package_name == $pkg)' "$FILE" >/dev/null; then
-            echo "::error::The decoded google-services.json has no client entry for $PRODUCTION_APPLICATION_ID. \
+            echo "::error::The decoded google-services.json has no client entry for $PKG. \
           Found: $(jq -r '[.client[]?.client_info.android_client_info.package_name] | join(", ")' "$FILE"). \
           The production build must use the production Firebase app, not the dev one."
             exit 1
           fi
-          echo "google-services.json carries a client entry for $PRODUCTION_APPLICATION_ID"
+          echo "google-services.json carries a client entry for $PKG"
 
-      - name: Assemble + bundle gpRelease
+      - name: Assemble ${{ env.VARIANT }}
         env:
           # Play needs a versionCode above every one already uploaded, and the run number is not.
           CI_BUILD_ID: ${{ inputs.version_code || github.run_number }}
@@ -185,6 +214,8 @@ jobs:
           TERMS_OF_USE_URL: ${{ vars.TERMS_OF_USE_URL }}
           SENTRY_ORG: ${{ vars.SENTRY_ORG }}
           SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT }}
+          # Only the internal variant reports to Sentry; release builds ship with Sentry switched off.
+          SENTRY_DSN: ${{ inputs.variant == 'internal' && vars.SENTRY_DSN || '' }}
           GOOGLE_OAUTH_ID: ${{ secrets.GOOGLE_OAUTH_ID_PROD || secrets.GOOGLE_OAUTH_ID }}
           GOOGLE_PROJECT_ID: ${{ secrets.GOOGLE_PROJECT_ID_PROD || secrets.GOOGLE_PROJECT_ID }}
           # Required at configuration time; the faucet is disabled in release builds.
@@ -201,21 +232,30 @@ jobs:
               exit 1
             fi
           done
-          ./gradlew :app:assembleGpRelease :app:bundleGpRelease \
-            --no-daemon --stacktrace
+          if [ "$VARIANT" = vanillaInternal ]; then
+            if [ -z "$SENTRY_DSN" ]; then
+              echo "::error::Missing 'SENTRY_DSN' in the 'production' environment; the internal build must report to Sentry."
+              exit 1
+            fi
+            ./gradlew :app:testVanillaInternalUnitTest :app:assembleVanillaInternal \
+              --no-daemon --stacktrace
+          else
+            ./gradlew :app:assembleGpRelease :app:bundleGpRelease \
+              --no-daemon --stacktrace
+          fi
 
       - name: Report signing state (expect UNSIGNED)
         run: |
-          APK=$(find app/build/outputs/apk/gp/release -name '*.apk' | head -1)
-          [ -n "$APK" ] || { echo "::error::no gpRelease APK produced"; exit 1; }
+          APK=$(find "$APK_DIR" -name '*.apk' | head -1)
+          [ -n "$APK" ] || { echo "::error::no $VARIANT APK produced"; exit 1; }
           BT=$(find "$ANDROID_HOME/build-tools" -maxdepth 1 -type d | sort -V | tail -1)
-          echo "### Production build — signing state" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Production build ($VARIANT) — signing state" >> "$GITHUB_STEP_SUMMARY"
           if "$BT/apksigner" verify --print-certs "$APK" > certs.txt 2>&1; then
-            echo "::warning::The gpRelease APK is SIGNED but this job holds no production key material."
+            echo "::warning::The $VARIANT APK is SIGNED but this job holds no production key material."
             grep -i 'SHA-256 digest' certs.txt || true
             { echo '- ⚠️ unexpectedly SIGNED — inspect the run'; } >> "$GITHUB_STEP_SUMMARY"
           else
-            echo "gpRelease APK is UNSIGNED, as expected for the build job."
+            echo "$VARIANT APK is UNSIGNED, as expected for the build job."
             { echo '- ✅ UNSIGNED (as designed; the build job holds no keystore)'; } >> "$GITHUB_STEP_SUMMARY"
           fi
 
@@ -232,21 +272,27 @@ jobs:
           BUILD_BUCKET: ${{ vars.BUILD_BUCKET }}
         run: |
           set -euo pipefail
-          APK=$(find app/build/outputs/apk/gp/release -name '*.apk' | head -1)
-          AAB=$(find app/build/outputs/bundle/gpRelease -name '*.aab' | head -1)
-          [ -n "$APK" ] || { echo "::error::no gpRelease APK produced"; exit 1; }
-          [ -n "$AAB" ] || { echo "::error::no gpRelease AAB produced"; exit 1; }
+          APK=$(find "$APK_DIR" -name '*.apk' | head -1)
+          [ -n "$APK" ] || { echo "::error::no $VARIANT APK produced"; exit 1; }
           PREFIX="android/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}/unsigned"
-          for f in "$APK" "$AAB"; do
+          FILES=("$APK")
+          # The internal build is sideloaded, so it has no bundle.
+          if [ "$VARIANT" = gpRelease ]; then
+            AAB=$(find app/build/outputs/bundle/gpRelease -name '*.aab' | head -1)
+            [ -n "$AAB" ] || { echo "::error::no gpRelease AAB produced"; exit 1; }
+            FILES+=("$AAB")
+            echo "aab=${PREFIX}/$(basename "$AAB")" >> "$GITHUB_OUTPUT"
+          fi
+          for f in "${FILES[@]}"; do
             gcloud storage cp --if-generation-match=0 "$f" "gs://${BUILD_BUCKET}/${PREFIX}/$(basename "$f")"
           done
           echo "apk=${PREFIX}/$(basename "$APK")" >> "$GITHUB_OUTPUT"
-          echo "aab=${PREFIX}/$(basename "$AAB")" >> "$GITHUB_OUTPUT"
           {
             echo "### Unsigned build stored privately"
             echo '```'
-            echo "gs://${BUILD_BUCKET}/${PREFIX}/$(basename "$APK")"
-            echo "gs://${BUILD_BUCKET}/${PREFIX}/$(basename "$AAB")"
+            for f in "${FILES[@]}"; do
+              echo "gs://${BUILD_BUCKET}/${PREFIX}/$(basename "$f")"
+            done
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -257,14 +303,14 @@ jobs:
             echo "The build exists only in a private bucket readable by PCF operators. No GitHub Actions"
             echo "artifact, no Play upload, no Firebase App Distribution, no R2 copy, no GitHub Release."
             echo ""
-            echo "- application id: \`$PRODUCTION_APPLICATION_ID\` (devnet lane builds \`io.pcf.polkadotapp.dev\`)"
+            echo "- application id: \`${PRODUCTION_APPLICATION_ID}${APPLICATION_ID_SUFFIX}\` (devnet lane builds \`io.pcf.polkadotapp.dev\`)"
             echo "- signing input: \`${{ github.event.inputs.signing || 'none' }}\`"
           } >> "$GITHUB_STEP_SUMMARY"
 
   # Fails before the signing approval is requested when no production keystore is configured.
   preflight:
     name: Pre-flight (production signing material)
-    if: ${{ github.event.inputs.signing == 'production' }}
+    if: ${{ inputs.variant == 'production' && github.event.inputs.signing == 'production' }}
     runs-on: ubuntu-latest
     environment: production
     steps:
@@ -283,7 +329,7 @@ jobs:
   sign:
     name: Sign with the production keystore
     needs: [build, preflight]
-    if: ${{ github.event.inputs.signing == 'production' }}
+    if: ${{ inputs.variant == 'production' && github.event.inputs.signing == 'production' }}
     runs-on: ubuntu-latest
     environment: production-distribution
     permissions:
@@ -448,7 +494,7 @@ jobs:
   tag:
     name: Tag the signed commit
     needs: [resolve, sign]
-    if: ${{ github.event.inputs.signing == 'production' && inputs.ref == '' }}
+    if: ${{ inputs.variant == 'production' && github.event.inputs.signing == 'production' && inputs.ref == '' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -476,7 +522,7 @@ jobs:
   distribute:
     name: Distribute to the internal production tester group
     needs: sign
-    if: ${{ inputs.distribute && github.event.inputs.signing == 'production' }}
+    if: ${{ inputs.variant == 'production' && inputs.distribute && github.event.inputs.signing == 'production' }}
     runs-on: ubuntu-latest
     environment:
       name: production-internal-tester-distribution

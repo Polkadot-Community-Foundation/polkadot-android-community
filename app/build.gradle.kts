@@ -91,6 +91,22 @@ android {
             manifestPlaceholders["appName"] = localProperties.readSecretOrNull("SAFETYNET_APPLICATION_NAME")
                 ?: "[Safetynet] ${localProperties.readSecretOrThrow("APPLICATION_NAME")}"
         }
+        // The production app for internal testers, installed beside the store app. Built unsigned:
+        // the APK is signed outside the build with a hardware-held key.
+        create("internal") {
+            initWith(getByName("release"))
+            matchingFallbacks.add("release")
+
+            // Also sets this module's BuildConfig.DEBUG, which turns on its debug-only code (logcat and
+            // file log trees, the shake-to-open debug menu). Library modules keep their release
+            // BuildConfig. The first-run notice reads the installed flag, so its warning follows this.
+            isDebuggable = true
+
+            signingConfig = null
+            versionNameSuffix = "-internal"
+            manifestPlaceholders["appName"] = localProperties.readSecretOrNull("INTERNAL_APPLICATION_NAME")
+                ?: "[Internal] ${localProperties.readSecretOrThrow("APPLICATION_NAME")}"
+        }
     }
 
     sourceSets.getByName("safetynet").manifest.srcFile("src/nightly/AndroidManifest.xml")
@@ -179,6 +195,8 @@ dependencies {
     "gpImplementation"(libs.google.play.services.mlkit)
     "vanillaImplementation"(libs.google.mlkit.barcode.scanning)
 
+    "testInternalImplementation"(libs.junit)
+
     androidTestImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.test.runner)
@@ -198,6 +216,18 @@ sentry {
     // Sentry only runs on debug/nightly; skip release so the plugin
     // doesn't try to process a variant that has no DSN/auth token
     ignoredBuildTypes.set(setOf("release"))
+
+    telemetry.set(false)
+}
+
+// The internal build reports to Sentry at runtime but uploads nothing at build time: its lane holds
+// no Sentry auth token, and it is not minified, so there is no mapping to upload. Ignoring the build
+// type instead would also drop the plugin's bytecode instrumentation and integrations for it.
+val sentryBuildTimeUploadTasks = listOf("sentryCollectSources", "sentryBundleSources", "sentryUpload", "uploadSentry")
+tasks.configureEach {
+    if (name.endsWith("Internal") && sentryBuildTimeUploadTasks.any { name.startsWith(it) }) {
+        enabled = false
+    }
 }
 
 // The release build installs as the production application id, whatever APPLICATION_ID holds.
@@ -205,6 +235,12 @@ androidComponents {
     onVariants(selector().withBuildType("release")) { variant ->
         variant.applicationId.set(
             localProperties.readSecretOrDefault("PRODUCTION_APPLICATION_ID", "io.pcf.polkadotapp")
+        )
+    }
+    // Set here rather than through applicationIdSuffix, so it follows PRODUCTION_APPLICATION_ID too.
+    onVariants(selector().withBuildType("internal")) { variant ->
+        variant.applicationId.set(
+            localProperties.readSecretOrDefault("PRODUCTION_APPLICATION_ID", "io.pcf.polkadotapp") + ".internal"
         )
     }
 }

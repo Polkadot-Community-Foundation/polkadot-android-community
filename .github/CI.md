@@ -41,8 +41,8 @@ a placeholder fallback. Only `signingConfigs` still uses `readSecretOrDefault`.
 
 | Variable | Purpose |
 |----------|---------|
-| `APPLICATION_ID` | Base Android application ID. The build adds `.debug`, `.nightly` or `.safetynet` for those build types. Every resulting id must match a client in `google-services.json`. |
-| `APPLICATION_NAME` | Launcher name of the application. `DEBUG_APPLICATION_NAME`, `NIGHTLY_APPLICATION_NAME` and `SAFETYNET_APPLICATION_NAME` optionally override it per build type; when unset they are derived from this value. |
+| `APPLICATION_ID` | Base Android application ID. The build adds `.debug`, `.nightly` or `.safetynet` for those build types. Release builds use `PRODUCTION_APPLICATION_ID` instead, and internal builds `PRODUCTION_APPLICATION_ID` plus `.internal`. Every resulting id must match a client in `google-services.json`. |
+| `APPLICATION_NAME` | Launcher name of the application. `DEBUG_APPLICATION_NAME`, `NIGHTLY_APPLICATION_NAME`, `SAFETYNET_APPLICATION_NAME` and `INTERNAL_APPLICATION_NAME` optionally override it per build type; when unset they are derived from this value. |
 | `IOS_BUNDLE_ID` | Bundle ID of the iOS app, sent as the APNs topic when a chat push goes to an iOS peer. Debug builds append `.develop`, safetynet builds `.safety`. |
 | `PRIVACY_POLICY_URL` | Privacy-policy destination shown by the application. |
 | `CURRENCY_SYMBOL` | Symbol of the in-app digital currency shown in the UI — card title, send/get actions, and every formatted amount. |
@@ -50,7 +50,7 @@ a placeholder fallback. Only `signingConfigs` still uses `readSecretOrDefault`.
 | `TERMS_OF_USE_URL` | Terms-of-use destination shown by the application. |
 | `LOG_COLLECTION_EMAIL` | Recipient used by the debug log-sharing flow. |
 | `CONTACT_EMAIL` | Recipient of the Contact us action on the Legal & Support screen. |
-| `SENTRY_DSN` | Client DSN embedded in debug/nightly manifests for runtime error reporting. Optional; an empty value disables runtime reporting. |
+| `SENTRY_DSN` | Client DSN embedded in debug, nightly and internal manifests for runtime error reporting. Optional for the build; an empty value disables runtime reporting. `build-production.yml` passes it only for `variant=internal`, read from the `production` environment, and fails without it. |
 | `SENTRY_ORG` | Sentry organization slug used by the Gradle plugin. |
 | `SENTRY_PROJECT` | Sentry project slug used by the Gradle plugin. |
 
